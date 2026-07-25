@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="tg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ҲАМАБОЗОР — Ҳама чиз дар як ҷо</title>
+<meta name="description" content="Электроника, либос ва сумка бо нархи арзон ва бурдарасонии ройгон дар Душанбе">
+
+<!--
+  ==========================================================================
+  ҲАМАБОЗОР — шаблони мағозаи интернетӣ (илҳом аз megamall.tj)
+  --------------------------------------------------------------------------
+  ЧИ БОЯД ИВАЗ КАРД / ЧТО НУЖНО ПОМЕНЯТЬ ПЕРЕД ЗАПУСКОМ:
+  1. PRODUCTS (тахминан хат ~360)   — рӯйхати молҳо, нарх, эмоҷи расм
+  2. WHATSAPP_PHONE (хат ~345)       — рақами WhatsApp-и шумо (бе +, бо коди кишвар)
+  3. TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (хат ~347-348) — барои фиристодани
+     фармоишҳо ба Telegram (нигар шарҳи дар поён)
+  4. Ном ва логотипи бренд (ҷустуҷӯи "ҲАМАБОЗОР" дар матн)
+
+  ЧАРО ТОКЕНИ TELEGRAM ДАР JS АСТ?
+  Ин versияи "клиент-ба-клиент" аст — сода, вале токен дар кодҳои сайт намоён
+  мешавад. Барои истифодаи ҷиддӣ беҳтар аст фармоишро ба сервери худ (ё
+  ба монанди Google-форма/Vercel function) фиристед ва аз он ҷо ба Telegram
+  диҳед, то токен пинҳон бимонад.
+  ==========================================================================
+-->
+
+<style>
+:root{
+  --indigo:#1B2A4A;
+  --indigo-2:#233a63;
+  --marigold:#E8A33D;
+  --marigold-dark:#c98620;
+  --brick:#C1442E;
+  --cream:#F7F3EA;
+  --pistachio:#7A8B5E;
+  --ink:#2B2620;
+  --paper:#FFFDF8;
+  --line:rgba(43,38,32,.12);
+  --shadow: 0 8px 24px rgba(27,42,74,.12);
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--cream);
+  color:var(--ink);
+  font-family:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.display{
+  font-family:'Unbounded',system-ui,sans-serif;
+  font-weight:800;
+  letter-spacing:-.01em;
+  color:var(--indigo);
+  margin:0;
+}
+p{margin:0}
+button{font-family:inherit;cursor:pointer;border:none}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* ---------- header ---------- */
+header{
+  position:sticky;top:0;z-index:50;
+  background:var(--paper);
+  border-bottom:1px solid var(--line);
+}
+.header-inner{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 20px;max-width:1180px;margin:0 auto;
+}
+.logo{
+  font-family:'Unbounded',sans-serif;font-weight:800;font-size:20px;color:var(--indigo);
+  display:flex;align-items:center;gap:8px;white-space:nowrap;
+}
+.logo span{
+  width:10px;height:10px;border-radius:50%;background:var(--brick);display:inline-block;
+}
+.searchbar{
+  flex:1;display:flex;align-items:center;background:var(--cream);
+  border:1px solid var(--line);border-radius:999px;padding:8px 16px;gap:8px;
+  max-width:420px;
+}
+.searchbar input{
+  border:none;background:none;outline:none;width:100%;font-size:14px;color:var(--ink);
+}
+.header-actions{display:flex;align-items:center;gap:10px;margin-inline-start:auto}
+.lang-toggle{
+  display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;
+}
+.lang-toggle button{
+  padding:7px 12px;background:var(--paper);font-size:13px;font-weight:700;color:var(--ink);
+}
+.lang-toggle button.active{background:var(--indigo);color:#fff}
+.icon-btn{
+  position:relative;width:40px;height:40px;border-radius:50%;
+  background:var(--cream);display:flex;align-items:center;justify-content:center;
+  font-size:18px;border:1px solid var(--line);
+}
+.badge{
+  position:absolute;top:-4px;right:-4px;background:var(--brick);color:#fff;
+  font-size:11px;font-weight:700;border-radius:999px;min-width:18px;height:18px;
+  display:flex;align-items:center;justify-content:center;padding:0 4px;
+}
+.wa-btn{
+  background:#25D366;color:#fff;border-radius:999px;padding:9px 16px;font-weight:700;
+  font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap;
+}
+
+/* ---------- hero ---------- */
+.hero{
+  padding:56px 20px 40px;background:
+    radial-gradient(circle at 85% 20%, rgba(232,163,61,.25), transparent 55%),
+    var(--indigo);
+  color:#fff;
+}
+.hero-inner{max-width:1180px;margin:0 auto;text-align:center}
+.hero h1{color:#fff;font-size:clamp(30px,5vw,52px);line-height:1.05}
+.hero p{color:rgba(255,255,255,.78);font-size:16px;max-width:520px;margin:14px auto 0}
+.hero-cta{
+  margin-top:26px;display:inline-flex;align-items:center;gap:8px;
+  background:var(--marigold);color:var(--indigo);font-weight:800;
+  padding:14px 28px;border-radius:999px;font-size:15px;
+}
+.hero-cta:hover{background:var(--marigold-dark)}
+
+/* stalls - signature category nav */
+.stalls{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
+  max-width:900px;margin:36px auto 0;
+}
+.stall{
+  background:var(--paper);border-radius:14px 14px 6px 6px;overflow:hidden;
+  box-shadow:var(--shadow);text-align:center;transition:transform .15s ease;
+  cursor:pointer;border:none;
+}
+.stall:hover{transform:translateY(-4px)}
+.stall-stripe{
+  height:10px;
+  background-image:repeating-linear-gradient(45deg,var(--st-color,var(--marigold)) 0 10px, transparent 10px 20px);
+  background-color:var(--st-color,var(--marigold));
+}
+.stall-body{padding:16px 8px 18px}
+.stall-emoji{font-size:28px}
+.stall-name{margin-top:8px;font-weight:700;font-size:13px;color:var(--indigo)}
+
+/* ---------- sections ---------- */
+section.products{padding:48px 20px}
+.section-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  max-width:1180px;margin:0 auto 20px;
+}
+.section-head h2{font-size:24px}
+.tabs{
+  display:flex;gap:8px;flex-wrap:wrap;max-width:1180px;margin:0 auto 26px;
+}
+.tab{
+  padding:8px 16px;border-radius:999px;border:1px solid var(--line);
+  background:var(--paper);font-size:13px;font-weight:700;color:var(--ink);
+}
+.tab.active{background:var(--indigo);color:#fff;border-color:var(--indigo)}
+
+.grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:18px;
+  max-width:1180px;margin:0 auto;
+}
+.card{
+  background:var(--paper);border-radius:16px;border:1px solid var(--line);
+  overflow:hidden;display:flex;flex-direction:column;
+}
+.card-media{
+  aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;
+  font-size:56px;background:var(--card-bg,var(--cream));position:relative;
+}
+.card-ribbon{
+  position:absolute;top:10px;left:-6px;background:var(--brick);color:#fff;
+  font-size:10px;font-weight:800;letter-spacing:.04em;padding:4px 10px 4px 14px;
+  border-radius:0 4px 4px 0;
+}
+.card-ribbon.new{background:var(--pistachio)}
+.card-body{padding:14px;display:flex;flex-direction:column;gap:10px;flex:1}
+.card-name{font-size:14px;font-weight:600;color:var(--ink);min-height:36px}
+.card-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:auto}
+.price-tag{
+  position:relative;background:var(--marigold);color:var(--indigo);
+  font-family:'Unbounded',sans-serif;font-weight:800;font-size:13px;
+  padding:6px 12px 6px 20px;
+  clip-path:polygon(14px 0,100% 0,100% 100%,14px 100%,0 50%);
+}
+.price-tag::before{
+  content:"";position:absolute;left:6px;top:50%;transform:translateY(-50%);
+  width:4px;height:4px;border-radius:50%;background:var(--paper);
+}
+.add-btn{
+  width:34px;height:34px;border-radius:50%;background:var(--indigo);color:#fff;
+  font-size:18px;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.add-btn:hover{background:var(--indigo-2)}
+
+/* ---------- cart drawer ---------- */
+.overlay{
+  position:fixed;inset:0;background:rgba(27,20,10,.45);opacity:0;pointer-events:none;
+  transition:opacity .2s ease;z-index:90;
+}
+.overlay.show{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;top:0;right:0;height:100%;width:380px;max-width:92vw;
+  background:var(--paper);z-index:95;transform:translateX(100%);
+  transition:transform .25s ease;display:flex;flex-direction:column;
+}
+.drawer.show{transform:translateX(0)}
+.drawer-head{
+  padding:18px 20px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.drawer-head h3{font-size:18px}
+.close-x{width:32px;height:32px;border-radius:50%;background:var(--cream);font-size:16px}
+.drawer-items{flex:1;overflow-y:auto;padding:14px 20px;display:flex;flex-direction:column;gap:14px}
+.cart-row{display:flex;gap:12px;align-items:center}
+.cart-row .em{
+  width:52px;height:52px;border-radius:10px;background:var(--cream);
+  display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;
+}
+.cart-row .info{flex:1;min-width:0}
+.cart-row .name{font-size:13px;font-weight:600}
+.cart-row .price{font-size:12px;color:var(--pistachio);font-weight:700;margin-top:2px}
+.qty{display:flex;align-items:center;gap:8px;margin-top:6px}
+.qty button{
+  width:22px;height:22px;border-radius:50%;border:1px solid var(--line);
+  background:var(--paper);font-size:13px;line-height:1;
+}
+.qty span{font-size:13px;font-weight:700;min-width:16px;text-align:center}
+.remove-x{font-size:11px;color:var(--brick);font-weight:700;margin-inline-start:8px;background:none}
+.empty-msg{text-align:center;color:#8a8478;font-size:14px;padding:40px 0}
+.drawer-foot{border-top:1px solid var(--line);padding:16px 20px;display:flex;flex-direction:column;gap:6px}
+.row-line{display:flex;justify-content:space-between;font-size:13px;color:#6b655a}
+.row-line.total{font-size:16px;font-weight:800;color:var(--indigo)}
+.checkout-btn{
+  margin-top:8px;background:var(--brick);color:#fff;padding:14px;border-radius:12px;
+  font-weight:800;font-size:14px;text-align:center;
+}
+.checkout-btn:disabled{opacity:.4}
+
+/* ---------- checkout modal ---------- */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(27,20,10,.5);z-index:98;
+  display:none;align-items:center;justify-content:center;padding:16px;
+}
+.modal-overlay.show{display:flex}
+.modal{
+  background:var(--paper);border-radius:18px;max-width:420px;width:100%;
+  padding:26px;max-height:90vh;overflow-y:auto;
+}
+.modal h3{font-size:20px;margin-bottom:16px}
+.field{margin-bottom:14px}
+.field label{font-size:12px;font-weight:700;color:#6b655a;display:block;margin-bottom:6px}
+.field input,.field textarea{
+  width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;
+  font-size:14px;font-family:inherit;outline:none;background:var(--cream);
+}
+.field textarea{resize:vertical;min-height:60px}
+.field input:focus,.field textarea:focus{border-color:var(--indigo)}
+.modal-actions{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.btn-wa{background:#25D366;color:#fff}
+.btn-tg{background:#2AABEE;color:#fff}
+.btn-wa,.btn-tg{padding:13px;border-radius:12px;font-weight:800;font-size:14px;
+  display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-wa:disabled,.btn-tg:disabled{opacity:.5}
+.field-error{color:var(--brick);font-size:11px;margin-top:8px;display:none}
+
+/* success */
+.success-box{text-align:center;padding:10px 4px}
+.success-box .em{font-size:48px}
+.success-box h3{margin-top:10px}
+.success-box p{margin-top:8px;color:#6b655a;font-size:14px}
+
+/* toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--indigo);color:#fff;padding:12px 20px;border-radius:999px;
+  font-size:13px;font-weight:700;opacity:0;pointer-events:none;transition:.2s ease;z-index:120;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* floating whatsapp */
+.fab-wa{
+  position:fixed;bottom:22px;right:22px;width:54px;height:54px;border-radius:50%;
+  background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:26px;box-shadow:0 6px 18px rgba(37,211,102,.5);z-index:60;
+}
+
+/* footer */
+footer{background:var(--indigo);color:rgba(255,255,255,.8);padding:40px 20px 24px;margin-top:40px}
+.footer-inner{max-width:1180px;margin:0 auto;text-align:center}
+footer h3{color:#fff;font-size:18px}
+footer p{margin-top:8px;font-size:14px}
+.footer-wa{
+  margin-top:16px;display:inline-flex;background:#25D366;color:#fff;padding:11px 22px;
+  border-radius:999px;font-weight:700;font-size:14px;gap:8px;align-items:center;
+}
+.footer-rights{margin-top:24px;font-size:12px;color:rgba(255,255,255,.45)}
+
+@media(max-width:900px){
+  .grid{grid-template-columns:repeat(2,1fr)}
+  .stalls{grid-template-columns:repeat(2,1fr)}
+  .searchbar{display:none}
+}
+@media(max-width:520px){
+  .header-inner{gap:8px}
+  .wa-btn span.txt{display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo"><span></span>ҲАМАБОЗОР</div>
+    <div class="searchbar">
+      🔎 <input id="searchInput" data-i18n-ph="search_placeholder" placeholder="Ҷустуҷӯ...">
+    </div>
+    <div class="header-actions">
+      <div class="lang-toggle">
+        <button id="lang-tj" class="active" onclick="setLang('tj')">ТҶ</button>
+        <button id="lang-ru" onclick="setLang('ru')">РУ</button>
+      </div>
+      <a class="wa-btn" id="headerWaLink" target="_blank">💬 <span class="txt">WhatsApp</span></a>
+      <button class="icon-btn" onclick="openCart()">🛒<span class="badge" id="cartBadge">0</span></button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-inner">
+    <h1 data-i18n="hero_title">Ҳама чиз дар як ҷо</h1>
+    <p data-i18n="hero_sub">Электроника, либос ва сумка — бо нархи арзон ва бурдарасонии ройгон дар Душанбе</p>
+    <a href="#catalog" class="hero-cta"><span data-i18n="hero_cta">Ба харид сар кунед</span> →</a>
+
+    <div class="stalls">
+      <button class="stall" onclick="filterCat('electronics')">
+        <div class="stall-stripe" style="--st-color:var(--marigold)"></div>
+        <div class="stall-body"><div class="stall-emoji">📱</div>
+          <div class="stall-name" data-i18n="cat_electronics">Электроника</div></div>
+      </button>
+      <button class="stall" onclick="filterCat('clothing')">
+        <div class="stall-stripe" style="--st-color:var(--brick)"></div>
+        <div class="stall-body"><div class="stall-emoji">👕</div>
+          <div class="stall-name" data-i18n="cat_clothing">Либос</div></div>
+      </button>
+      <button class="stall" onclick="filterCat('bags')">
+        <div class="stall-stripe" style="--st-color:var(--pistachio)"></div>
+        <div class="stall-body"><div class="stall-emoji">👜</div>
+          <div class="stall-name" data-i18n="cat_bags">Сумкаҳо</div></div>
+      </button>
+      <button class="stall" onclick="filterCat('all')">
+        <div class="stall-stripe" style="--st-color:var(--indigo)"></div>
+        <div class="stall-body"><div class="stall-emoji">🛍️</div>
+          <div class="stall-name" data-i18n="cat_all">Ҳама молҳо</div></div>
+      </button>
+    </div>
+  </div>
+</section>
+
+<section class="products" id="catalog">
+  <div class="section-head">
+    <h2 data-i18n="section_top">Фурӯши хуб 🔥</h2>
+  </div>
+  <div class="tabs" id="tabsBar"></div>
+  <div class="grid" id="productGrid"></div>
+</section>
+
+<div class="overlay" id="overlay" onclick="closeAll()"></div>
+
+<!-- cart drawer -->
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3 data-i18n="cart_title">Сабади харид</h3>
+    <button class="close-x" onclick="closeAll()">✕</button>
+  </div>
+  <div class="drawer-items" id="drawerItems"></div>
+  <div class="drawer-foot">
+    <div class="row-line"><span data-i18n="cart_delivery">Бурдарасонӣ</span><span data-i18n="cart_free">Ройгон 🚚</span></div>
+    <div class="row-line total"><span data-i18n="cart_total">Ҷамъ</span><span id="cartTotal">0 смн</span></div>
+    <button class="checkout-btn" id="checkoutBtn" onclick="openCheckout()" disabled>
+      <span data-i18n="checkout_btn">Расмикунонии фармоиш</span>
+    </button>
+  </div>
+</aside>
+
+<!-- checkout modal -->
+<div class="modal-overlay" id="checkoutOverlay">
+  <div class="modal">
+    <div id="checkoutForm">
+      <h3 data-i18n="checkout_title">Маълумоти фармоиш</h3>
+      <div class="field">
+        <label data-i18n="form_name">Ном</label>
+        <input id="custName" placeholder="">
+      </div>
+      <div class="field">
+        <label data-i18n="form_phone">Рақами телефон</label>
+        <input id="custPhone" placeholder="+992 90 000 00 00">
+      </div>
+      <div class="field">
+        <label data-i18n="form_address">Суроға</label>
+        <input id="custAddress" placeholder="">
+      </div>
+      <div class="field">
+        <label data-i18n="form_comment">Шарҳ (ихтиёрӣ)</label>
+        <textarea id="custComment"></textarea>
+      </div>
+      <div class="field-error" id="formError" data-i18n="form_error">Лутфан ном ва телефонро пур кунед</div>
+      <div class="modal-actions">
+        <button class="btn-wa" onclick="submitOrder('whatsapp')">💬 <span data-i18n="send_whatsapp">Фиристодан тавассути WhatsApp</span></button>
+        <button class="btn-tg" onclick="submitOrder('telegram')">✈️ <span data-i18n="send_telegram">Фиристодан тавассути Telegram</span></button>
+      </div>
+    </div>
+    <div id="successBox" class="success-box" style="display:none">
+      <div class="em">🎉</div>
+      <h3 data-i18n="order_success_title">Фармоиши шумо қабул шуд!</h3>
+      <p data-i18n="order_success_sub">Мо ба зудӣ бо шумо тамос мегирем. Ташаккур барои харид! 🙏</p>
+      <button class="checkout-btn" style="margin-top:18px" onclick="closeAll()"><span data-i18n="close">Хуб шуд</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<a class="fab-wa" id="fabWa" target="_blank">💬</a>
+
+<footer>
+  <div class="footer-inner">
+    <h3 data-i18n="footer_question">Савол доред? Ба мо нависед.</h3>
+    <a class="footer-wa" id="footerWaLink" target="_blank">💬 WhatsApp</a>
+    <p class="footer-rights">© ҲАМАБОЗОР · Тоҷикистон · <span data-i18n="footer_rights">Ҳамаи ҳуқуқҳо ҳифз шудаанд</span></p>
+  </div>
+</footer>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script>
+/* ==========================================================================
+   ТАНЗИМОТ / НАСТРОЙКИ — ин қисматро иваз кунед
+   ========================================================================== */
+const WHATSAPP_PHONE = "992900000000";          // рақами шумо, бе "+"
+const TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN";      // аз @BotFather
+const TELEGRAM_CHAT_ID   = "YOUR_CHAT_ID";        // аз @userinfobot ё @getidsbot
+
+/* ==========================================================================
+   МОЛҲО / ТОВАРЫ — ин рӯйхатро бо молҳои воқеӣ иваз кунед
+   ========================================================================== */
+const PRODUCTS = [
+  {id:1,  cat:'electronics', name_tj:'Гӯшмонакҳои бесим',    name_ru:'Беспроводные наушники', price:249, emoji:'🎧', tag:'top'},
+  {id:2,  cat:'electronics', name_tj:'Соати ҳушманд',        name_ru:'Умные часы',            price:890, emoji:'⌚', tag:'top'},
+  {id:3,  cat:'electronics', name_tj:'Зарядкунаки бесим',    name_ru:'Беспроводная зарядка',  price:120, emoji:'🔌', tag:'new'},
+  {id:4,  cat:'electronics', name_tj:'Баландгӯяки Bluetooth',name_ru:'Bluetooth-колонка',     price:320, emoji:'🔊', tag:null},
+  {id:5,  cat:'electronics', name_tj:'Пауэрбанк 20000mAh',   name_ru:'Повербанк 20000mAh',    price:280, emoji:'🔋', tag:'new'},
+  {id:6,  cat:'clothing',    name_tj:'Куртаи мардона',       name_ru:'Мужская куртка',        price:450, emoji:'🧥', tag:'top'},
+  {id:7,  cat:'clothing',    name_tj:'Ҷинси занона',         name_ru:'Женские джинсы',        price:260, emoji:'👖', tag:null},
+  {id:8,  cat:'clothing',    name_tj:'Куртаи пахтагӣ',       name_ru:'Хлопковая футболка',    price:90,  emoji:'👕', tag:'new'},
+  {id:9,  cat:'clothing',    name_tj:'Костюми варзишӣ',      name_ru:'Спортивный костюм',     price:380, emoji:'🏃', tag:null},
+  {id:10, cat:'bags',        name_tj:'Ҷузвдони мактабӣ',     name_ru:'Школьный рюкзак',       price:210, emoji:'🎒', tag:'top'},
+  {id:11, cat:'bags',        name_tj:'Сумкаи занона',        name_ru:'Женская сумка',         price:340, emoji:'👜', tag:'new'},
+  {id:12, cat:'bags',        name_tj:'Ҳамён',                name_ru:'Кошелёк',               price:95,  emoji:'👛', tag:null},
+  {id:13, cat:'bags',        name_tj:'Ҷузвдони сафарӣ',      name_ru:'Дорожная сумка',        price:460, emoji:'🧳', tag:null},
+];
+
+/* ==========================================================================
+   МАТНҲО / ТЕКСТЫ (i18n)
+   ========================================================================== */
+const I18N = {
+  tj:{
+    search_placeholder:'Ҷустуҷӯ...',
+    hero_title:'Ҳама чиз дар як ҷо',
+    hero_sub:'Электроника, либос ва сумка — бо нархи арзон ва бурдарасонии ройгон дар Душанбе',
+    hero_cta:'Ба харид сар кунед',
+    cat_electronics:'Электроника', cat_clothing:'Либос', cat_bags:'Сумкаҳо', cat_all:'Ҳама молҳо',
+    section_top:'Фурӯши хуб 🔥',
+    add_to_cart:'Илова кардан', added:'Илова шуд ✅',
+    cart_title:'Сабади харид', cart_empty:'Сабад холӣ аст',
+    cart_total:'Ҷамъ', cart_delivery:'Бурдарасонӣ', cart_free:'Ройгон 🚚',
+    checkout_btn:'Расмикунонии фармоиш', checkout_title:'Маълумоти фармоиш',
+    form_name:'Ном', form_phone:'Рақами телефон', form_address:'Суроға',
+    form_comment:'Шарҳ (ихтиёрӣ)', form_error:'Лутфан ном ва рақами телефонро пур кунед',
+    send_whatsapp:'Фиристодан тавассути WhatsApp', send_telegram:'Фиристодан тавассути Telegram',
+    order_success_title:'Фармоиши шумо қабул шуд! 🎉',
+    order_success_sub:'Мо ба зудӣ бо шумо тамос мегирем. Ташаккур барои харид! 🙏',
+    close:'Хуб шуд',
+    footer_question:'Савол доред? Ба мо нависед.', footer_rights:'Ҳамаи ҳуқуқҳо ҳифз шудаанд',
+  },
+  ru:{
+    search_placeholder:'Поиск...',
+    hero_title:'Всё в одном месте',
+    hero_sub:'Электроника, одежда и сумки — по доступным ценам с бесплатной доставкой по Душанбе',
+    hero_cta:'Начать покупки',
+    cat_electronics:'Электроника', cat_clothing:'Одежда', cat_bags:'Сумки', cat_all:'Все товары',
+    section_top:'Хиты продаж 🔥',
+    add_to_cart:'В корзину', added:'Добавлено ✅',
+    cart_title:'Корзина', cart_empty:'Корзина пуста',
+    cart_total:'Итого', cart_delivery:'Доставка', cart_free:'Бесплатно 🚚',
+    checkout_btn:'Оформить заказ', checkout_title:'Данные для заказа',
+    form_name:'Имя', form_phone:'Номер телефона', form_address:'Адрес',
+    form_comment:'Комментарий (необязательно)', form_error:'Пожалуйста, заполните имя и телефон',
+    send_whatsapp:'Отправить через WhatsApp', send_telegram:'Отправить через Telegram',
+    order_success_title:'Ваш заказ принят! 🎉',
+    order_success_sub:'Мы скоро свяжемся с вами. Спасибо за покупку! 🙏',
+    close:'Хорошо',
+    footer_question:'Остались вопросы? Напишите нам.', footer_rights:'Все права защищены',
+  }
+};
+
+const CAT_LABELS = { all:{tj:'Ҳама',ru:'Все'}, electronics:{tj:'Электроника',ru:'Электроника'},
+  clothing:{tj:'Либос',ru:'Одежда'}, bags:{tj:'Сумкаҳо',ru:'Сумки'} };
+const CARD_BG = { electronics:'#EFE6D2', clothing:'#F3DEDA', bags:'#E4E9DA' };
+
+/* ==========================================================================
+   ҲОЛАТ / СОСТОЯНИЕ
+   ========================================================================== */
+let lang = 'tj';
+let activeCat = 'all';
+let cart = {}; // {productId: qty}
+
+/* ---------- рендер ---------- */
+function renderTabs(){
+  const bar = document.getElementById('tabsBar');
+  bar.innerHTML = Object.keys(CAT_LABELS).map(c=>
+    `<button class="tab ${c===activeCat?'active':''}" onclick="filterCat('${c}')">${CAT_LABELS[c][lang]}</button>`
+  ).join('');
+}
+
+function renderProducts(){
+  const grid = document.getElementById('productGrid');
+  const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+  const list = PRODUCTS.filter(p=>{
+    const matchCat = activeCat==='all' || p.cat===activeCat;
+    const name = (lang==='tj'?p.name_tj:p.name_ru).toLowerCase();
+    const matchQ = !q || name.includes(q);
+    return matchCat && matchQ;
+  });
+  grid.innerHTML = list.map(p=>`
+    <div class="card">
+      <div class="card-media" style="--card-bg:${CARD_BG[p.cat]}">
+        ${p.emoji}
+        ${p.tag ? `<span class="card-ribbon ${p.tag}">${p.tag==='top'?(lang==='tj'?'ТОП':'ХИТ'):(lang==='tj'?'НАВ':'NEW')}</span>`:''}
+      </div>
+      <div class="card-body">
+        <div class="card-name">${lang==='tj'?p.name_tj:p.name_ru}</div>
+        <div class="card-bottom">
+          <span class="price-tag">${p.price} смн</span>
+          <button class="add-btn" onclick="addToCart(${p.id})">+</button>
+        </div>
+      </div>
+    </div>
+  `).join('') || `<p style="grid-column:1/-1;text-align:center;color:#8a8478;padding:30px 0">—</p>`;
+}
+
+function filterCat(c){ activeCat=c; renderTabs(); renderProducts(); document.getElementById('catalog').scrollIntoView({behavior:'smooth'}); }
+
+/* ---------- сабад / корзина ---------- */
+function addToCart(id){
+  cart[id] = (cart[id]||0) + 1;
+  updateCartUI();
+  showToast(I18N[lang].added);
+}
+function changeQty(id, delta){
+  cart[id] = (cart[id]||0) + delta;
+  if(cart[id]<=0) delete cart[id];
+  updateCartUI();
+}
+function removeItem(id){ delete cart[id]; updateCartUI(); }
+
+function cartCount(){ return Object.values(cart).reduce((a,b)=>a+b,0); }
+function cartTotal(){
+  return Object.entries(cart).reduce((sum,[id,qty])=>{
+    const p = PRODUCTS.find(p=>p.id==id);
+    return sum + (p ? p.price*qty : 0);
+  },0);
+}
+
+function updateCartUI(){
+  document.getElementById('cartBadge').textContent = cartCount();
+  document.getElementById('cartTotal').textContent = cartTotal() + ' смн';
+  document.getElementById('checkoutBtn').disabled = cartCount()===0;
+
+  const box = document.getElementById('drawerItems');
+  const entries = Object.entries(cart);
+  if(entries.length===0){
+    box.innerHTML = `<p class="empty-msg">${I18N[lang].cart_empty}</p>`;
+    return;
+  }
+  box.innerHTML = entries.map(([id,qty])=>{
+    const p = PRODUCTS.find(p=>p.id==id);
+    if(!p) return '';
+    return `
+      <div class="cart-row">
+        <div class="em">${p.emoji}</div>
+        <div class="info">
+          <div class="name">${lang==='tj'?p.name_tj:p.name_ru}</div>
+          <div class="price">${p.price} смн</div>
+          <div class="qty">
+            <button onclick="changeQty(${p.id},-1)">−</button>
+            <span>${qty}</span>
+            <button onclick="changeQty(${p.id},1)">+</button>
+            <span class="remove-x" onclick="removeItem(${p.id})">✕</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ---------- drawer / overlay ---------- */
+function openCart(){
+  document.getElementById('drawer').classList.add('show');
+  document.getElementById('overlay').classList.add('show');
+}
+function closeAll(){
+  document.getElementById('drawer').classList.remove('show');
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('checkoutOverlay').classList.remove('show');
+  document.getElementById('checkoutForm').style.display='block';
+  document.getElementById('successBox').style.display='none';
+}
+function openCheckout(){
+  if(cartCount()===0) return;
+  document.getElementById('checkoutOverlay').classList.add('show');
+}
+
+/* ---------- фармоиш / заказ ---------- */
+function buildOrderText(name, phone, address, comment){
+  const lines = Object.entries(cart).map(([id,qty])=>{
+    const p = PRODUCTS.find(p=>p.id==id);
+    const pname = lang==='tj'?p.name_tj:p.name_ru;
+    return `• ${pname} × ${qty} = ${p.price*qty} смн`;
+  });
+  const head = lang==='tj' ? '🛒 ФАРМОИШИ НАВ — ҲАМАБОЗОР' : '🛒 НОВЫЙ ЗАКАЗ — ҲАМАБОЗОР';
+  const l = {
+    name: lang==='tj'?'Ном':'Имя', phone: lang==='tj'?'Телефон':'Телефон',
+    address: lang==='tj'?'Суроға':'Адрес', comment: lang==='tj'?'Шарҳ':'Комментарий',
+    total: lang==='tj'?'Ҷамъ':'Итого'
+  };
+  return [
+    head, '',
+    `${l.name}: ${name}`,
+    `${l.phone}: ${phone}`,
+    address ? `${l.address}: ${address}` : null,
+    comment ? `${l.comment}: ${comment}` : null,
+    '',
+    ...lines,
+    '',
+    `${l.total}: ${cartTotal()} смн`
+  ].filter(Boolean).join('\n');
+}
+
+function submitOrder(channel){
+  const name = document.getElementById('custName').value.trim();
+  const phone = document.getElementById('custPhone').value.trim();
+  const address = document.getElementById('custAddress').value.trim();
+  const comment = document.getElementById('custComment').value.trim();
+  const err = document.getElementById('formError');
+
+  if(!name || !phone){ err.style.display='block'; return; }
+  err.style.display='none';
+
+  const text = buildOrderText(name, phone, address, comment);
+
+  if(channel==='whatsapp'){
+    window.open(`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(text)}`, '_blank');
+    finishOrder();
+  } else if(channel==='telegram'){
+    sendTelegramMessage(text)
+      .then(()=> finishOrder())
+      .catch(()=>{
+        // Агар токен танзим нашуда бошад, ба WhatsApp гузарем
+        alert(lang==='tj'
+          ? 'Хатогӣ дар фиристодан ба Telegram. Токенро дар код санҷед.'
+          : 'Ошибка отправки в Telegram. Проверьте токен в коде.');
+      });
+  }
+}
+
+async function sendTelegramMessage(text){
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const res = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text })
+  });
+  if(!res.ok) throw new Error('telegram send failed');
+  return res.json();
+}
+
+function finishOrder(){
+  document.getElementById('checkoutForm').style.display='none';
+  document.getElementById('successBox').style.display='block';
+  cart = {};
+  updateCartUI();
+}
+
+/* ---------- toast ---------- */
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+/* ---------- язык ---------- */
+function setLang(l){
+  lang = l;
+  document.getElementById('lang-tj').classList.toggle('active', l==='tj');
+  document.getElementById('lang-ru').classList.toggle('active', l==='ru');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    el.textContent = I18N[lang][el.dataset.i18n];
+  });
+  document.getElementById('searchInput').placeholder = I18N[lang].search_placeholder;
+  renderTabs();
+  renderProducts();
+  updateCartUI();
+}
+
+/* ---------- WhatsApp links ---------- */
+function setupWaLinks(){
+  const msg = encodeURIComponent(lang==='tj' ? 'Салом! Ман савол доштам...' : 'Здравствуйте! У меня есть вопрос...');
+  const link = `https://wa.me/${WHATSAPP_PHONE}?text=${msg}`;
+  document.getElementById('headerWaLink').href = link;
+  document.getElementById('footerWaLink').href = link;
+  document.getElementById('fabWa').href = link;
+}
+
+/* ---------- init ---------- */
+document.getElementById('searchInput').addEventListener('input', renderProducts);
+renderTabs();
+renderProducts();
+updateCartUI();
+setupWaLinks();
+</script>
+</body>
+</html>
