@@ -287,6 +287,43 @@ section.products{padding:48px 20px}
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* ---------- product detail page ---------- */
+.card{cursor:pointer}
+.product-page{
+  position:fixed;inset:0;background:var(--paper);z-index:97;
+  transform:translateY(100%);transition:transform .25s ease;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.product-page.show{transform:translateY(0)}
+.pp-topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0;
+}
+.pp-back{width:38px;height:38px;border-radius:50%;background:var(--cream);border:1px solid var(--line);font-size:18px}
+.pp-body{flex:1;overflow-y:auto;padding-bottom:110px}
+.pp-media{aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;font-size:110px;background:var(--pp-bg,var(--cream))}
+.pp-content{padding:22px 20px;max-width:760px;margin:0 auto}
+.pp-cat{font-size:12px;font-weight:700;color:var(--pistachio);text-transform:uppercase;letter-spacing:.05em}
+.pp-title{font-size:24px;margin-top:8px}
+.pp-price-row{margin-top:16px}
+.pp-desc-label{font-size:13px;font-weight:700;color:#6b655a;margin-top:26px;text-transform:uppercase;letter-spacing:.04em}
+.pp-desc-text{font-size:15px;line-height:1.65;margin-top:10px;color:var(--ink)}
+.pp-similar-label{font-size:17px;margin:30px 0 14px}
+.similar-grid{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;margin:0 -20px;padding-left:20px;padding-right:20px}
+.similar-grid .card{min-width:150px;flex-shrink:0}
+.pp-footer{
+  position:fixed;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--line);
+  padding:14px 16px;display:flex;align-items:center;gap:14px;z-index:98;
+}
+.pp-qty{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:999px;padding:8px 14px;flex-shrink:0}
+.pp-qty button{width:26px;height:26px;border-radius:50%;background:var(--cream);border:none;font-size:15px}
+.pp-qty span{font-weight:700;min-width:16px;text-align:center}
+.pp-add-btn{flex:1;background:var(--brick);color:#fff;padding:15px;border-radius:12px;font-weight:800;font-size:14px}
+@media(max-width:600px){
+  .pp-media{aspect-ratio:1/1;font-size:80px}
+  .pp-title{font-size:20px}
+}
+
 /* floating whatsapp */
 .fab-wa{
   position:fixed;bottom:22px;right:22px;width:54px;height:54px;border-radius:50%;
@@ -428,6 +465,34 @@ footer p{margin-top:8px;font-size:14px}
   </div>
 </div>
 
+<!-- product detail page -->
+<div class="product-page" id="productPage">
+  <div class="pp-topbar">
+    <button class="pp-back" onclick="closeProduct()">←</button>
+    <button class="icon-btn" onclick="openCart()">🛒<span class="badge" id="cartBadgePP">0</span></button>
+  </div>
+  <div class="pp-body">
+    <div class="pp-media" id="ppMedia"></div>
+    <div class="pp-content">
+      <div class="pp-cat" id="ppCat"></div>
+      <h2 class="pp-title" id="ppTitle"></h2>
+      <div class="pp-price-row"><span class="price-tag" id="ppPrice"></span></div>
+      <div class="pp-desc-label" data-i18n="pp_desc_label">Тавсиф</div>
+      <p class="pp-desc-text" id="ppDesc"></p>
+      <h3 class="pp-similar-label" data-i18n="pp_similar">Молҳои монанд</h3>
+      <div class="similar-grid" id="ppSimilar"></div>
+    </div>
+  </div>
+  <div class="pp-footer">
+    <div class="pp-qty">
+      <button onclick="ppChangeQty(-1)">−</button>
+      <span id="ppQty">1</span>
+      <button onclick="ppChangeQty(1)">+</button>
+    </div>
+    <button class="pp-add-btn" onclick="ppAddToCart()"><span data-i18n="add_to_cart">Илова кардан</span></button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <a class="fab-wa" id="fabWa" target="_blank">💬</a>
 
@@ -454,19 +519,32 @@ const TELEGRAM_CHAT_ID   = "YOUR_CHAT_ID";        // аз @userinfobot ё @getid
    МОЛҲО / ТОВАРЫ — ин рӯйхатро бо молҳои воқеӣ иваз кунед
    ========================================================================== */
 const PRODUCTS = [
-  {id:1,  cat:'electronics', name_tj:'Гӯшмонакҳои бесим',    name_ru:'Беспроводные наушники', price:249, emoji:'🎧', tag:'top'},
-  {id:2,  cat:'electronics', name_tj:'Соати ҳушманд',        name_ru:'Умные часы',            price:890, emoji:'⌚', tag:'top'},
-  {id:3,  cat:'electronics', name_tj:'Зарядкунаки бесим',    name_ru:'Беспроводная зарядка',  price:120, emoji:'🔌', tag:'new'},
-  {id:4,  cat:'electronics', name_tj:'Баландгӯяки Bluetooth',name_ru:'Bluetooth-колонка',     price:320, emoji:'🔊', tag:null},
-  {id:5,  cat:'electronics', name_tj:'Пауэрбанк 20000mAh',   name_ru:'Повербанк 20000mAh',    price:280, emoji:'🔋', tag:'new'},
-  {id:6,  cat:'clothing',    name_tj:'Куртаи мардона',       name_ru:'Мужская куртка',        price:450, emoji:'🧥', tag:'top'},
-  {id:7,  cat:'clothing',    name_tj:'Ҷинси занона',         name_ru:'Женские джинсы',        price:260, emoji:'👖', tag:null},
-  {id:8,  cat:'clothing',    name_tj:'Куртаи пахтагӣ',       name_ru:'Хлопковая футболка',    price:90,  emoji:'👕', tag:'new'},
-  {id:9,  cat:'clothing',    name_tj:'Костюми варзишӣ',      name_ru:'Спортивный костюм',     price:380, emoji:'🏃', tag:null},
-  {id:10, cat:'bags',        name_tj:'Ҷузвдони мактабӣ',     name_ru:'Школьный рюкзак',       price:210, emoji:'🎒', tag:'top'},
-  {id:11, cat:'bags',        name_tj:'Сумкаи занона',        name_ru:'Женская сумка',         price:340, emoji:'👜', tag:'new'},
-  {id:12, cat:'bags',        name_tj:'Ҳамён',                name_ru:'Кошелёк',               price:95,  emoji:'👛', tag:null},
-  {id:13, cat:'bags',        name_tj:'Ҷузвдони сафарӣ',      name_ru:'Дорожная сумка',        price:460, emoji:'🧳', tag:null},
+  {id:1,  cat:'electronics', name_tj:'Гӯшмонакҳои бесим',    name_ru:'Беспроводные наушники', price:249, emoji:'🎧', tag:'top',
+    desc_tj:'Гӯшмонакҳои сифатнок бо садои возеҳ, батарея то 20 соат кор мекунад.', desc_ru:'Качественные наушники с чётким звуком, автономность до 20 часов.'},
+  {id:2,  cat:'electronics', name_tj:'Соати ҳушманд',        name_ru:'Умные часы',            price:890, emoji:'⌚', tag:'top',
+    desc_tj:'Назорати саломатӣ, огоҳиномаҳо ва зарядкунии тезкор дар як дастгоҳ.', desc_ru:'Мониторинг здоровья, уведомления и быстрая зарядка в одном устройстве.'},
+  {id:3,  cat:'electronics', name_tj:'Зарядкунаки бесим',    name_ru:'Беспроводная зарядка',  price:120, emoji:'🔌', tag:'new',
+    desc_tj:'Зарядкунии бидуни сим барои телефонҳои муосир — сода ва тезкор.', desc_ru:'Беспроводная зарядка для современных смартфонов — просто и быстро.'},
+  {id:4,  cat:'electronics', name_tj:'Баландгӯяки Bluetooth',name_ru:'Bluetooth-колонка',     price:320, emoji:'🔊', tag:null,
+    desc_tj:'Садои баланд ва аниқ барои хона ва берун, пайвасти осон.', desc_ru:'Громкий и чистый звук для дома и улицы, простое подключение.'},
+  {id:5,  cat:'electronics', name_tj:'Пауэрбанк 20000mAh',   name_ru:'Повербанк 20000mAh',    price:280, emoji:'🔋', tag:'new',
+    desc_tj:'Захираи калон — якчанд маротиба заряд кардани телефон дар сафар.', desc_ru:'Большой запас энергии — хватит зарядить телефон несколько раз в дороге.'},
+  {id:6,  cat:'clothing',    name_tj:'Куртаи мардона',       name_ru:'Мужская куртка',        price:450, emoji:'🧥', tag:'top',
+    desc_tj:'Матои гарм ва мустаҳкам барои мавсими хунук, андозаҳои гуногун.', desc_ru:'Тёплая и прочная ткань для холодного сезона, разные размеры.'},
+  {id:7,  cat:'clothing',    name_tj:'Ҷинси занона',         name_ru:'Женские джинсы',        price:260, emoji:'👖', tag:null,
+    desc_tj:'Матои сифатнок бо буриши муосир, барои ҳар рӯз мувофиқ.', desc_ru:'Качественная ткань современного кроя, подходит на каждый день.'},
+  {id:8,  cat:'clothing',    name_tj:'Куртаи пахтагӣ',       name_ru:'Хлопковая футболка',    price:90,  emoji:'👕', tag:'new',
+    desc_tj:'Пахтаи 100% нафис, нарм ба пӯст ва хунукиро хуб мегузаронад.', desc_ru:'100% хлопок, приятен к телу и хорошо пропускает воздух.'},
+  {id:9,  cat:'clothing',    name_tj:'Костюми варзишӣ',      name_ru:'Спортивный костюм',     price:380, emoji:'🏃', tag:null,
+    desc_tj:'Матои нафис барои машқ ва истироҳат, ҳаракатро маҳдуд намекунад.', desc_ru:'Мягкая ткань для спорта и отдыха, не сковывает движения.'},
+  {id:10, cat:'bags',        name_tj:'Ҷузвдони мактабӣ',     name_ru:'Школьный рюкзак',       price:210, emoji:'🎒', tag:'top',
+    desc_tj:'Ҷойи васеъ барои китобҳо ва ноутбук, пуштибанди мулоим.', desc_ru:'Вместительный рюкзак для книг и ноутбука, мягкие лямки.'},
+  {id:11, cat:'bags',        name_tj:'Сумкаи занона',        name_ru:'Женская сумка',         price:340, emoji:'👜', tag:'new',
+    desc_tj:'Тарҳи занона бо якчанд ҷайб, барои кор ва берун рафтан.', desc_ru:'Женский дизайн с несколькими отделениями — для работы и прогулок.'},
+  {id:12, cat:'bags',        name_tj:'Ҳамён',                name_ru:'Кошелёк',               price:95,  emoji:'👛', tag:null,
+    desc_tj:'Ҷойҳо барои корт ва пул, чарми сифатнок.', desc_ru:'Отделения для карт и денег, качественная кожа.'},
+  {id:13, cat:'bags',        name_tj:'Ҷузвдони сафарӣ',      name_ru:'Дорожная сумка',        price:460, emoji:'🧳', tag:null,
+    desc_tj:'Ҳаҷми калон барои сафарҳои дароз, мустаҳкам ва бодавом.', desc_ru:'Большой объём для дальних поездок, прочный и надёжный.'},
 ];
 
 /* ==========================================================================
@@ -491,6 +569,7 @@ const I18N = {
     order_success_sub:'Мо ба зудӣ бо шумо тамос мегирем. Ташаккур барои харид! 🙏',
     close:'Хуб шуд',
     footer_question:'Савол доред? Ба мо нависед.', footer_rights:'Ҳамаи ҳуқуқҳо ҳифз шудаанд',
+    pp_desc_label:'Тавсиф', pp_similar:'Молҳои монанд',
   },
   ru:{
     search_placeholder:'Поиск...',
@@ -510,6 +589,7 @@ const I18N = {
     order_success_sub:'Мы скоро свяжемся с вами. Спасибо за покупку! 🙏',
     close:'Хорошо',
     footer_question:'Остались вопросы? Напишите нам.', footer_rights:'Все права защищены',
+    pp_desc_label:'Описание', pp_similar:'Похожие товары',
   }
 };
 
@@ -541,8 +621,13 @@ function renderProducts(){
     const matchQ = !q || name.includes(q);
     return matchCat && matchQ;
   });
-  grid.innerHTML = list.map(p=>`
-    <div class="card">
+  grid.innerHTML = list.map(p=>renderCard(p)).join('') ||
+    `<p style="grid-column:1/-1;text-align:center;color:#8a8478;padding:30px 0">—</p>`;
+}
+
+function renderCard(p){
+  return `
+    <div class="card" onclick="openProduct(${p.id})">
       <div class="card-media" style="--card-bg:${CARD_BG[p.cat]}">
         ${p.emoji}
         ${p.tag ? `<span class="card-ribbon ${p.tag}">${p.tag==='top'?(lang==='tj'?'ТОП':'ХИТ'):(lang==='tj'?'НАВ':'NEW')}</span>`:''}
@@ -551,11 +636,10 @@ function renderProducts(){
         <div class="card-name">${lang==='tj'?p.name_tj:p.name_ru}</div>
         <div class="card-bottom">
           <span class="price-tag">${p.price} смн</span>
-          <button class="add-btn" onclick="addToCart(${p.id})">+</button>
+          <button class="add-btn" onclick="event.stopPropagation();addToCart(${p.id})">+</button>
         </div>
       </div>
-    </div>
-  `).join('') || `<p style="grid-column:1/-1;text-align:center;color:#8a8478;padding:30px 0">—</p>`;
+    </div>`;
 }
 
 function filterCat(c){ activeCat=c; renderTabs(); renderProducts(); document.getElementById('catalog').scrollIntoView({behavior:'smooth'}); }
@@ -583,6 +667,7 @@ function cartTotal(){
 
 function updateCartUI(){
   document.getElementById('cartBadge').textContent = cartCount();
+  document.getElementById('cartBadgePP').textContent = cartCount();
   document.getElementById('cartTotal').textContent = cartTotal() + ' смн';
   document.getElementById('checkoutBtn').disabled = cartCount()===0;
 
@@ -610,6 +695,74 @@ function updateCartUI(){
         </div>
       </div>`;
   }).join('');
+}
+
+/* ---------- страница товара ---------- */
+let ppCurrentId = null;
+let ppQtyVal = 1;
+
+function openProduct(id){
+  // мегузорем ба hash, то саҳифа URL-и худро дошта бошад (масалан #product-3)
+  location.hash = 'product-' + id;
+}
+function closeProduct(){
+  if(location.hash.startsWith('#product-')){
+    history.back();
+  } else {
+    ppRenderClose();
+  }
+}
+function ppRenderOpen(id){
+  const p = PRODUCTS.find(x=>x.id===id);
+  if(!p) return;
+  ppCurrentId = id;
+  ppQtyVal = 1;
+  renderProductDetail();
+  document.getElementById('productPage').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  window.scrollTo(0,0);
+  document.querySelector('.pp-body').scrollTop = 0;
+}
+function ppRenderClose(){
+  document.getElementById('productPage').classList.remove('show');
+  document.body.style.overflow = '';
+  ppCurrentId = null;
+}
+function handleHash(){
+  const m = location.hash.match(/^#product-(\d+)/);
+  if(m && PRODUCTS.find(p=>p.id===Number(m[1]))){
+    ppRenderOpen(Number(m[1]));
+  } else {
+    ppRenderClose();
+  }
+}
+window.addEventListener('hashchange', handleHash);
+
+function renderProductDetail(){
+  const p = PRODUCTS.find(x=>x.id===ppCurrentId);
+  if(!p) return;
+  document.getElementById('ppMedia').style.setProperty('--pp-bg', CARD_BG[p.cat]);
+  document.getElementById('ppMedia').textContent = p.emoji;
+  document.getElementById('ppCat').textContent = CAT_LABELS[p.cat][lang];
+  document.getElementById('ppTitle').textContent = lang==='tj'?p.name_tj:p.name_ru;
+  document.getElementById('ppPrice').textContent = p.price + ' смн';
+  document.getElementById('ppDesc').textContent = lang==='tj'?p.desc_tj:p.desc_ru;
+  document.getElementById('ppQty').textContent = ppQtyVal;
+
+  const similar = PRODUCTS.filter(x=>x.cat===p.cat && x.id!==p.id).slice(0,6);
+  document.getElementById('ppSimilar').innerHTML = similar.map(s=>renderCard(s)).join('') ||
+    `<p style="color:#8a8478;font-size:13px">—</p>`;
+}
+
+function ppChangeQty(delta){
+  ppQtyVal = Math.max(1, ppQtyVal + delta);
+  document.getElementById('ppQty').textContent = ppQtyVal;
+}
+function ppAddToCart(){
+  if(!ppCurrentId) return;
+  cart[ppCurrentId] = (cart[ppCurrentId]||0) + ppQtyVal;
+  updateCartUI();
+  showToast(I18N[lang].added);
 }
 
 /* ---------- drawer / overlay ---------- */
@@ -721,6 +874,7 @@ function setLang(l){
   renderTabs();
   renderProducts();
   updateCartUI();
+  if(ppCurrentId) renderProductDetail();
 }
 
 /* ---------- WhatsApp links ---------- */
@@ -738,6 +892,7 @@ renderTabs();
 renderProducts();
 updateCartUI();
 setupWaLinks();
+handleHash();
 </script>
 </body>
 </html>
