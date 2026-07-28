@@ -7,18 +7,22 @@
 
 <!--
   ==========================================================================
-  АДМИН-ПАНЕЛЬ (визуальный прототип) — ХАМАБОЗОР
+  АДМИН-ПАНЕЛЬ — ХАМАБОЗОР
   --------------------------------------------------------------------------
-  ВАЖНО: это пока витрина с ТЕСТОВЫМИ данными (массив MOCK_ORDERS ниже).
-  Реальные заказы сюда пока не попадают — для этого нужно подключить
-  источник данных (например Google Sheets или базу данных), см. переписку.
+  Подключена к Supabase: заказы читаются из таблицы orders (её создаёт
+  supabase-schema.sql), а вход защищён настоящей авторизацией Supabase Auth
+  (email + пароль), а не паролем внутри кода.
 
-  Пароль ниже (ADMIN_PASSWORD) — просто лёгкая защита от случайных
-  посетителей, а не настоящая безопасность: любой, кто откроет исходный
-  код страницы, сможет его увидеть. Для реальной защиты нужен бэкенд.
+  ПЕРЕД ЗАПУСКОМ:
+  1. Впишите SUPABASE_URL и SUPABASE_ANON_KEY ниже (те же значения, что
+     и в index.html — их даёт Supabase: Project Settings → API).
+  2. Создайте пользователя-администратора в Supabase:
+     Authentication → Users → Add user (email + пароль) — именно этими
+     данными нужно будет входить в эту панель.
   ==========================================================================
 -->
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --indigo:#1B2A4A;
@@ -192,9 +196,10 @@ tbody tr:hover{background:var(--cream)}
   <div class="gate-box">
     <h2>Панель управления</h2>
     <p>ХАМАБОЗОР · вход только для администратора</p>
+    <input type="email" id="gateEmail" placeholder="Email" onkeydown="if(event.key==='Enter')checkPassword()">
     <input type="password" id="gatePassword" placeholder="Пароль" onkeydown="if(event.key==='Enter')checkPassword()">
-    <button onclick="checkPassword()">Войти</button>
-    <div class="gate-err" id="gateErr">Неверный пароль</div>
+    <button onclick="checkPassword()" id="gateBtn">Войти</button>
+    <div class="gate-err" id="gateErr">Неверный email или пароль</div>
   </div>
 </div>
 
@@ -204,6 +209,7 @@ tbody tr:hover{background:var(--cream)}
       <div class="logo"><span></span>ХАМАБОЗОР <small>· Админ</small></div>
       <div class="header-actions">
         <a class="btn-outline" href="index.html">← На сайт</a>
+        <button class="btn-outline" onclick="loadOrders()">↻ Обновить</button>
         <button class="btn-outline" onclick="logout()">Выйти</button>
       </div>
     </div>
@@ -272,46 +278,46 @@ tbody tr:hover{background:var(--cream)}
 
 <script>
 /* ==========================================================================
-   НАСТРОЙКИ
+   НАСТРОЙКИ — те же значения, что и в index.html
    ========================================================================== */
-const ADMIN_PASSWORD = "hamabozor2026"; // смени на свой пароль
+const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ==========================================================================
-   ТЕСТОВЫЕ ЗАКАЗЫ (потом заменим на реальные данные)
+   ЗАКАЗЫ — загружаются из таблицы orders в Supabase (см. supabase-schema.sql)
    ========================================================================== */
 const STATUS_LABEL = { new:'Новый', progress:'В обработке', done:'Выполнен', cancel:'Отменён' };
 const STATUS_CLASS = { new:'badge-new', progress:'badge-progress', done:'badge-done', cancel:'badge-cancel' };
 
-function daysAgo(n){ const d = new Date(); d.setDate(d.getDate()-n); return d; }
+let ORDERS = []; // сюда загружаются реальные заказы из базы данных
 
-const MOCK_ORDERS = [
-  { id:1042, date:daysAgo(0),  name:'Фарход Раҳимов', phone:'+992 93 111 22 33', address:'кӯч. Рӯдакӣ 45',
-    items:[{name:'Гӯшмонакҳои бесим', qty:1, price:249},{name:'Пауэрбанк 20000mAh', qty:1, price:280}], status:'new', comment:'' },
-  { id:1041, date:daysAgo(0),  name:'Мадина Каримова', phone:'+992 90 555 44 12', address:'',
-    items:[{name:'Сумкаи занона', qty:1, price:340}], status:'new', comment:'Агар мумкин бошад, фардо расонед' },
-  { id:1040, date:daysAgo(1),  name:'Абдуллоҳ Насриддинов', phone:'+992 98 777 21 09', address:'мкр. 32, х.14',
-    items:[{name:'Куртаи мардона', qty:1, price:450}], status:'progress', comment:'' },
-  { id:1039, date:daysAgo(1),  name:'Зарина Юсупова', phone:'+992 92 333 87 65', address:'кӯч. Айнӣ 12',
-    items:[{name:'Ҷузвдони мактабӣ', qty:2, price:210}], status:'progress', comment:'' },
-  { id:1038, date:daysAgo(2),  name:'比 Комил Шарипов', phone:'+992 93 222 10 44', address:'',
-    items:[{name:'Соати ҳушманд', qty:1, price:890}], status:'done', comment:'' },
-  { id:1037, date:daysAgo(3),  name:'Ситора Раҷабова', phone:'+992 90 111 99 22', address:'кӯч. Бухоро 8',
-    items:[{name:'Куртаи пахтагӣ', qty:3, price:90},{name:'Ҷинси занона', qty:1, price:260}], status:'done', comment:'' },
-  { id:1036, date:daysAgo(4),  name:'Ҷамшед Олимов', phone:'+992 98 456 78 90', address:'',
-    items:[{name:'Баландгӯяки Bluetooth', qty:1, price:320}], status:'cancel', comment:'Клиент отказался' },
-  { id:1035, date:daysAgo(6),  name:'Наргис Тошева', phone:'+992 93 654 32 11', address:'мкр. 27',
-    items:[{name:'Ҳамён', qty:1, price:95},{name:'Ҷузвдони сафарӣ', qty:1, price:460}], status:'done', comment:'' },
-  { id:1034, date:daysAgo(9),  name:'Далер Қосимов', phone:'+992 90 987 65 43', address:'',
-    items:[{name:'Костюми варзишӣ', qty:1, price:380}], status:'done', comment:'' },
-  { id:1033, date:daysAgo(15), name:'Гулнора Исмоилова', phone:'+992 92 111 44 55', address:'кӯч. Фирдавсӣ 3',
-    items:[{name:'Зарядкунаки бесим', qty:2, price:120}], status:'done', comment:'' },
-  { id:1032, date:daysAgo(22), name:'Рустам Файзуллоев', phone:'+992 93 222 33 44', address:'',
-    items:[{name:'Ҷузвдони мактабӣ', qty:1, price:210}], status:'cancel', comment:'Не отвечает на звонки' },
-  { id:1031, date:daysAgo(30), name:'Малика Носирова', phone:'+992 98 333 22 11', address:'мкр. 19',
-    items:[{name:'Куртаи мардона', qty:1, price:450},{name:'Сумкаи занона', qty:1, price:340}], status:'done', comment:'' },
-];
+async function loadOrders(){
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .order('created_at', { ascending:false });
 
-function orderTotal(o){ return o.items.reduce((s,i)=>s+i.qty*i.price,0); }
+  if(error){
+    console.error('Не удалось загрузить заказы:', error);
+    return;
+  }
+
+  ORDERS = data.map(row => ({
+    id: row.id,
+    date: new Date(row.created_at),
+    name: row.customer_name,
+    phone: row.customer_phone,
+    address: row.customer_address || '',
+    items: row.items || [],
+    status: row.status,
+    comment: row.comment || '',
+    total: row.total
+  }));
+  renderAll();
+}
+
+function orderTotal(o){ return o.total ?? o.items.reduce((s,i)=>s+i.qty*i.price,0); }
 
 /* ==========================================================================
    СОСТОЯНИЕ
@@ -348,7 +354,7 @@ function renderDateTabs(){
 function setDateFilter(k){ activeDate=k; renderDateTabs(); renderAll(); }
 
 function getFiltered(){
-  return MOCK_ORDERS.filter(o=>{
+  return ORDERS.filter(o=>{
     if(!inDateRange(o, activeDate)) return false;
     if(activeStatus!=='all' && o.status!==activeStatus) return false;
     if(searchQuery){
@@ -398,7 +404,7 @@ function renderAll(){
 
 /* ---------- order modal ---------- */
 function openOrder(id){
-  const o = MOCK_ORDERS.find(x=>x.id===id);
+  const o = ORDERS.find(x=>x.id===id);
   if(!o) return;
   const itemsHtml = o.items.map(i=>`
     <div class="om-item"><span>${i.name} ×${i.qty}</span><span>${i.qty*i.price} смн</span></div>
@@ -433,30 +439,50 @@ function openOrder(id){
       <div class="om-status-row">${statusBtns}</div>
     </div>
 
-    <div class="om-hint">Это тестовые данные — изменение статуса видно только в этом сеансе браузера и не сохраняется. Когда подключим реальный источник данных, изменения будут сохраняться по-настоящему.</div>
   `;
   document.getElementById('orderModalOverlay').classList.add('show');
 }
 function closeOrder(){ document.getElementById('orderModalOverlay').classList.remove('show'); }
-function setOrderStatus(id, status){
-  const o = MOCK_ORDERS.find(x=>x.id===id);
+async function setOrderStatus(id, status){
+  const o = ORDERS.find(x=>x.id===id);
   if(!o) return;
-  o.status = status;
+  const prevStatus = o.status;
+  o.status = status; // сразу обновляем на экране
   openOrder(id);
   renderAll();
-}
 
-/* ---------- login gate ---------- */
-function checkPassword(){
-  const val = document.getElementById('gatePassword').value;
-  if(val === ADMIN_PASSWORD){
-    document.getElementById('gate').style.display = 'none';
-    document.getElementById('app').classList.add('show');
-  } else {
-    document.getElementById('gateErr').style.display = 'block';
+  const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+  if(error){
+    console.error('Не удалось сохранить статус заказа:', error);
+    o.status = prevStatus; // откатываем, если не сохранилось
+    openOrder(id);
+    renderAll();
+    alert('Не удалось сохранить статус — проверьте подключение к базе данных.');
   }
 }
-function logout(){
+
+/* ---------- login gate (Supabase Auth) ---------- */
+async function checkPassword(){
+  const email = document.getElementById('gateEmail').value.trim();
+  const password = document.getElementById('gatePassword').value;
+  const btn = document.getElementById('gateBtn');
+  btn.disabled = true; btn.textContent = 'Входим…';
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  btn.disabled = false; btn.textContent = 'Войти';
+  if(error){
+    document.getElementById('gateErr').style.display = 'block';
+    return;
+  }
+  document.getElementById('gateErr').style.display = 'none';
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').classList.add('show');
+  await loadOrders();
+}
+
+async function logout(){
+  await supabase.auth.signOut();
   document.getElementById('app').classList.remove('show');
   document.getElementById('gate').style.display = 'flex';
   document.getElementById('gatePassword').value = '';
@@ -468,7 +494,20 @@ document.getElementById('searchInput').addEventListener('input', e=>{ searchQuer
 document.getElementById('statusSelect').addEventListener('change', e=>{ activeStatus = e.target.value; renderAll(); });
 document.getElementById('orderModalOverlay').addEventListener('click', e=>{ if(e.target.id==='orderModalOverlay') closeOrder(); });
 renderDateTabs();
-renderAll();
+
+// если сессия уже активна (например, страница обновилась) — сразу впускаем
+supabase.auth.getSession().then(({ data }) => {
+  if(data.session){
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').classList.add('show');
+    loadOrders();
+  }
+});
+
+// автообновление списка заказов каждые 20 секунд, пока открыта панель
+setInterval(() => {
+  if(document.getElementById('app').classList.contains('show')) loadOrders();
+}, 20000);
 </script>
 </body>
 </html>
