@@ -23,15 +23,15 @@
   ба монанди Google-форма/Vercel function) фиристед ва аз он ҷо ба Telegram
   диҳед, то токен пинҳон бимонад.
 
-  БАЗА ДАННЫХ (Supabase):
-  Ниже подключён Supabase — каждый оформленный заказ сохраняется в таблицу
-  orders и виден в admin.html. Перед запуском впишите SUPABASE_URL и
-  SUPABASE_ANON_KEY (см. константы чуть ниже) — их даёт сам Supabase после
-  создания проекта. SQL для создания таблицы — в файле supabase-schema.sql.
+  БАЗА ДАННЫХ (Railway + MySQL):
+  Сайт обращается к своему собственному API-серверу (server.js), который
+  лежит рядом с этим файлом и работает на Railway вместе с базой MySQL.
+  Ничего вписывать в этот файл не нужно — запросы идут на тот же адрес,
+  где открыт сайт (относительные пути /api/...). Инструкция по запуску —
+  в файле README-DATABASE.md, схема таблицы — в schema.sql.
   ==========================================================================
 -->
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --indigo:#1B2A4A;
@@ -523,16 +523,6 @@ const TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN";      // аз @BotFather
 const TELEGRAM_CHAT_ID   = "YOUR_CHAT_ID";        // аз @userinfobot ё @getidsbot
 
 /* ==========================================================================
-   БАЗА ДАННЫХ (Supabase) — вставьте свои значения из панели Supabase:
-   Project Settings → API → Project URL / anon public key
-   ========================================================================== */
-const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
-const supabase = (SUPABASE_URL.includes("YOUR-PROJECT"))
-  ? null
-  : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-/* ==========================================================================
    МОЛҲО / ТОВАРЫ — ин рӯйхатро бо молҳои воқеӣ иваз кунед
    ========================================================================== */
 const PRODUCTS = [
@@ -826,25 +816,28 @@ function buildOrderText(name, phone, address, comment){
 }
 
 async function saveOrderToDatabase(channel, name, phone, address, comment){
-  if(!supabase){
-    console.warn('Supabase не настроен — заказ не сохранён в базу (только отправлен через '+channel+').');
-    return;
-  }
   const items = Object.entries(cart).map(([id,qty])=>{
     const p = PRODUCTS.find(x=>x.id===Number(id));
     return { name: lang==='tj'?p.name_tj:p.name_ru, qty, price:p.price };
   });
-  const { error } = await supabase.from('orders').insert({
-    customer_name: name,
-    customer_phone: phone,
-    customer_address: address || null,
-    comment: comment || null,
-    items,
-    total: cartTotal(),
-    status: 'new',
-    channel
-  });
-  if(error) console.error('Ошибка сохранения заказа в базу данных:', error);
+  try{
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_name: name,
+        customer_phone: phone,
+        customer_address: address || null,
+        comment: comment || null,
+        items,
+        total: cartTotal(),
+        channel
+      })
+    });
+    if(!res.ok) throw new Error('save order failed: ' + res.status);
+  }catch(e){
+    console.error('Ошибка сохранения заказа в базу данных:', e);
+  }
 }
 
 async function submitOrder(channel){

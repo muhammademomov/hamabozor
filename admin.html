@@ -9,20 +9,17 @@
   ==========================================================================
   АДМИН-ПАНЕЛЬ — ХАМАБОЗОР
   --------------------------------------------------------------------------
-  Подключена к Supabase: заказы читаются из таблицы orders (её создаёт
-  supabase-schema.sql), а вход защищён настоящей авторизацией Supabase Auth
-  (email + пароль), а не паролем внутри кода.
+  Заказы читаются через свой собственный API (server.js), который работает
+  на Railway вместе с базой MySQL. Вход защищён логином/паролем
+  администратора (JWT-токен выдаёт сервер, см. server.js).
 
-  ПЕРЕД ЗАПУСКОМ:
-  1. Впишите SUPABASE_URL и SUPABASE_ANON_KEY ниже (те же значения, что
-     и в index.html — их даёт Supabase: Project Settings → API).
-  2. Создайте пользователя-администратора в Supabase:
-     Authentication → Users → Add user (email + пароль) — именно этими
-     данными нужно будет входить в эту панель.
+  ПЕРЕД ЗАПУСКОМ (см. README-DATABASE.md):
+  1. Разверните server.js на Railway и подключите к нему MySQL.
+  2. Задайте в переменных окружения ADMIN_EMAIL и ADMIN_PASSWORD_HASH —
+     этими email+паролем нужно будет входить в эту панель.
   ==========================================================================
 -->
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --indigo:#1B2A4A;
@@ -278,14 +275,33 @@ tbody tr:hover{background:var(--cream)}
 
 <script>
 /* ==========================================================================
-   НАСТРОЙКИ — те же значения, что и в index.html
+   НАСТРОЙКИ
    ========================================================================== */
-const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// сайт и API живут на одном сервере (Railway), поэтому пути относительные
+const API_BASE = '';
+const TOKEN_KEY = 'hamabozor_admin_token';
+
+function getToken(){ return localStorage.getItem(TOKEN_KEY); }
+function setToken(t){ localStorage.setItem(TOKEN_KEY, t); }
+function clearToken(){ localStorage.removeItem(TOKEN_KEY); }
+
+async function apiFetch(path, options={}){
+  const token = getToken();
+  const res = await fetch(API_BASE + path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+      ...(options.headers || {})
+    }
+  });
+  if(res.status === 401){ clearToken(); showGate(); throw new Error('unauthorized'); }
+  if(!res.ok) throw new Error('API error ' + res.status);
+  return res.json();
+}
 
 /* ==========================================================================
-   ЗАКАЗЫ — загружаются из таблицы orders в Supabase (см. supabase-schema.sql)
+   ЗАКАЗЫ — загружаются через API с сервера (server.js + MySQL)
    ========================================================================== */
 const STATUS_LABEL = { new:'Новый', progress:'В обработке', done:'Выполнен', cancel:'Отменён' };
 const STATUS_CLASS = { new:'badge-new', progress:'badge-progress', done:'badge-done', cancel:'badge-cancel' };
@@ -293,28 +309,23 @@ const STATUS_CLASS = { new:'badge-new', progress:'badge-progress', done:'badge-d
 let ORDERS = []; // сюда загружаются реальные заказы из базы данных
 
 async function loadOrders(){
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .order('created_at', { ascending:false });
-
-  if(error){
-    console.error('Не удалось загрузить заказы:', error);
-    return;
+  try{
+    const data = await apiFetch('/api/orders');
+    ORDERS = data.map(row => ({
+      id: row.id,
+      date: new Date(row.created_at),
+      name: row.customer_name,
+      phone: row.customer_phone,
+      address: row.customer_address || '',
+      items: row.items || [],
+      status: row.status,
+      comment: row.comment || '',
+      total: row.total
+    }));
+    renderAll();
+  }catch(e){
+    console.error('Не удалось загрузить заказы:', e);
   }
-
-  ORDERS = data.map(row => ({
-    id: row.id,
-    date: new Date(row.created_at),
-    name: row.customer_name,
-    phone: row.customer_phone,
-    address: row.customer_address || '',
-    items: row.items || [],
-    status: row.status,
-    comment: row.comment || '',
-    total: row.total
-  }));
-  renderAll();
 }
 
 function orderTotal(o){ return o.total ?? o.items.reduce((s,i)=>s+i.qty*i.price,0); }
@@ -451,40 +462,56 @@ async function setOrderStatus(id, status){
   openOrder(id);
   renderAll();
 
-  const { error } = await supabase.from('orders').update({ status }).eq('id', id);
-  if(error){
-    console.error('Не удалось сохранить статус заказа:', error);
+  try{
+    await apiFetch('/api/orders/' + id, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
+    });
+  }catch(e){
+    console.error('Не удалось сохранить статус заказа:', e);
     o.status = prevStatus; // откатываем, если не сохранилось
     openOrder(id);
     renderAll();
-    alert('Не удалось сохранить статус — проверьте подключение к базе данных.');
+    alert('Не удалось сохранить статус — проверьте подключение к серверу.');
   }
 }
 
-/* ---------- login gate (Supabase Auth) ---------- */
+function showGate(){
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('gate').style.display = 'flex';
+}
+
+/* ---------- login gate (собственный сервер + JWT) ---------- */
 async function checkPassword(){
   const email = document.getElementById('gateEmail').value.trim();
   const password = document.getElementById('gatePassword').value;
   const btn = document.getElementById('gateBtn');
   btn.disabled = true; btn.textContent = 'Входим…';
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  try{
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    if(!res.ok) throw new Error('login failed');
+    const { token } = await res.json();
+    setToken(token);
 
-  btn.disabled = false; btn.textContent = 'Войти';
-  if(error){
+    document.getElementById('gateErr').style.display = 'none';
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').classList.add('show');
+    await loadOrders();
+  }catch(e){
     document.getElementById('gateErr').style.display = 'block';
-    return;
+  }finally{
+    btn.disabled = false; btn.textContent = 'Войти';
   }
-  document.getElementById('gateErr').style.display = 'none';
-  document.getElementById('gate').style.display = 'none';
-  document.getElementById('app').classList.add('show');
-  await loadOrders();
 }
 
-async function logout(){
-  await supabase.auth.signOut();
-  document.getElementById('app').classList.remove('show');
-  document.getElementById('gate').style.display = 'flex';
+function logout(){
+  clearToken();
+  showGate();
   document.getElementById('gatePassword').value = '';
   document.getElementById('gateErr').style.display = 'none';
 }
@@ -495,14 +522,12 @@ document.getElementById('statusSelect').addEventListener('change', e=>{ activeSt
 document.getElementById('orderModalOverlay').addEventListener('click', e=>{ if(e.target.id==='orderModalOverlay') closeOrder(); });
 renderDateTabs();
 
-// если сессия уже активна (например, страница обновилась) — сразу впускаем
-supabase.auth.getSession().then(({ data }) => {
-  if(data.session){
-    document.getElementById('gate').style.display = 'none';
-    document.getElementById('app').classList.add('show');
-    loadOrders();
-  }
-});
+// если токен уже сохранён (например, страница обновилась) — сразу впускаем
+if(getToken()){
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').classList.add('show');
+  loadOrders();
+}
 
 // автообновление списка заказов каждые 20 секунд, пока открыта панель
 setInterval(() => {
