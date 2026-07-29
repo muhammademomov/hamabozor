@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '8mb' }));
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -142,15 +142,32 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.post('/api/products', requireAuth, async (req, res) => {
-  const { cat, name_ru, name_tj, price, old_price, emoji, tag, desc_ru, desc_tj } = req.body || {};
+  const {
+    cat, name_ru, name_tj, price, old_price, emoji, tag, desc_ru, desc_tj,
+    image_data, subtitle_ru, subtitle_tj,
+    bundle2_price, bundle3_price, bundle4_price,
+    features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
+    cost_price, stock, rating, rating_count
+  } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
   }
   try {
     const [result] = await pool.query(
-      `INSERT INTO products (cat, name_ru, name_tj, price, old_price, emoji, tag, desc_ru, desc_tj)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '']
+      `INSERT INTO products (
+        cat, name_ru, name_tj, price, old_price, emoji, tag, desc_ru, desc_tj,
+        image_data, subtitle_ru, subtitle_tj,
+        bundle2_price, bundle3_price, bundle4_price,
+        features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
+        cost_price, stock, rating, rating_count
+      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?)`,
+      [
+        cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
+        image_data || null, subtitle_ru || null, subtitle_tj || null,
+        bundle2_price || null, bundle3_price || null, bundle4_price || null,
+        features_ru || null, features_tj || null, delivery_ru || null, delivery_tj || null, warranty_ru || null, warranty_tj || null,
+        cost_price || null, stock == null ? null : stock, rating || null, rating_count || null
+      ]
     );
     res.json({ id: result.insertId });
   } catch (e) {
@@ -160,15 +177,33 @@ app.post('/api/products', requireAuth, async (req, res) => {
 });
 
 app.put('/api/products/:id', requireAuth, async (req, res) => {
-  const { cat, name_ru, name_tj, price, old_price, emoji, tag, desc_ru, desc_tj } = req.body || {};
+  const {
+    cat, name_ru, name_tj, price, old_price, emoji, tag, desc_ru, desc_tj,
+    image_data, subtitle_ru, subtitle_tj,
+    bundle2_price, bundle3_price, bundle4_price,
+    features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
+    cost_price, stock, rating, rating_count
+  } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
   }
   try {
     await pool.query(
-      `UPDATE products SET cat=?, name_ru=?, name_tj=?, price=?, old_price=?, emoji=?, tag=?, desc_ru=?, desc_tj=?
+      `UPDATE products SET
+        cat=?, name_ru=?, name_tj=?, price=?, old_price=?, emoji=?, tag=?, desc_ru=?, desc_tj=?,
+        image_data=?, subtitle_ru=?, subtitle_tj=?,
+        bundle2_price=?, bundle3_price=?, bundle4_price=?,
+        features_ru=?, features_tj=?, delivery_ru=?, delivery_tj=?, warranty_ru=?, warranty_tj=?,
+        cost_price=?, stock=?, rating=?, rating_count=?
        WHERE id=?`,
-      [cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '', req.params.id]
+      [
+        cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
+        image_data || null, subtitle_ru || null, subtitle_tj || null,
+        bundle2_price || null, bundle3_price || null, bundle4_price || null,
+        features_ru || null, features_tj || null, delivery_ru || null, delivery_tj || null, warranty_ru || null, warranty_tj || null,
+        cost_price || null, stock == null ? null : stock, rating || null, rating_count || null,
+        req.params.id
+      ]
     );
     res.json({ ok: true });
   } catch (e) {
@@ -186,6 +221,41 @@ app.delete('/api/products/:id', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Не удалось удалить товар' });
   }
 });
+
+// ----------------------------------------------------------------------------
+// добавляет колонку в таблицу, если её ещё нет — безопасно для уже
+// работающей базы (например, на Railway), не только для новых установок
+// ----------------------------------------------------------------------------
+async function ensureColumn(table, column, definitionSql) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) as cnt FROM information_schema.columns
+     WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
+    [table, column]
+  );
+  if (rows[0].cnt === 0) {
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definitionSql}`);
+    console.log(`Добавлена колонка ${table}.${column}`);
+  }
+}
+
+async function ensureProductColumns() {
+  await ensureColumn('products', 'image_data', 'MEDIUMTEXT NULL');
+  await ensureColumn('products', 'subtitle_ru', 'VARCHAR(255) NULL');
+  await ensureColumn('products', 'subtitle_tj', 'VARCHAR(255) NULL');
+  await ensureColumn('products', 'bundle2_price', 'DECIMAL(10,2) NULL');
+  await ensureColumn('products', 'bundle3_price', 'DECIMAL(10,2) NULL');
+  await ensureColumn('products', 'bundle4_price', 'DECIMAL(10,2) NULL');
+  await ensureColumn('products', 'features_ru', 'TEXT NULL');
+  await ensureColumn('products', 'features_tj', 'TEXT NULL');
+  await ensureColumn('products', 'delivery_ru', 'VARCHAR(255) NULL');
+  await ensureColumn('products', 'delivery_tj', 'VARCHAR(255) NULL');
+  await ensureColumn('products', 'warranty_ru', 'VARCHAR(255) NULL');
+  await ensureColumn('products', 'warranty_tj', 'VARCHAR(255) NULL');
+  await ensureColumn('products', 'cost_price', 'DECIMAL(10,2) NULL');
+  await ensureColumn('products', 'stock', 'INT NULL');
+  await ensureColumn('products', 'rating', 'DECIMAL(2,1) NULL DEFAULT 4.8');
+  await ensureColumn('products', 'rating_count', 'INT NULL DEFAULT 0');
+}
 
 // ----------------------------------------------------------------------------
 // создаём таблицы при старте, если их ещё нет — не нужно вручную
@@ -224,6 +294,8 @@ async function ensureSchema() {
       created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  await ensureProductColumns();
 
   // если товаров ещё нет — заполняем стартовым набором, чтобы сайт не был пустым
   const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM products');

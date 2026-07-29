@@ -112,7 +112,9 @@ header{
 .product-emoji{
   width:100%;aspect-ratio:1.4;border-radius:12px;background:var(--cream);
   display:flex;align-items:center;justify-content:center;font-size:40px;position:relative;
+  overflow:hidden;
 }
+.product-emoji img{width:100%;height:100%;object-fit:cover}
 .product-emoji .pc-tag{
   position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;
   background:var(--marigold);color:var(--indigo);
@@ -127,7 +129,31 @@ header{
 .empty-products{grid-column:1/-1;text-align:center;color:#8a8478;padding:40px 0}
 
 /* ---------- product modal (форма товара) ---------- */
-.product-modal{max-width:560px}
+.product-modal{
+  max-width:1040px;width:95%;padding:0;display:flex;max-height:90vh;overflow:hidden;
+}
+.pm-form-pane{flex:1.25;overflow-y:auto;padding:26px}
+.pm-preview-pane{
+  flex:1;background:var(--cream);padding:26px;overflow-y:auto;
+  border-left:1px solid var(--line);
+}
+.pm-preview-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#8a8478;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.pm-preview-label .dot{width:7px;height:7px;border-radius:50%;background:#5ea86a}
+@media (max-width:760px){
+  .product-modal{flex-direction:column;max-height:94vh}
+  .pm-preview-pane{border-left:none;border-top:1px solid var(--line)}
+}
+
+.pm-step{
+  background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px 18px 6px;margin-bottom:16px;
+}
+.pm-step-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.pm-step-num{
+  width:24px;height:24px;border-radius:50%;background:var(--indigo);color:#fff;
+  font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.pm-step-title{font-family:'Unbounded',sans-serif;font-weight:700;font-size:14px;color:var(--indigo)}
+
 .pm-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .pm-field{margin-top:14px}
 .pm-field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8a8478;font-weight:700;margin-bottom:6px}
@@ -136,15 +162,69 @@ header{
   font-size:14px;font-family:inherit;background:var(--paper);color:var(--ink);
 }
 .pm-field textarea{resize:vertical;min-height:60px}
+.pm-hint{font-size:11px;color:#8a8478;margin-top:6px;line-height:1.5}
+
 .pm-emoji-pick{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .pm-emoji-pick button{
-  width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--cream);
-  font-size:17px;display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--cream);
+  font-size:16px;display:flex;align-items:center;justify-content:center;
 }
 .pm-emoji-pick button.active{border-color:var(--indigo);background:#E2E9F5}
-.pm-actions{display:flex;gap:10px;margin-top:22px}
-.pm-actions .btn-solid{flex:1}
+
+.pm-photo-drop{
+  border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;cursor:pointer;
+  color:#8a8478;font-size:13px;margin-top:14px;background:var(--cream);
+}
+.pm-photo-drop:hover{border-color:var(--indigo)}
+.pm-photo-preview{position:relative;margin-top:14px;display:none}
+.pm-photo-preview img{width:100%;max-height:180px;object-fit:cover;border-radius:12px}
+.pm-photo-remove{
+  position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;
+  background:rgba(27,20,10,.6);color:#fff;font-size:13px;
+}
+
+.pm-discount-badge{font-size:12px;font-weight:700;color:var(--brick);margin-top:8px}
+.pm-margin-row{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
+.pm-margin-card{background:var(--cream);border-radius:10px;padding:10px 14px;flex:1;min-width:110px}
+.pm-margin-card .v{font-family:'Unbounded',sans-serif;font-weight:800;font-size:16px;color:var(--indigo)}
+.pm-margin-card .l{font-size:10px;color:#8a8478;text-transform:uppercase;letter-spacing:.03em;margin-top:2px}
+
+.pm-bundle-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+.pm-bundle-col{background:var(--cream);border-radius:10px;padding:10px}
+.pm-bundle-col .bt{font-size:11px;font-weight:700;color:var(--indigo);margin-bottom:8px;text-align:center}
+.pm-bundle-col input{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12px;margin-bottom:6px;background:var(--paper)}
+.pm-bundle-auto{font-size:10px;color:#8a8478}
+
 .pm-error{color:var(--brick);font-size:12px;margin-top:10px;display:none}
+.pm-actions{display:flex;gap:10px;margin-top:6px;padding-top:16px;border-top:1px solid var(--line)}
+.pm-actions .btn-solid{flex:1}
+
+/* ---------- preview: карточка товара как на сайте ---------- */
+.prev-card{background:var(--paper);border:1px solid var(--line);border-radius:16px;overflow:hidden;max-width:220px}
+.prev-media{
+  aspect-ratio:1.1;display:flex;align-items:center;justify-content:center;font-size:44px;
+  position:relative;background:var(--cream);
+}
+.prev-media img{width:100%;height:100%;object-fit:cover}
+.prev-ribbon{position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--marigold);color:var(--indigo)}
+.prev-body{padding:12px}
+.prev-name{font-size:13px;font-weight:700;color:var(--ink);min-height:32px}
+.prev-sub{font-size:11px;color:#8a8478;margin-top:2px}
+.prev-price-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+.prev-price{font-family:'Unbounded',sans-serif;font-weight:800;color:var(--indigo);font-size:14px}
+.prev-old{font-size:11px;color:#9c9384;text-decoration:line-through}
+.prev-disc{font-size:10px;font-weight:700;color:#fff;background:var(--brick);padding:2px 6px;border-radius:8px}
+
+.prev-detail{margin-top:20px}
+.prev-detail-title{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8a8478;font-weight:700;margin-bottom:10px}
+.prev-desc{font-size:12px;color:var(--ink);line-height:1.6;margin-top:10px}
+.prev-features{margin-top:10px;padding-left:18px}
+.prev-features li{font-size:12px;color:var(--ink);margin-bottom:4px}
+.prev-badges{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.prev-badge{background:#E4EEDD;color:#4c5c3a;font-size:11px;font-weight:700;padding:6px 10px;border-radius:10px}
+.prev-rating{font-size:12px;color:var(--ink);margin-top:10px}
+.prev-bundle{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.prev-bundle-opt{font-size:11px;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
 
 /* ---------- stat cards ---------- */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:26px}
@@ -426,6 +506,7 @@ let productCatFilterVal = 'all';
 let editingProductId = null;
 let pmSelectedEmoji = '🛍️';
 let pmSelectedTag = '';
+let pmImageData = null;
 
 let productsLoadedOnce = false;
 
@@ -473,7 +554,7 @@ function renderProductsGrid(){
   grid.innerHTML = list.map(p => `
     <div class="product-card">
       <div class="product-emoji">
-        ${p.emoji}
+        ${p.image_data ? `<img src="${p.image_data}" alt="">` : p.emoji}
         ${p.tag ? `<span class="pc-tag">${TAG_LABEL[p.tag] || p.tag}</span>` : ''}
       </div>
       <div class="pc-cat">${CAT_LABEL[p.cat] || p.cat}</div>
@@ -487,83 +568,201 @@ function renderProductsGrid(){
   `).join('') || `<div class="empty-products">Товаров пока нет</div>`;
 }
 
+function esc(s){ return (s||'').toString().replace(/"/g,'&quot;'); }
+
 function openProductModal(id){
   editingProductId = id || null;
   const p = id ? ADMIN_PRODUCTS.find(x=>x.id===id) : null;
   pmSelectedEmoji = p ? p.emoji : '🛍️';
   pmSelectedTag = p ? (p.tag || '') : '';
+  pmImageData = p ? (p.image_data || null) : null;
 
   document.getElementById('productModal').innerHTML = `
-    <div class="om-head">
-      <h3>${p ? 'Изменить товар' : 'Новый товар'}</h3>
-      <button class="om-close" onclick="closeProductModal()">✕</button>
-    </div>
+    <div class="pm-form-pane">
+      <div class="om-head">
+        <h3>${p ? 'Изменить товар' : 'Новый товар'}</h3>
+        <button class="om-close" onclick="closeProductModal()">✕</button>
+      </div>
 
-    <div class="pm-field">
-      <label>Эмодзи-иконка</label>
-      <div class="pm-emoji-pick" id="pmEmojiPick">
-        ${EMOJI_PALETTE.map(e => `<button type="button" class="${e===pmSelectedEmoji?'active':''}" onclick="pmPickEmoji('${e}')">${e}</button>`).join('')}
+      <div class="pm-step">
+        <div class="pm-step-head"><span class="pm-step-num">1</span><span class="pm-step-title">Название товара</span></div>
+        <div class="pm-grid2">
+          <div class="pm-field">
+            <label>Название (рус.) *</label>
+            <input id="pmNameRu" oninput="updatePmPreview()" value="${p?esc(p.name_ru):''}" placeholder="Беспроводные наушники">
+          </div>
+          <div class="pm-field">
+            <label>Название (тадж.) *</label>
+            <input id="pmNameTj" oninput="updatePmPreview()" value="${p?esc(p.name_tj):''}" placeholder="Гӯшмонакҳои бесим">
+          </div>
+        </div>
+        <div class="pm-grid2">
+          <div class="pm-field">
+            <label>Подзаголовок (рус., необязательно)</label>
+            <input id="pmSubtitleRu" oninput="updatePmPreview()" value="${p?esc(p.subtitle_ru):''}" placeholder="Короткая фраза под названием">
+          </div>
+          <div class="pm-field">
+            <label>Подзаголовок (тадж., необязательно)</label>
+            <input id="pmSubtitleTj" oninput="updatePmPreview()" value="${p?esc(p.subtitle_tj):''}" placeholder="Ибораи кӯтоҳ">
+          </div>
+        </div>
+      </div>
+
+      <div class="pm-step">
+        <div class="pm-step-head"><span class="pm-step-num">2</span><span class="pm-step-title">Фото товара</span></div>
+        <div class="pm-photo-drop" id="pmPhotoDrop" onclick="document.getElementById('pmPhotoInput').click()">
+          📷 Нажмите, чтобы загрузить фото (JPG, PNG · до 5 МБ)
+        </div>
+        <input type="file" id="pmPhotoInput" accept="image/*" style="display:none" onchange="pmHandlePhotoFile(this)">
+        <div class="pm-photo-preview" id="pmPhotoPreview" style="${pmImageData?'display:block':''}">
+          <img id="pmPhotoImg" src="${pmImageData||''}">
+          <button type="button" class="pm-photo-remove" onclick="pmRemovePhoto()">✕</button>
+        </div>
+        <div class="pm-hint">Если фото не загружено — на сайте будет показана эмодзи-иконка:</div>
+        <div class="pm-emoji-pick" id="pmEmojiPick">
+          ${EMOJI_PALETTE.map(e => `<button type="button" class="${e===pmSelectedEmoji?'active':''}" onclick="pmPickEmoji('${e}')">${e}</button>`).join('')}
+        </div>
+      </div>
+
+      <div class="pm-step">
+        <div class="pm-step-head"><span class="pm-step-num">3</span><span class="pm-step-title">Цена</span></div>
+        <div class="pm-grid2">
+          <div class="pm-field">
+            <label>Цена продажи (смн) *</label>
+            <input id="pmPrice" type="number" min="0" step="1" oninput="updatePmPreview()" value="${p?p.price:''}" placeholder="249">
+          </div>
+          <div class="pm-field">
+            <label>Старая цена (необязательно)</label>
+            <input id="pmOldPrice" type="number" min="0" step="1" oninput="updatePmPreview()" value="${p&&p.old_price!=null?p.old_price:''}" placeholder="350">
+          </div>
+        </div>
+        <div class="pm-discount-badge" id="pmDiscountBadge"></div>
+      </div>
+
+      <div class="pm-step">
+        <div class="pm-step-head"><span class="pm-step-num">4</span><span class="pm-step-title">Варианты количества (необязательно)</span></div>
+        <div class="pm-hint">Если задать цену за несколько штук — на сайте покупатель сможет выбрать пакет сразу. Оставьте пустым, если не нужно.</div>
+        <div class="pm-bundle-row">
+          <div class="pm-bundle-col"><div class="bt">1 штука</div><div class="pm-bundle-auto" id="pmBundle1Auto">—</div></div>
+          <div class="pm-bundle-col"><div class="bt">2 штуки</div><input id="pmBundle2" type="number" min="0" oninput="updatePmPreview()" value="${p&&p.bundle2_price!=null?p.bundle2_price:''}" placeholder="цена"><div class="pm-bundle-auto" id="pmBundle2Auto">—</div></div>
+          <div class="pm-bundle-col"><div class="bt">3 штуки</div><input id="pmBundle3" type="number" min="0" oninput="updatePmPreview()" value="${p&&p.bundle3_price!=null?p.bundle3_price:''}" placeholder="цена"><div class="pm-bundle-auto" id="pmBundle3Auto">—</div></div>
+          <div class="pm-bundle-col"><div class="bt">4 штуки</div><input id="pmBundle4" type="number" min="0" oninput="updatePmPreview()" value="${p&&p.bundle4_price!=null?p.bundle4_price:''}" placeholder="цена"><div class="pm-bundle-auto" id="pmBundle4Auto">—</div></div>
+        </div>
+      </div>
+
+      <div class="pm-step">
+        <div class="pm-step-head"><span class="pm-step-num">5</span><span class="pm-step-title">Категория и метка</span></div>
+        <div class="pm-grid2">
+          <div class="pm-field">
+            <label>Категория *</label>
+            <select id="pmCat" onchange="updatePmPreview()">
+              <option value="electronics" ${p&&p.cat==='electronics'?'selected':''}>Электроника</option>
+              <option value="clothing" ${p&&p.cat==='clothing'?'selected':''}>Одежда</option>
+              <option value="bags" ${p&&p.cat==='bags'?'selected':''}>Сумки</option>
+            </select>
+          </div>
+          <div class="pm-field">
+            <label>Метка</label>
+            <select id="pmTag" onchange="updatePmPreview()">
+              <option value="" ${!pmSelectedTag?'selected':''}>Нет</option>
+              <option value="top" ${pmSelectedTag==='top'?'selected':''}>🔥 Хит</option>
+              <option value="new" ${pmSelectedTag==='new'?'selected':''}>🆕 Новинка</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="pm-step">
+        <div class="pm-step-head"><span class="pm-step-num">6</span><span class="pm-step-title">Особенности товара</span></div>
+        <div class="pm-hint">Каждая строка — один пункт списка.</div>
+        <div class="pm-grid2">
+          <div class="pm-field">
+            <label>Особенности (рус.)</label>
+            <textarea id="pmFeaturesRu" oninput="updatePmPreview()" placeholder="Яркий свет&#10;Экономия энергии">${p?esc(p.features_ru):''}</textarea>
+          </div>
+          <div class="pm-field">
+            <label>Особенности (тадж.)</label>
+            <textarea id="pmFeaturesTj" oninput="updatePmPreview()" placeholder="Рӯшноии дурахшон">${p?esc(p.features_tj):''}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="pm-step">
+        <div class="pm-step-head"><span class="pm-step-num">7</span><span class="pm-step-title">Доставка и гарантия</span></div>
+        <div class="pm-grid2">
+          <div class="pm-field">
+            <label>Доставка (рус.)</label>
+            <input id="pmDeliveryRu" oninput="updatePmPreview()" value="${p?esc(p.delivery_ru):''}" placeholder="Бесплатная доставка, 2 дня">
+          </div>
+          <div class="pm-field">
+            <label>Доставка (тадж.)</label>
+            <input id="pmDeliveryTj" oninput="updatePmPreview()" value="${p?esc(p.delivery_tj):''}" placeholder="Бурдарасонии Ройгон">
+          </div>
+        </div>
+        <div class="pm-grid2">
+          <div class="pm-field">
+            <label>Гарантия (рус.)</label>
+            <input id="pmWarrantyRu" oninput="updatePmPreview()" value="${p?esc(p.warranty_ru):''}" placeholder="Гарантия 14 дней">
+          </div>
+          <div class="pm-field">
+            <label>Гарантия (тадж.)</label>
+            <input id="pmWarrantyTj" oninput="updatePmPreview()" value="${p?esc(p.warranty_tj):''}" placeholder="Кафолат 14 рӯз">
+          </div>
+        </div>
+      </div>
+
+      <div class="pm-step">
+        <div class="pm-step-head"><span class="pm-step-num">8</span><span class="pm-step-title">Описание</span></div>
+        <div class="pm-field">
+          <label>Описание (рус.)</label>
+          <textarea id="pmDescRu" oninput="updatePmPreview()" placeholder="Короткое описание товара...">${p?esc(p.desc_ru):''}</textarea>
+        </div>
+        <div class="pm-field">
+          <label>Описание (тадж.)</label>
+          <textarea id="pmDescTj" oninput="updatePmPreview()" placeholder="Тавсифи мухтасари мол...">${p?esc(p.desc_tj):''}</textarea>
+        </div>
+      </div>
+
+      <div class="pm-step">
+        <div class="pm-step-head"><span class="pm-step-num">9</span><span class="pm-step-title">Аналитика и склад</span></div>
+        <div class="pm-grid2">
+          <div class="pm-field">
+            <label>Себестоимость (смн)</label>
+            <input id="pmCostPrice" type="number" min="0" oninput="updatePmPreview()" value="${p&&p.cost_price!=null?p.cost_price:''}" placeholder="120">
+          </div>
+          <div class="pm-field">
+            <label>Остаток (шт)</label>
+            <input id="pmStock" type="number" min="0" oninput="updatePmPreview()" value="${p&&p.stock!=null?p.stock:''}" placeholder="50">
+          </div>
+        </div>
+        <div class="pm-grid2">
+          <div class="pm-field">
+            <label>Рейтинг (0–5)</label>
+            <input id="pmRating" type="number" min="0" max="5" step="0.1" oninput="updatePmPreview()" value="${p&&p.rating!=null?p.rating:'4.8'}" placeholder="4.8">
+          </div>
+          <div class="pm-field">
+            <label>Кол-во оценок</label>
+            <input id="pmRatingCount" type="number" min="0" oninput="updatePmPreview()" value="${p&&p.rating_count!=null?p.rating_count:''}" placeholder="128">
+          </div>
+        </div>
+        <div class="pm-margin-row" id="pmMarginRow"></div>
+      </div>
+
+      <div class="pm-error" id="pmError">Заполните обязательные поля (название, категория, цена).</div>
+
+      <div class="pm-actions">
+        <button class="btn-outline" onclick="closeProductModal()">Отмена</button>
+        <button class="btn-solid" id="pmSaveBtn" onclick="saveProduct()">${p ? 'Сохранить' : 'Добавить товар'}</button>
       </div>
     </div>
 
-    <div class="pm-grid2">
-      <div class="pm-field">
-        <label>Название (рус.) *</label>
-        <input id="pmNameRu" value="${p ? p.name_ru.replace(/"/g,'&quot;') : ''}" placeholder="Беспроводные наушники">
-      </div>
-      <div class="pm-field">
-        <label>Название (тадж.) *</label>
-        <input id="pmNameTj" value="${p ? p.name_tj.replace(/"/g,'&quot;') : ''}" placeholder="Гӯшмонакҳои бесим">
-      </div>
-    </div>
-
-    <div class="pm-grid2">
-      <div class="pm-field">
-        <label>Категория *</label>
-        <select id="pmCat">
-          <option value="electronics" ${p && p.cat==='electronics'?'selected':''}>Электроника</option>
-          <option value="clothing" ${p && p.cat==='clothing'?'selected':''}>Одежда</option>
-          <option value="bags" ${p && p.cat==='bags'?'selected':''}>Сумки</option>
-        </select>
-      </div>
-      <div class="pm-field">
-        <label>Метка</label>
-        <select id="pmTag">
-          <option value="" ${!pmSelectedTag?'selected':''}>Нет</option>
-          <option value="top" ${pmSelectedTag==='top'?'selected':''}>🔥 Хит</option>
-          <option value="new" ${pmSelectedTag==='new'?'selected':''}>🆕 Новинка</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="pm-grid2">
-      <div class="pm-field">
-        <label>Цена (смн) *</label>
-        <input id="pmPrice" type="number" min="0" step="1" value="${p ? p.price : ''}" placeholder="249">
-      </div>
-      <div class="pm-field">
-        <label>Старая цена (для скидки, необязательно)</label>
-        <input id="pmOldPrice" type="number" min="0" step="1" value="${p && p.old_price!=null ? p.old_price : ''}" placeholder="350">
-      </div>
-    </div>
-
-    <div class="pm-field">
-      <label>Описание (рус.)</label>
-      <textarea id="pmDescRu" placeholder="Короткое описание товара...">${p ? p.desc_ru||'' : ''}</textarea>
-    </div>
-    <div class="pm-field">
-      <label>Описание (тадж.)</label>
-      <textarea id="pmDescTj" placeholder="Тавсифи мухтасари мол...">${p ? p.desc_tj||'' : ''}</textarea>
-    </div>
-
-    <div class="pm-error" id="pmError">Заполните обязательные поля (название, категория, цена).</div>
-
-    <div class="pm-actions">
-      <button class="btn-outline" onclick="closeProductModal()">Отмена</button>
-      <button class="btn-solid" id="pmSaveBtn" onclick="saveProduct()">${p ? 'Сохранить' : 'Добавить товар'}</button>
+    <div class="pm-preview-pane">
+      <div class="pm-preview-label"><span class="dot"></span>Предпросмотр — так это увидит покупатель</div>
+      <div id="pmPreviewBody"></div>
     </div>
   `;
   document.getElementById('productModalOverlay').classList.add('show');
+  updatePmPreview();
 }
 
 function pmPickEmoji(e){
@@ -571,6 +770,125 @@ function pmPickEmoji(e){
   document.querySelectorAll('#pmEmojiPick button').forEach(btn=>{
     btn.classList.toggle('active', btn.textContent===e);
   });
+  updatePmPreview();
+}
+
+function pmHandlePhotoFile(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 5*1024*1024){
+    alert('Файл слишком большой — выберите фото до 5 МБ.');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    pmImageData = reader.result;
+    document.getElementById('pmPhotoImg').src = pmImageData;
+    document.getElementById('pmPhotoPreview').style.display = 'block';
+    updatePmPreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+function pmRemovePhoto(){
+  pmImageData = null;
+  document.getElementById('pmPhotoPreview').style.display = 'none';
+  document.getElementById('pmPhotoInput').value = '';
+  updatePmPreview();
+}
+
+function updatePmPreview(){
+  const name_ru = document.getElementById('pmNameRu').value.trim() || 'Название товара';
+  const subtitle_ru = document.getElementById('pmSubtitleRu').value.trim();
+  const cat = document.getElementById('pmCat').value;
+  const tag = document.getElementById('pmTag').value;
+  const price = Number(document.getElementById('pmPrice').value) || 0;
+  const oldPriceRaw = document.getElementById('pmOldPrice').value;
+  const old_price = oldPriceRaw ? Number(oldPriceRaw) : null;
+  const b2 = document.getElementById('pmBundle2').value;
+  const b3 = document.getElementById('pmBundle3').value;
+  const b4 = document.getElementById('pmBundle4').value;
+  const featuresRu = document.getElementById('pmFeaturesRu').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const deliveryRu = document.getElementById('pmDeliveryRu').value.trim();
+  const warrantyRu = document.getElementById('pmWarrantyRu').value.trim();
+  const descRu = document.getElementById('pmDescRu').value.trim();
+  const costPrice = document.getElementById('pmCostPrice').value;
+  const rating = document.getElementById('pmRating').value;
+  const ratingCount = document.getElementById('pmRatingCount').value;
+
+  // скидка (шаг 3)
+  const discountBadge = document.getElementById('pmDiscountBadge');
+  if(old_price && old_price > price && price > 0){
+    const pct = Math.round((1 - price/old_price)*100);
+    discountBadge.textContent = `Скидка на сайте: −${pct}% (было ${old_price} смн)`;
+  }else{
+    discountBadge.textContent = '';
+  }
+
+  // авто-расчёт для вариантов количества (шаг 4)
+  const base = old_price || price;
+  document.getElementById('pmBundle1Auto').textContent = price ? price + ' смн' : '—';
+  [['pmBundle2Auto',2,b2],['pmBundle3Auto',3,b3],['pmBundle4Auto',4,b4]].forEach(([elId,qty,val])=>{
+    const el = document.getElementById(elId);
+    const sale = Number(val);
+    if(sale > 0 && base > 0){
+      const oldTotal = base * qty;
+      const economy = Math.max(0, oldTotal - sale);
+      el.innerHTML = `было ${oldTotal} · экономия ${economy}`;
+    }else{
+      el.textContent = '—';
+    }
+  });
+
+  // маржа (шаг 9)
+  const marginRow = document.getElementById('pmMarginRow');
+  const cost = Number(costPrice) || 0;
+  if(cost > 0 && price > 0){
+    const margin = price - cost;
+    const marginPct = Math.round((margin/price)*100);
+    marginRow.innerHTML = `
+      <div class="pm-margin-card"><div class="v">${margin} смн</div><div class="l">маржа с ед.</div></div>
+      <div class="pm-margin-card"><div class="v">${marginPct}%</div><div class="l">рентабельность</div></div>
+    `;
+  }else{
+    marginRow.innerHTML = '';
+  }
+
+  // живой предпросмотр карточки + страницы товара
+  const mediaHtml = pmImageData
+    ? `<img src="${pmImageData}">`
+    : pmSelectedEmoji;
+  const priceHtml = (old_price && old_price > price && price > 0)
+    ? `<span class="prev-price">${price} смн</span><span class="prev-old">${old_price} смн</span><span class="prev-disc">−${Math.round((1-price/old_price)*100)}%</span>`
+    : `<span class="prev-price">${price||0} смн</span>`;
+  const tagRibbon = tag ? `<span class="prev-ribbon">${TAG_LABEL[tag]||tag}</span>` : '';
+
+  const bundleOpts = [];
+  bundleOpts.push(`1 шт — ${price||0} смн`);
+  if(Number(b2)>0) bundleOpts.push(`2 шт — ${b2} смн`);
+  if(Number(b3)>0) bundleOpts.push(`3 шт — ${b3} смн`);
+  if(Number(b4)>0) bundleOpts.push(`4 шт — ${b4} смн`);
+
+  document.getElementById('pmPreviewBody').innerHTML = `
+    <div class="prev-card">
+      <div class="prev-media">${mediaHtml}${tagRibbon}</div>
+      <div class="prev-body">
+        <div class="prev-name">${name_ru}</div>
+        <div class="prev-price-row">${priceHtml}</div>
+      </div>
+    </div>
+
+    <div class="prev-detail">
+      <div class="prev-detail-title">Страница товара</div>
+      ${subtitle_ru ? `<div class="prev-sub">${subtitle_ru}</div>` : ''}
+      ${descRu ? `<div class="prev-desc">${descRu}</div>` : ''}
+      ${featuresRu.length ? `<ul class="prev-features">${featuresRu.map(f=>`<li>${f}</li>`).join('')}</ul>` : ''}
+      ${bundleOpts.length>1 ? `<div class="prev-bundle">${bundleOpts.map(b=>`<span class="prev-bundle-opt">${b}</span>`).join('')}</div>` : ''}
+      ${(deliveryRu||warrantyRu) ? `<div class="prev-badges">${deliveryRu?`<span class="prev-badge">🚚 ${deliveryRu}</span>`:''}${warrantyRu?`<span class="prev-badge">🛡️ ${warrantyRu}</span>`:''}</div>` : ''}
+      ${(rating && ratingCount) ? `<div class="prev-rating">⭐ ${rating} · ${ratingCount} оценок</div>` : ''}
+    </div>
+  `;
 }
 
 function closeProductModal(){
@@ -585,8 +903,6 @@ async function saveProduct(){
   const price = Number(document.getElementById('pmPrice').value);
   const oldPriceRaw = document.getElementById('pmOldPrice').value;
   const old_price = oldPriceRaw ? Number(oldPriceRaw) : null;
-  const desc_ru = document.getElementById('pmDescRu').value.trim();
-  const desc_tj = document.getElementById('pmDescTj').value.trim();
   const errBox = document.getElementById('pmError');
 
   if(!name_ru || !name_tj || !cat || !price || price <= 0){
@@ -597,7 +913,30 @@ async function saveProduct(){
 
   const btn = document.getElementById('pmSaveBtn');
   btn.disabled = true;
-  const payload = { cat, name_ru, name_tj, price, old_price, emoji: pmSelectedEmoji, tag, desc_ru, desc_tj };
+
+  const numOrNull = v => v === '' || v === null || v === undefined ? null : Number(v);
+  const payload = {
+    cat, name_ru, name_tj, price, old_price,
+    emoji: pmSelectedEmoji, tag,
+    image_data: pmImageData,
+    subtitle_ru: document.getElementById('pmSubtitleRu').value.trim() || null,
+    subtitle_tj: document.getElementById('pmSubtitleTj').value.trim() || null,
+    bundle2_price: numOrNull(document.getElementById('pmBundle2').value),
+    bundle3_price: numOrNull(document.getElementById('pmBundle3').value),
+    bundle4_price: numOrNull(document.getElementById('pmBundle4').value),
+    features_ru: document.getElementById('pmFeaturesRu').value.trim() || null,
+    features_tj: document.getElementById('pmFeaturesTj').value.trim() || null,
+    delivery_ru: document.getElementById('pmDeliveryRu').value.trim() || null,
+    delivery_tj: document.getElementById('pmDeliveryTj').value.trim() || null,
+    warranty_ru: document.getElementById('pmWarrantyRu').value.trim() || null,
+    warranty_tj: document.getElementById('pmWarrantyTj').value.trim() || null,
+    desc_ru: document.getElementById('pmDescRu').value.trim(),
+    desc_tj: document.getElementById('pmDescTj').value.trim(),
+    cost_price: numOrNull(document.getElementById('pmCostPrice').value),
+    stock: numOrNull(document.getElementById('pmStock').value),
+    rating: numOrNull(document.getElementById('pmRating').value),
+    rating_count: numOrNull(document.getElementById('pmRatingCount').value)
+  };
 
   try{
     if(editingProductId){

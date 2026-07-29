@@ -181,8 +181,9 @@ section.products{padding:48px 20px}
 }
 .card-media{
   aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;
-  font-size:56px;background:var(--card-bg,var(--cream));position:relative;
+  font-size:56px;background:var(--card-bg,var(--cream));position:relative;overflow:hidden;
 }
+.card-media img{width:100%;height:100%;object-fit:cover}
 .card-ribbon{
   position:absolute;top:10px;left:-6px;background:var(--brick);color:#fff;
   font-size:10px;font-weight:800;letter-spacing:.04em;padding:4px 10px 4px 14px;
@@ -315,7 +316,20 @@ section.products{padding:48px 20px}
 .pp-content{padding:22px 20px;max-width:760px;margin:0 auto}
 .pp-cat{font-size:12px;font-weight:700;color:var(--pistachio);text-transform:uppercase;letter-spacing:.05em}
 .pp-title{font-size:24px;margin-top:8px}
+.pp-subtitle{font-size:13px;color:#8a8478;margin-top:4px}
+.pp-rating{font-size:13px;color:var(--ink);margin-top:8px}
 .pp-price-row{margin-top:16px}
+.pp-bundle{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.pp-bundle-opt{
+  border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:8px 14px;
+  font-size:12px;font-weight:700;color:var(--ink);text-align:center;
+}
+.pp-bundle-opt.active{border-color:var(--indigo);background:#E2E9F5;color:var(--indigo)}
+.pp-bundle-opt .q{display:block;font-size:11px;color:#8a8478;font-weight:600}
+.pp-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.pp-badge{background:#E4EEDD;color:#4c5c3a;font-size:12px;font-weight:700;padding:7px 12px;border-radius:10px}
+.pp-features{margin-top:14px;padding-left:20px}
+.pp-features li{font-size:13px;color:var(--ink);margin-bottom:6px;line-height:1.5}
 .pp-desc-label{font-size:13px;font-weight:700;color:#6b655a;margin-top:26px;text-transform:uppercase;letter-spacing:.04em}
 .pp-desc-text{font-size:15px;line-height:1.65;margin-top:10px;color:var(--ink)}
 .pp-similar-label{font-size:17px;margin:30px 0 14px}
@@ -486,9 +500,14 @@ footer p{margin-top:8px;font-size:14px}
     <div class="pp-content">
       <div class="pp-cat" id="ppCat"></div>
       <h2 class="pp-title" id="ppTitle"></h2>
+      <div class="pp-subtitle" id="ppSubtitle"></div>
+      <div class="pp-rating" id="ppRating"></div>
       <div class="pp-price-row" id="ppPrice"></div>
+      <div class="pp-bundle" id="ppBundle"></div>
+      <div class="pp-badges" id="ppBadges"></div>
       <div class="pp-desc-label" data-i18n="pp_desc_label">Тавсиф</div>
       <p class="pp-desc-text" id="ppDesc"></p>
+      <ul class="pp-features" id="ppFeatures"></ul>
       <h3 class="pp-similar-label" data-i18n="pp_similar">Молҳои монанд</h3>
       <div class="similar-grid" id="ppSimilar"></div>
     </div>
@@ -566,17 +585,32 @@ async function loadProducts(){
     if(!res.ok) throw new Error('http ' + res.status);
     const data = await res.json();
     if(Array.isArray(data) && data.length){
+      const num = v => (v === null || v === undefined || v === '') ? null : Number(v);
       PRODUCTS = data.map(p => ({
         id: p.id,
         cat: p.cat,
         name_ru: p.name_ru,
         name_tj: p.name_tj,
         price: Number(p.price),
-        old_price: (p.old_price === null || p.old_price === undefined) ? null : Number(p.old_price),
+        old_price: num(p.old_price),
         emoji: p.emoji,
         tag: p.tag,
         desc_ru: p.desc_ru,
-        desc_tj: p.desc_tj
+        desc_tj: p.desc_tj,
+        image_data: p.image_data || null,
+        subtitle_ru: p.subtitle_ru || '',
+        subtitle_tj: p.subtitle_tj || '',
+        bundle2_price: num(p.bundle2_price),
+        bundle3_price: num(p.bundle3_price),
+        bundle4_price: num(p.bundle4_price),
+        features_ru: p.features_ru || '',
+        features_tj: p.features_tj || '',
+        delivery_ru: p.delivery_ru || '',
+        delivery_tj: p.delivery_tj || '',
+        warranty_ru: p.warranty_ru || '',
+        warranty_tj: p.warranty_tj || '',
+        rating: num(p.rating),
+        rating_count: num(p.rating_count)
       }));
     }
   }catch(e){
@@ -643,6 +677,7 @@ const CARD_BG = { electronics:'#EFE6D2', clothing:'#F3DEDA', bags:'#E4E9DA' };
 let lang = 'tj';
 let activeCat = 'all';
 let cart = {}; // {productId: qty}
+let cartPriceOverride = {}; // {productId: цена за 1 шт, если товар добавлен по пакетной цене}
 
 /* ---------- рендер ---------- */
 function renderTabs(){
@@ -673,11 +708,19 @@ function priceHtml(p){
   return `<div class="price-group"><span class="price-tag">${p.price} смн</span></div>`;
 }
 
+function unitPrice(id){
+  return cartPriceOverride[id] != null ? cartPriceOverride[id] : (PRODUCTS.find(p=>p.id==id)||{}).price || 0;
+}
+
+function mediaHtml(p){
+  return p.image_data ? `<img src="${p.image_data}" alt="">` : p.emoji;
+}
+
 function renderCard(p){
   return `
     <div class="card" onclick="openProduct(${p.id})">
       <div class="card-media" style="--card-bg:${CARD_BG[p.cat]}">
-        ${p.emoji}
+        ${mediaHtml(p)}
         ${p.tag ? `<span class="card-ribbon ${p.tag}">${p.tag==='top'?(lang==='tj'?'ТОП':'ХИТ'):(lang==='tj'?'НАВ':'NEW')}</span>`:''}
       </div>
       <div class="card-body">
@@ -695,21 +738,21 @@ function filterCat(c){ activeCat=c; renderTabs(); renderProducts(); document.get
 /* ---------- сабад / корзина ---------- */
 function addToCart(id){
   cart[id] = (cart[id]||0) + 1;
+  delete cartPriceOverride[id]; // обычное добавление — сбрасываем пакетную цену
   updateCartUI();
   showToast(I18N[lang].added);
 }
 function changeQty(id, delta){
   cart[id] = (cart[id]||0) + delta;
-  if(cart[id]<=0) delete cart[id];
+  if(cart[id]<=0){ delete cart[id]; delete cartPriceOverride[id]; }
   updateCartUI();
 }
-function removeItem(id){ delete cart[id]; updateCartUI(); }
+function removeItem(id){ delete cart[id]; delete cartPriceOverride[id]; updateCartUI(); }
 
 function cartCount(){ return Object.values(cart).reduce((a,b)=>a+b,0); }
 function cartTotal(){
   return Object.entries(cart).reduce((sum,[id,qty])=>{
-    const p = PRODUCTS.find(p=>p.id==id);
-    return sum + (p ? p.price*qty : 0);
+    return sum + unitPrice(id)*qty;
   },0);
 }
 
@@ -730,10 +773,10 @@ function updateCartUI(){
     if(!p) return '';
     return `
       <div class="cart-row">
-        <div class="em">${p.emoji}</div>
+        <div class="em">${mediaHtml(p)}</div>
         <div class="info">
           <div class="name">${lang==='tj'?p.name_tj:p.name_ru}</div>
-          <div class="price">${p.price} смн</div>
+          <div class="price">${unitPrice(id)} смн</div>
           <div class="qty">
             <button onclick="changeQty(${p.id},-1)">−</button>
             <span>${qty}</span>
@@ -748,6 +791,8 @@ function updateCartUI(){
 /* ---------- страница товара ---------- */
 let ppCurrentId = null;
 let ppQtyVal = 1;
+let ppBundleQty = null;
+let ppBundleTotal = null;
 
 function openProduct(id){
   // мегузорем ба hash, то саҳифа URL-и худро дошта бошад (масалан #product-3)
@@ -765,6 +810,8 @@ function ppRenderOpen(id){
   if(!p) return;
   ppCurrentId = id;
   ppQtyVal = 1;
+  ppBundleQty = null;
+  ppBundleTotal = null;
   renderProductDetail();
   document.getElementById('productPage').classList.add('show');
   document.body.style.overflow = 'hidden';
@@ -790,25 +837,85 @@ function renderProductDetail(){
   const p = PRODUCTS.find(x=>x.id===ppCurrentId);
   if(!p) return;
   document.getElementById('ppMedia').style.setProperty('--pp-bg', CARD_BG[p.cat]);
-  document.getElementById('ppMedia').textContent = p.emoji;
+  document.getElementById('ppMedia').innerHTML = mediaHtml(p);
   document.getElementById('ppCat').textContent = CAT_LABELS[p.cat][lang];
   document.getElementById('ppTitle').textContent = lang==='tj'?p.name_tj:p.name_ru;
+
+  const subtitle = lang==='tj'?p.subtitle_tj:p.subtitle_ru;
+  const subtitleEl = document.getElementById('ppSubtitle');
+  subtitleEl.textContent = subtitle || '';
+  subtitleEl.style.display = subtitle ? 'block' : 'none';
+
+  const ratingEl = document.getElementById('ppRating');
+  if(p.rating && p.rating_count){
+    ratingEl.textContent = `⭐ ${p.rating} · ${p.rating_count} ${lang==='tj'?'бахо':'оценок'}`;
+    ratingEl.style.display = 'block';
+  }else{
+    ratingEl.style.display = 'none';
+  }
+
   document.getElementById('ppPrice').innerHTML = priceHtml(p);
   document.getElementById('ppDesc').textContent = lang==='tj'?p.desc_tj:p.desc_ru;
   document.getElementById('ppQty').textContent = ppQtyVal;
+
+  // варианты количества (если заданы цены за 2/3/4 штуки)
+  const tiers = [
+    {qty:1, price:p.price},
+    {qty:2, price:p.bundle2_price},
+    {qty:3, price:p.bundle3_price},
+    {qty:4, price:p.bundle4_price},
+  ].filter(t => t.price != null && Number(t.price) > 0);
+  const bundleEl = document.getElementById('ppBundle');
+  if(tiers.length > 1){
+    bundleEl.innerHTML = tiers.map(t => `
+      <button type="button" class="pp-bundle-opt ${ (ppBundleQty ? ppBundleQty===t.qty : t.qty===1) ? 'active' : ''}" onclick="ppSelectBundle(${t.qty},${t.price})">
+        ${t.qty} ${lang==='tj'?'дона':'шт'}<span class="q">${t.price} смн</span>
+      </button>`).join('');
+    bundleEl.style.display = 'flex';
+  }else{
+    bundleEl.innerHTML = '';
+    bundleEl.style.display = 'none';
+  }
+
+  // доставка / гарантия
+  const deliveryTxt = lang==='tj'?p.delivery_tj:p.delivery_ru;
+  const warrantyTxt = lang==='tj'?p.warranty_tj:p.warranty_ru;
+  const badges = [];
+  if(deliveryTxt) badges.push(`<span class="pp-badge">🚚 ${deliveryTxt}</span>`);
+  if(warrantyTxt) badges.push(`<span class="pp-badge">🛡️ ${warrantyTxt}</span>`);
+  document.getElementById('ppBadges').innerHTML = badges.join('');
+
+  // особенности товара
+  const featuresTxt = lang==='tj'?p.features_tj:p.features_ru;
+  const features = (featuresTxt||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  document.getElementById('ppFeatures').innerHTML = features.map(f=>`<li>${f}</li>`).join('');
 
   const similar = PRODUCTS.filter(x=>x.cat===p.cat && x.id!==p.id).slice(0,6);
   document.getElementById('ppSimilar').innerHTML = similar.map(s=>renderCard(s)).join('') ||
     `<p style="color:#8a8478;font-size:13px">—</p>`;
 }
 
+function ppSelectBundle(qty, price){
+  ppBundleQty = qty;
+  ppBundleTotal = price;
+  ppQtyVal = qty;
+  renderProductDetail();
+}
+
 function ppChangeQty(delta){
   ppQtyVal = Math.max(1, ppQtyVal + delta);
-  document.getElementById('ppQty').textContent = ppQtyVal;
+  ppBundleQty = null;
+  ppBundleTotal = null;
+  renderProductDetail();
 }
 function ppAddToCart(){
   if(!ppCurrentId) return;
   cart[ppCurrentId] = (cart[ppCurrentId]||0) + ppQtyVal;
+  if(ppBundleQty && ppBundleTotal){
+    cartPriceOverride[ppCurrentId] = Math.round((ppBundleTotal / ppBundleQty) * 100) / 100;
+  }else{
+    delete cartPriceOverride[ppCurrentId];
+  }
   updateCartUI();
   showToast(I18N[lang].added);
 }
@@ -835,7 +942,7 @@ function buildOrderText(name, phone, address, comment){
   const lines = Object.entries(cart).map(([id,qty])=>{
     const p = PRODUCTS.find(p=>p.id==id);
     const pname = lang==='tj'?p.name_tj:p.name_ru;
-    return `• ${pname} × ${qty} = ${p.price*qty} смн`;
+    return `• ${pname} × ${qty} = ${unitPrice(id)*qty} смн`;
   });
   const head = lang==='tj' ? '🛒 ФАРМОИШИ НАВ — ҲАМАБОЗОР' : '🛒 НОВЫЙ ЗАКАЗ — ҲАМАБОЗОР';
   const l = {
@@ -859,7 +966,7 @@ function buildOrderText(name, phone, address, comment){
 async function saveOrderToDatabase(channel, name, phone, address, comment){
   const items = Object.entries(cart).map(([id,qty])=>{
     const p = PRODUCTS.find(x=>x.id===Number(id));
-    return { name: lang==='tj'?p.name_tj:p.name_ru, qty, price:p.price };
+    return { name: lang==='tj'?p.name_tj:p.name_ru, qty, price:unitPrice(id) };
   });
   try{
     const res = await fetch('/api/orders', {
