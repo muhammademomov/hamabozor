@@ -89,8 +89,62 @@ header{
   border:1px solid var(--line);background:var(--paper);padding:9px 16px;
   border-radius:999px;font-size:13px;font-weight:700;color:var(--ink);
 }
+.btn-solid{
+  border:none;background:var(--indigo);color:#fff;padding:10px 18px;
+  border-radius:999px;font-size:13px;font-weight:700;
+}
+.btn-solid:hover{background:var(--indigo-2)}
+.section-tabs{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper)}
+.section-tab{padding:9px 18px;font-size:13px;font-weight:700;color:var(--ink);background:none}
+.section-tab.active{background:var(--indigo);color:#fff}
 
 .wrap{max-width:1280px;margin:0 auto;padding:26px 24px 60px}
+.wrap.hidden{display:none}
+
+/* ---------- products ---------- */
+.products-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.products-toolbar .search-box{flex:1;min-width:180px;max-width:320px}
+.products-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.product-card{
+  background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.product-emoji{
+  width:100%;aspect-ratio:1.4;border-radius:12px;background:var(--cream);
+  display:flex;align-items:center;justify-content:center;font-size:40px;position:relative;
+}
+.product-emoji .pc-tag{
+  position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;
+  background:var(--marigold);color:var(--indigo);
+}
+.pc-cat{font-size:11px;color:#8a8478;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.pc-name{font-size:14px;font-weight:700;color:var(--ink);min-height:36px}
+.pc-price-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-family:'Unbounded',sans-serif;font-weight:800;color:var(--indigo);font-size:14px}
+.pc-price-old{font-family:'Inter',sans-serif;font-weight:600;font-size:12px;color:#9c9384;text-decoration:line-through}
+.pc-actions{display:flex;gap:8px;margin-top:auto}
+.pc-actions button{flex:1;padding:8px 0;border-radius:10px;font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--cream)}
+.pc-actions .pc-delete{color:var(--brick)}
+.empty-products{grid-column:1/-1;text-align:center;color:#8a8478;padding:40px 0}
+
+/* ---------- product modal (форма товара) ---------- */
+.product-modal{max-width:560px}
+.pm-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pm-field{margin-top:14px}
+.pm-field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8a8478;font-weight:700;margin-bottom:6px}
+.pm-field input,.pm-field select,.pm-field textarea{
+  width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+  font-size:14px;font-family:inherit;background:var(--paper);color:var(--ink);
+}
+.pm-field textarea{resize:vertical;min-height:60px}
+.pm-emoji-pick{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.pm-emoji-pick button{
+  width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--cream);
+  font-size:17px;display:flex;align-items:center;justify-content:center;
+}
+.pm-emoji-pick button.active{border-color:var(--indigo);background:#E2E9F5}
+.pm-actions{display:flex;gap:10px;margin-top:22px}
+.pm-actions .btn-solid{flex:1}
+.pm-error{color:var(--brick);font-size:12px;margin-top:10px;display:none}
 
 /* ---------- stat cards ---------- */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:26px}
@@ -204,15 +258,19 @@ tbody tr:hover{background:var(--cream)}
   <header>
     <div class="header-inner">
       <div class="logo"><span></span>ХАМАБОЗОР <small>· Админ</small></div>
+      <div class="section-tabs">
+        <button class="section-tab active" id="tabOrders" onclick="showSection('orders')">Заказы</button>
+        <button class="section-tab" id="tabProducts" onclick="showSection('products')">Товары</button>
+      </div>
       <div class="header-actions">
         <a class="btn-outline" href="index.html">← На сайт</a>
-        <button class="btn-outline" onclick="loadOrders()">↻ Обновить</button>
+        <button class="btn-outline" id="refreshBtn" onclick="loadOrders()">↻ Обновить</button>
         <button class="btn-outline" onclick="logout()">Выйти</button>
       </div>
     </div>
   </header>
 
-  <div class="wrap">
+  <div class="wrap" id="ordersPage">
     <div class="stats">
       <div class="stat-card">
         <div class="stat-label">Заказов за период</div>
@@ -263,11 +321,34 @@ tbody tr:hover{background:var(--cream)}
       </table>
     </div>
   </div>
+
+  <div class="wrap hidden" id="productsPage">
+    <div class="products-toolbar">
+      <div class="search-box">
+        🔎 <input id="productSearchInput" placeholder="Поиск по названию...">
+      </div>
+      <select class="status-select" id="productCatFilter">
+        <option value="all">Все категории</option>
+        <option value="electronics">Электроника</option>
+        <option value="clothing">Одежда</option>
+        <option value="bags">Сумки</option>
+      </select>
+      <div class="filters-count" id="productsCount"></div>
+      <button class="btn-solid" onclick="openProductModal()">+ Добавить товар</button>
+    </div>
+
+    <div class="products-grid" id="productsGrid"></div>
+  </div>
 </div>
 
 <!-- order detail modal -->
 <div class="modal-overlay" id="orderModalOverlay">
   <div class="order-modal" id="orderModal"></div>
+</div>
+
+<!-- product form modal -->
+<div class="modal-overlay" id="productModalOverlay">
+  <div class="order-modal product-modal" id="productModal"></div>
 </div>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -329,6 +410,224 @@ async function loadOrders(){
 }
 
 function orderTotal(o){ return o.total ?? o.items.reduce((s,i)=>s+i.qty*i.price,0); }
+
+/* ==========================================================================
+   ТОВАРЫ — раздел «Товары» в админке
+   ========================================================================== */
+const CAT_LABEL = { electronics:'Электроника', clothing:'Одежда', bags:'Сумки' };
+const TAG_LABEL = { top:'🔥 Хит', new:'🆕 Новинка' };
+const EMOJI_PALETTE = ['🎧','⌚','🔌','🔊','🔋','📱','💻','🖱️','📷','🎮',
+                       '🧥','👖','👕','🏃','👗','👟','🧦','🧤','👒','🩴',
+                       '🎒','👜','👛','🧳','🛍️','💍','🧴','🧼','🍯','🕯️'];
+
+let ADMIN_PRODUCTS = [];
+let productSearchQuery = '';
+let productCatFilterVal = 'all';
+let editingProductId = null;
+let pmSelectedEmoji = '🛍️';
+let pmSelectedTag = '';
+
+let productsLoadedOnce = false;
+
+function showSection(name){
+  document.getElementById('tabOrders').classList.toggle('active', name==='orders');
+  document.getElementById('tabProducts').classList.toggle('active', name==='products');
+  document.getElementById('ordersPage').classList.toggle('hidden', name!=='orders');
+  document.getElementById('productsPage').classList.toggle('hidden', name!=='products');
+  document.getElementById('refreshBtn').onclick = (name==='orders') ? loadOrders : loadProductsAdmin;
+  if(name==='products' && !productsLoadedOnce){
+    productsLoadedOnce = true;
+    loadProductsAdmin();
+  }
+}
+
+async function loadProductsAdmin(){
+  try{
+    const res = await fetch('/api/products');
+    if(!res.ok) throw new Error('http ' + res.status);
+    ADMIN_PRODUCTS = await res.json();
+  }catch(e){
+    console.error('Не удалось загрузить товары:', e);
+  }
+  renderProductsGrid();
+}
+
+function productPriceHtml(p){
+  const price = Number(p.price);
+  const old = p.old_price!=null ? Number(p.old_price) : null;
+  if(old && old > price){
+    return `<div class="pc-price-row"><span>${price} смн</span><span class="pc-price-old">${old} смн</span></div>`;
+  }
+  return `<div class="pc-price-row"><span>${price} смн</span></div>`;
+}
+
+function renderProductsGrid(){
+  const q = productSearchQuery.toLowerCase().trim();
+  const list = ADMIN_PRODUCTS.filter(p=>{
+    const matchCat = productCatFilterVal==='all' || p.cat===productCatFilterVal;
+    const matchQ = !q || p.name_ru.toLowerCase().includes(q) || p.name_tj.toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+  document.getElementById('productsCount').textContent = list.length + ' из ' + ADMIN_PRODUCTS.length;
+  const grid = document.getElementById('productsGrid');
+  grid.innerHTML = list.map(p => `
+    <div class="product-card">
+      <div class="product-emoji">
+        ${p.emoji}
+        ${p.tag ? `<span class="pc-tag">${TAG_LABEL[p.tag] || p.tag}</span>` : ''}
+      </div>
+      <div class="pc-cat">${CAT_LABEL[p.cat] || p.cat}</div>
+      <div class="pc-name">${p.name_ru}</div>
+      ${productPriceHtml(p)}
+      <div class="pc-actions">
+        <button onclick="openProductModal(${p.id})">Изменить</button>
+        <button class="pc-delete" onclick="deleteProductConfirm(${p.id})">Удалить</button>
+      </div>
+    </div>
+  `).join('') || `<div class="empty-products">Товаров пока нет</div>`;
+}
+
+function openProductModal(id){
+  editingProductId = id || null;
+  const p = id ? ADMIN_PRODUCTS.find(x=>x.id===id) : null;
+  pmSelectedEmoji = p ? p.emoji : '🛍️';
+  pmSelectedTag = p ? (p.tag || '') : '';
+
+  document.getElementById('productModal').innerHTML = `
+    <div class="om-head">
+      <h3>${p ? 'Изменить товар' : 'Новый товар'}</h3>
+      <button class="om-close" onclick="closeProductModal()">✕</button>
+    </div>
+
+    <div class="pm-field">
+      <label>Эмодзи-иконка</label>
+      <div class="pm-emoji-pick" id="pmEmojiPick">
+        ${EMOJI_PALETTE.map(e => `<button type="button" class="${e===pmSelectedEmoji?'active':''}" onclick="pmPickEmoji('${e}')">${e}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="pm-grid2">
+      <div class="pm-field">
+        <label>Название (рус.) *</label>
+        <input id="pmNameRu" value="${p ? p.name_ru.replace(/"/g,'&quot;') : ''}" placeholder="Беспроводные наушники">
+      </div>
+      <div class="pm-field">
+        <label>Название (тадж.) *</label>
+        <input id="pmNameTj" value="${p ? p.name_tj.replace(/"/g,'&quot;') : ''}" placeholder="Гӯшмонакҳои бесим">
+      </div>
+    </div>
+
+    <div class="pm-grid2">
+      <div class="pm-field">
+        <label>Категория *</label>
+        <select id="pmCat">
+          <option value="electronics" ${p && p.cat==='electronics'?'selected':''}>Электроника</option>
+          <option value="clothing" ${p && p.cat==='clothing'?'selected':''}>Одежда</option>
+          <option value="bags" ${p && p.cat==='bags'?'selected':''}>Сумки</option>
+        </select>
+      </div>
+      <div class="pm-field">
+        <label>Метка</label>
+        <select id="pmTag">
+          <option value="" ${!pmSelectedTag?'selected':''}>Нет</option>
+          <option value="top" ${pmSelectedTag==='top'?'selected':''}>🔥 Хит</option>
+          <option value="new" ${pmSelectedTag==='new'?'selected':''}>🆕 Новинка</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="pm-grid2">
+      <div class="pm-field">
+        <label>Цена (смн) *</label>
+        <input id="pmPrice" type="number" min="0" step="1" value="${p ? p.price : ''}" placeholder="249">
+      </div>
+      <div class="pm-field">
+        <label>Старая цена (для скидки, необязательно)</label>
+        <input id="pmOldPrice" type="number" min="0" step="1" value="${p && p.old_price!=null ? p.old_price : ''}" placeholder="350">
+      </div>
+    </div>
+
+    <div class="pm-field">
+      <label>Описание (рус.)</label>
+      <textarea id="pmDescRu" placeholder="Короткое описание товара...">${p ? p.desc_ru||'' : ''}</textarea>
+    </div>
+    <div class="pm-field">
+      <label>Описание (тадж.)</label>
+      <textarea id="pmDescTj" placeholder="Тавсифи мухтасари мол...">${p ? p.desc_tj||'' : ''}</textarea>
+    </div>
+
+    <div class="pm-error" id="pmError">Заполните обязательные поля (название, категория, цена).</div>
+
+    <div class="pm-actions">
+      <button class="btn-outline" onclick="closeProductModal()">Отмена</button>
+      <button class="btn-solid" id="pmSaveBtn" onclick="saveProduct()">${p ? 'Сохранить' : 'Добавить товар'}</button>
+    </div>
+  `;
+  document.getElementById('productModalOverlay').classList.add('show');
+}
+
+function pmPickEmoji(e){
+  pmSelectedEmoji = e;
+  document.querySelectorAll('#pmEmojiPick button').forEach(btn=>{
+    btn.classList.toggle('active', btn.textContent===e);
+  });
+}
+
+function closeProductModal(){
+  document.getElementById('productModalOverlay').classList.remove('show');
+}
+
+async function saveProduct(){
+  const name_ru = document.getElementById('pmNameRu').value.trim();
+  const name_tj = document.getElementById('pmNameTj').value.trim();
+  const cat = document.getElementById('pmCat').value;
+  const tag = document.getElementById('pmTag').value || null;
+  const price = Number(document.getElementById('pmPrice').value);
+  const oldPriceRaw = document.getElementById('pmOldPrice').value;
+  const old_price = oldPriceRaw ? Number(oldPriceRaw) : null;
+  const desc_ru = document.getElementById('pmDescRu').value.trim();
+  const desc_tj = document.getElementById('pmDescTj').value.trim();
+  const errBox = document.getElementById('pmError');
+
+  if(!name_ru || !name_tj || !cat || !price || price <= 0){
+    errBox.style.display = 'block';
+    return;
+  }
+  errBox.style.display = 'none';
+
+  const btn = document.getElementById('pmSaveBtn');
+  btn.disabled = true;
+  const payload = { cat, name_ru, name_tj, price, old_price, emoji: pmSelectedEmoji, tag, desc_ru, desc_tj };
+
+  try{
+    if(editingProductId){
+      await apiFetch('/api/products/' + editingProductId, { method:'PUT', body: JSON.stringify(payload) });
+    }else{
+      await apiFetch('/api/products', { method:'POST', body: JSON.stringify(payload) });
+    }
+    closeProductModal();
+    await loadProductsAdmin();
+  }catch(e){
+    console.error('Не удалось сохранить товар:', e);
+    errBox.textContent = 'Не удалось сохранить товар — проверьте подключение к серверу.';
+    errBox.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function deleteProductConfirm(id){
+  const p = ADMIN_PRODUCTS.find(x=>x.id===id);
+  if(!p) return;
+  if(!confirm(`Удалить товар «${p.name_ru}»? Это действие необратимо.`)) return;
+  try{
+    await apiFetch('/api/products/' + id, { method:'DELETE' });
+    await loadProductsAdmin();
+  }catch(e){
+    console.error('Не удалось удалить товар:', e);
+    alert('Не удалось удалить товар — проверьте подключение к серверу.');
+  }
+}
 
 /* ==========================================================================
    СОСТОЯНИЕ
@@ -520,6 +819,9 @@ function logout(){
 document.getElementById('searchInput').addEventListener('input', e=>{ searchQuery = e.target.value.trim(); renderAll(); });
 document.getElementById('statusSelect').addEventListener('change', e=>{ activeStatus = e.target.value; renderAll(); });
 document.getElementById('orderModalOverlay').addEventListener('click', e=>{ if(e.target.id==='orderModalOverlay') closeOrder(); });
+document.getElementById('productSearchInput').addEventListener('input', e=>{ productSearchQuery = e.target.value; renderProductsGrid(); });
+document.getElementById('productCatFilter').addEventListener('change', e=>{ productCatFilterVal = e.target.value; renderProductsGrid(); });
+document.getElementById('productModalOverlay').addEventListener('click', e=>{ if(e.target.id==='productModalOverlay') closeProductModal(); });
 renderDateTabs();
 
 // если токен уже сохранён (например, страница обновилась) — сразу впускаем
@@ -529,9 +831,14 @@ if(getToken()){
   loadOrders();
 }
 
-// автообновление списка заказов каждые 20 секунд, пока открыта панель
+// автообновление списка каждые 20 секунд, пока открыта панель
 setInterval(() => {
-  if(document.getElementById('app').classList.contains('show')) loadOrders();
+  if(!document.getElementById('app').classList.contains('show')) return;
+  if(document.getElementById('productsPage').classList.contains('hidden')){
+    loadOrders();
+  }else{
+    loadProductsAdmin();
+  }
 }, 20000);
 </script>
 </body>

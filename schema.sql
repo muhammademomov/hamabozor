@@ -20,3 +20,18 @@ CREATE TABLE IF NOT EXISTS orders (
   channel           VARCHAR(20),                    -- 'whatsapp' или 'telegram'
   INDEX idx_orders_created_at (created_at)
 );
+
+CREATE TABLE IF NOT EXISTS products (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  cat         VARCHAR(50) NOT NULL,        -- electronics / clothing / bags
+  name_ru     VARCHAR(255) NOT NULL,
+  name_tj     VARCHAR(255) NOT NULL,
+  price       DECIMAL(10,2) NOT NULL,
+  old_price   DECIMAL(10,2),               -- если задано и больше price — на сайте показывается скидка
+  emoji       VARCHAR(10) NOT NULL DEFAULT '🛍️',
+  tag         VARCHAR(20),                 -- top / new / NULL
+  desc_ru     TEXT,
+  desc_tj     TEXT,
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

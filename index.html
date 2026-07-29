@@ -202,6 +202,9 @@ section.products{padding:48px 20px}
   content:"";position:absolute;left:6px;top:50%;transform:translateY(-50%);
   width:4px;height:4px;border-radius:50%;background:var(--paper);
 }
+.price-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.price-old{font-size:11px;color:#9c9384;text-decoration:line-through}
+.price-discount{font-size:11px;font-weight:700;color:#fff;background:var(--brick);padding:2px 7px;border-radius:8px}
 .add-btn{
   width:34px;height:34px;border-radius:50%;background:var(--indigo);color:#fff;
   font-size:18px;display:flex;align-items:center;justify-content:center;
@@ -483,7 +486,7 @@ footer p{margin-top:8px;font-size:14px}
     <div class="pp-content">
       <div class="pp-cat" id="ppCat"></div>
       <h2 class="pp-title" id="ppTitle"></h2>
-      <div class="pp-price-row"><span class="price-tag" id="ppPrice"></span></div>
+      <div class="pp-price-row" id="ppPrice"></div>
       <div class="pp-desc-label" data-i18n="pp_desc_label">Тавсиф</div>
       <p class="pp-desc-text" id="ppDesc"></p>
       <h3 class="pp-similar-label" data-i18n="pp_similar">Молҳои монанд</h3>
@@ -525,7 +528,9 @@ const TELEGRAM_CHAT_ID   = "YOUR_CHAT_ID";        // аз @userinfobot ё @getid
 /* ==========================================================================
    МОЛҲО / ТОВАРЫ — ин рӯйхатро бо молҳои воқеӣ иваз кунед
    ========================================================================== */
-const PRODUCTS = [
+// FALLBACK_PRODUCTS используется, только если сервер временно недоступен —
+// реальный список товаров подгружается через loadProducts() из базы данных
+let PRODUCTS = [
   {id:1,  cat:'electronics', name_tj:'Гӯшмонакҳои бесим',    name_ru:'Беспроводные наушники', price:249, emoji:'🎧', tag:'top',
     desc_tj:'Гӯшмонакҳои сифатнок бо садои возеҳ, батарея то 20 соат кор мекунад.', desc_ru:'Качественные наушники с чётким звуком, автономность до 20 часов.'},
   {id:2,  cat:'electronics', name_tj:'Соати ҳушманд',        name_ru:'Умные часы',            price:890, emoji:'⌚', tag:'top',
@@ -553,6 +558,34 @@ const PRODUCTS = [
   {id:13, cat:'bags',        name_tj:'Ҷузвдони сафарӣ',      name_ru:'Дорожная сумка',        price:460, emoji:'🧳', tag:null,
     desc_tj:'Ҳаҷми калон барои сафарҳои дароз, мустаҳкам ва бодавом.', desc_ru:'Большой объём для дальних поездок, прочный и надёжный.'},
 ];
+
+// подгружаем актуальные товары с сервера (управляются из admin.html)
+async function loadProducts(){
+  try{
+    const res = await fetch('/api/products');
+    if(!res.ok) throw new Error('http ' + res.status);
+    const data = await res.json();
+    if(Array.isArray(data) && data.length){
+      PRODUCTS = data.map(p => ({
+        id: p.id,
+        cat: p.cat,
+        name_ru: p.name_ru,
+        name_tj: p.name_tj,
+        price: Number(p.price),
+        old_price: (p.old_price === null || p.old_price === undefined) ? null : Number(p.old_price),
+        emoji: p.emoji,
+        tag: p.tag,
+        desc_ru: p.desc_ru,
+        desc_tj: p.desc_tj
+      }));
+    }
+  }catch(e){
+    console.warn('Не удалось загрузить товары с сервера, используем встроенный список:', e);
+  }
+  renderTabs();
+  renderProducts();
+  if(ppCurrentId) renderProductDetail();
+}
 
 /* ==========================================================================
    МАТНҲО / ТЕКСТЫ (i18n)
@@ -632,6 +665,14 @@ function renderProducts(){
     `<p style="grid-column:1/-1;text-align:center;color:#8a8478;padding:30px 0">—</p>`;
 }
 
+function priceHtml(p){
+  if(p.old_price && p.old_price > p.price){
+    const pct = Math.round((1 - p.price / p.old_price) * 100);
+    return `<div class="price-group"><span class="price-tag">${p.price} смн</span><span class="price-old">${p.old_price} смн</span><span class="price-discount">−${pct}%</span></div>`;
+  }
+  return `<div class="price-group"><span class="price-tag">${p.price} смн</span></div>`;
+}
+
 function renderCard(p){
   return `
     <div class="card" onclick="openProduct(${p.id})">
@@ -642,7 +683,7 @@ function renderCard(p){
       <div class="card-body">
         <div class="card-name">${lang==='tj'?p.name_tj:p.name_ru}</div>
         <div class="card-bottom">
-          <span class="price-tag">${p.price} смн</span>
+          ${priceHtml(p)}
           <button class="add-btn" onclick="event.stopPropagation();addToCart(${p.id})">+</button>
         </div>
       </div>
@@ -752,7 +793,7 @@ function renderProductDetail(){
   document.getElementById('ppMedia').textContent = p.emoji;
   document.getElementById('ppCat').textContent = CAT_LABELS[p.cat][lang];
   document.getElementById('ppTitle').textContent = lang==='tj'?p.name_tj:p.name_ru;
-  document.getElementById('ppPrice').textContent = p.price + ' смн';
+  document.getElementById('ppPrice').innerHTML = priceHtml(p);
   document.getElementById('ppDesc').textContent = lang==='tj'?p.desc_tj:p.desc_ru;
   document.getElementById('ppQty').textContent = ppQtyVal;
 
@@ -929,6 +970,7 @@ renderProducts();
 updateCartUI();
 setupWaLinks();
 handleHash();
+loadProducts();
 </script>
 </body>
 </html>
