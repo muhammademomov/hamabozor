@@ -318,7 +318,20 @@ section.products{padding:48px 20px}
 .pp-title{font-size:24px;margin-top:8px}
 .pp-subtitle{font-size:13px;color:#8a8478;margin-top:4px}
 .pp-rating{font-size:13px;color:var(--ink);margin-top:8px}
+.pp-meta{font-size:12px;color:#8a8478;margin-top:6px;display:flex;gap:14px;flex-wrap:wrap}
+.pp-meta b{color:var(--ink)}
 .pp-price-row{margin-top:16px}
+.pp-variant{margin-top:16px}
+.pp-variant-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8a8478;font-weight:700;margin-bottom:8px}
+.pp-variant-opts{display:flex;gap:8px;flex-wrap:wrap}
+.pp-chip{
+  border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:8px 14px;
+  font-size:13px;font-weight:600;color:var(--ink);
+}
+.pp-chip.active{border-color:var(--indigo);background:#E2E9F5;color:var(--indigo)}
+.pp-desc-toggle{
+  background:none;color:var(--indigo);font-size:12px;font-weight:700;margin-top:6px;padding:0;
+}
 .pp-bundle{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .pp-bundle-opt{
   border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:8px 14px;
@@ -502,11 +515,15 @@ footer p{margin-top:8px;font-size:14px}
       <h2 class="pp-title" id="ppTitle"></h2>
       <div class="pp-subtitle" id="ppSubtitle"></div>
       <div class="pp-rating" id="ppRating"></div>
+      <div class="pp-meta" id="ppMeta"></div>
       <div class="pp-price-row" id="ppPrice"></div>
       <div class="pp-bundle" id="ppBundle"></div>
+      <div class="pp-variant" id="ppColors"></div>
+      <div class="pp-variant" id="ppSizes"></div>
       <div class="pp-badges" id="ppBadges"></div>
       <div class="pp-desc-label" data-i18n="pp_desc_label">Тавсиф</div>
       <p class="pp-desc-text" id="ppDesc"></p>
+      <button class="pp-desc-toggle" id="ppDescToggle" onclick="ppToggleDesc()" style="display:none"></button>
       <ul class="pp-features" id="ppFeatures"></ul>
       <h3 class="pp-similar-label" data-i18n="pp_similar">Молҳои монанд</h3>
       <div class="similar-grid" id="ppSimilar"></div>
@@ -610,15 +627,27 @@ async function loadProducts(){
         warranty_ru: p.warranty_ru || '',
         warranty_tj: p.warranty_tj || '',
         rating: num(p.rating),
-        rating_count: num(p.rating_count)
+        rating_count: num(p.rating_count),
+        colors: p.colors || '',
+        sizes: p.sizes || ''
       }));
     }
   }catch(e){
     console.warn('Не удалось загрузить товары с сервера, используем встроенный список:', e);
   }
+  shuffleArray(PRODUCTS); // разный порядок при каждой загрузке страницы
   renderTabs();
   renderProducts();
   if(ppCurrentId) renderProductDetail();
+  handleRoute();
+}
+
+function shuffleArray(arr){
+  for(let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 /* ==========================================================================
@@ -678,11 +707,14 @@ let lang = 'tj';
 let activeCat = 'all';
 let cart = {}; // {productId: qty}
 let cartPriceOverride = {}; // {productId: цена за 1 шт, если товар добавлен по пакетной цене}
+let cartVariantNote = {}; // {productId: "Цвет: ..., Размер: ..."}
 
 /* ---------- рендер ---------- */
 function renderTabs(){
   const bar = document.getElementById('tabsBar');
-  bar.innerHTML = Object.keys(CAT_LABELS).map(c=>
+  const presentCats = Array.from(new Set(PRODUCTS.map(p=>p.cat)));
+  const cats = ['all', ...presentCats.filter(c => CAT_LABELS[c])];
+  bar.innerHTML = cats.map(c=>
     `<button class="tab ${c===activeCat?'active':''}" onclick="filterCat('${c}')">${CAT_LABELS[c][lang]}</button>`
   ).join('');
 }
@@ -739,15 +771,16 @@ function filterCat(c){ activeCat=c; renderTabs(); renderProducts(); document.get
 function addToCart(id){
   cart[id] = (cart[id]||0) + 1;
   delete cartPriceOverride[id]; // обычное добавление — сбрасываем пакетную цену
+  delete cartVariantNote[id];
   updateCartUI();
   showToast(I18N[lang].added);
 }
 function changeQty(id, delta){
   cart[id] = (cart[id]||0) + delta;
-  if(cart[id]<=0){ delete cart[id]; delete cartPriceOverride[id]; }
+  if(cart[id]<=0){ delete cart[id]; delete cartPriceOverride[id]; delete cartVariantNote[id]; }
   updateCartUI();
 }
-function removeItem(id){ delete cart[id]; delete cartPriceOverride[id]; updateCartUI(); }
+function removeItem(id){ delete cart[id]; delete cartPriceOverride[id]; delete cartVariantNote[id]; updateCartUI(); }
 
 function cartCount(){ return Object.values(cart).reduce((a,b)=>a+b,0); }
 function cartTotal(){
@@ -793,13 +826,29 @@ let ppCurrentId = null;
 let ppQtyVal = 1;
 let ppBundleQty = null;
 let ppBundleTotal = null;
+let ppSelectedColor = null;
+let ppSelectedSize = null;
+let ppDescExpanded = false;
+
+function slugify(text){
+  const map = {а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',
+    к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'c',
+    ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'};
+  return (text||'').toLowerCase().split('').map(ch => map[ch] !== undefined ? map[ch] : ch).join('')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'tovar';
+}
+function productUrl(p){
+  return '/product/' + slugify(p.name_ru) + '-' + p.id;
+}
 
 function openProduct(id){
-  // мегузорем ба hash, то саҳифа URL-и худро дошта бошад (масалан #product-3)
-  location.hash = 'product-' + id;
+  const p = PRODUCTS.find(x=>x.id===id);
+  if(!p) return;
+  history.pushState({productId:id}, '', productUrl(p));
+  ppRenderOpen(id);
 }
 function closeProduct(){
-  if(location.hash.startsWith('#product-')){
+  if(location.pathname.startsWith('/product/')){
     history.back();
   } else {
     ppRenderClose();
@@ -812,6 +861,9 @@ function ppRenderOpen(id){
   ppQtyVal = 1;
   ppBundleQty = null;
   ppBundleTotal = null;
+  ppSelectedColor = null;
+  ppSelectedSize = null;
+  ppDescExpanded = false;
   renderProductDetail();
   document.getElementById('productPage').classList.add('show');
   document.body.style.overflow = 'hidden';
@@ -823,15 +875,15 @@ function ppRenderClose(){
   document.body.style.overflow = '';
   ppCurrentId = null;
 }
-function handleHash(){
-  const m = location.hash.match(/^#product-(\d+)/);
+function handleRoute(){
+  const m = location.pathname.match(/^\/product\/.*-(\d+)$/);
   if(m && PRODUCTS.find(p=>p.id===Number(m[1]))){
     ppRenderOpen(Number(m[1]));
   } else {
     ppRenderClose();
   }
 }
-window.addEventListener('hashchange', handleHash);
+window.addEventListener('popstate', handleRoute);
 
 function renderProductDetail(){
   const p = PRODUCTS.find(x=>x.id===ppCurrentId);
@@ -855,8 +907,58 @@ function renderProductDetail(){
   }
 
   document.getElementById('ppPrice').innerHTML = priceHtml(p);
-  document.getElementById('ppDesc').textContent = lang==='tj'?p.desc_tj:p.desc_ru;
+
+  // артикул и наличие на складе
+  const metaParts = [];
+  metaParts.push(`${lang==='tj'?'Артикул':'Артикул'}: <b>ART-${String(p.id).padStart(6,'0')}</b>`);
+  if(p.stock != null){
+    metaParts.push(p.stock > 0
+      ? `${lang==='tj'?'Мавҷуд аст':'В наличии'}: <b>${p.stock}</b>`
+      : `<b style="color:var(--brick)">${lang==='tj'?'Тамом шуд':'Нет в наличии'}</b>`);
+  }
+  document.getElementById('ppMeta').innerHTML = metaParts.join(' &nbsp;·&nbsp; ');
+
+  // разворачиваемое описание
+  const fullDesc = lang==='tj'?p.desc_tj:p.desc_ru;
+  const descEl = document.getElementById('ppDesc');
+  const toggleEl = document.getElementById('ppDescToggle');
+  const LIMIT = 160;
+  if(fullDesc && fullDesc.length > LIMIT){
+    ppDescExpanded = false;
+    descEl.textContent = fullDesc.slice(0, LIMIT).trim() + '…';
+    toggleEl.textContent = lang==='tj'?'Бештар нишон диҳед ˅':'Показать больше ˅';
+    toggleEl.style.display = 'inline-block';
+    toggleEl.dataset.full = fullDesc;
+  }else{
+    descEl.textContent = fullDesc || '';
+    toggleEl.style.display = 'none';
+  }
+
   document.getElementById('ppQty').textContent = ppQtyVal;
+
+  // цвета
+  const colors = (p.colors||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const colorsEl = document.getElementById('ppColors');
+  if(colors.length){
+    colorsEl.innerHTML = `<div class="pp-variant-label">${lang==='tj'?'Ранг':'Цвет'}${ppSelectedColor?': '+ppSelectedColor:''}</div>
+      <div class="pp-variant-opts">${colors.map(c=>`<button type="button" class="pp-chip ${ppSelectedColor===c?'active':''}" onclick="ppSelectColor('${c.replace(/'/g,"\\'")}')">${c}</button>`).join('')}</div>`;
+    colorsEl.style.display = 'block';
+  }else{
+    colorsEl.innerHTML = '';
+    colorsEl.style.display = 'none';
+  }
+
+  // размеры
+  const sizes = (p.sizes||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const sizesEl = document.getElementById('ppSizes');
+  if(sizes.length){
+    sizesEl.innerHTML = `<div class="pp-variant-label">${lang==='tj'?'Андоза':'Размер'}${ppSelectedSize?': '+ppSelectedSize:''}</div>
+      <div class="pp-variant-opts">${sizes.map(s=>`<button type="button" class="pp-chip ${ppSelectedSize===s?'active':''}" onclick="ppSelectSize('${s.replace(/'/g,"\\'")}')">${s}</button>`).join('')}</div>`;
+    sizesEl.style.display = 'block';
+  }else{
+    sizesEl.innerHTML = '';
+    sizesEl.style.display = 'none';
+  }
 
   // варианты количества (если заданы цены за 2/3/4 штуки)
   const tiers = [
@@ -902,6 +1004,30 @@ function ppSelectBundle(qty, price){
   renderProductDetail();
 }
 
+function ppSelectColor(c){
+  ppSelectedColor = (ppSelectedColor===c) ? null : c;
+  renderProductDetail();
+}
+function ppSelectSize(s){
+  ppSelectedSize = (ppSelectedSize===s) ? null : s;
+  renderProductDetail();
+}
+function ppToggleDesc(){
+  const p = PRODUCTS.find(x=>x.id===ppCurrentId);
+  if(!p) return;
+  const descEl = document.getElementById('ppDesc');
+  const toggleEl = document.getElementById('ppDescToggle');
+  const fullDesc = lang==='tj'?p.desc_tj:p.desc_ru;
+  ppDescExpanded = !ppDescExpanded;
+  if(ppDescExpanded){
+    descEl.textContent = fullDesc;
+    toggleEl.textContent = lang==='tj'?'Пинҳон кардан ˄':'Свернуть ˄';
+  }else{
+    descEl.textContent = fullDesc.slice(0,160).trim() + '…';
+    toggleEl.textContent = lang==='tj'?'Бештар нишон диҳед ˅':'Показать больше ˅';
+  }
+}
+
 function ppChangeQty(delta){
   ppQtyVal = Math.max(1, ppQtyVal + delta);
   ppBundleQty = null;
@@ -915,6 +1041,14 @@ function ppAddToCart(){
     cartPriceOverride[ppCurrentId] = Math.round((ppBundleTotal / ppBundleQty) * 100) / 100;
   }else{
     delete cartPriceOverride[ppCurrentId];
+  }
+  const variantParts = [];
+  if(ppSelectedColor) variantParts.push((lang==='tj'?'Ранг':'Цвет') + ': ' + ppSelectedColor);
+  if(ppSelectedSize) variantParts.push((lang==='tj'?'Андоза':'Размер') + ': ' + ppSelectedSize);
+  if(variantParts.length){
+    cartVariantNote[ppCurrentId] = variantParts.join(', ');
+  }else{
+    delete cartVariantNote[ppCurrentId];
   }
   updateCartUI();
   showToast(I18N[lang].added);
@@ -942,7 +1076,8 @@ function buildOrderText(name, phone, address, comment){
   const lines = Object.entries(cart).map(([id,qty])=>{
     const p = PRODUCTS.find(p=>p.id==id);
     const pname = lang==='tj'?p.name_tj:p.name_ru;
-    return `• ${pname} × ${qty} = ${unitPrice(id)*qty} смн`;
+    const note = cartVariantNote[id] ? ` (${cartVariantNote[id]})` : '';
+    return `• ${pname}${note} × ${qty} = ${unitPrice(id)*qty} смн`;
   });
   const head = lang==='tj' ? '🛒 ФАРМОИШИ НАВ — ҲАМАБОЗОР' : '🛒 НОВЫЙ ЗАКАЗ — ҲАМАБОЗОР';
   const l = {
@@ -966,7 +1101,9 @@ function buildOrderText(name, phone, address, comment){
 async function saveOrderToDatabase(channel, name, phone, address, comment){
   const items = Object.entries(cart).map(([id,qty])=>{
     const p = PRODUCTS.find(x=>x.id===Number(id));
-    return { name: lang==='tj'?p.name_tj:p.name_ru, qty, price:unitPrice(id) };
+    const item = { name: lang==='tj'?p.name_tj:p.name_ru, qty, price:unitPrice(id) };
+    if(cartVariantNote[id]) item.variant = cartVariantNote[id];
+    return item;
   });
   try{
     const res = await fetch('/api/orders', {
@@ -1076,7 +1213,7 @@ renderTabs();
 renderProducts();
 updateCartUI();
 setupWaLinks();
-handleHash();
+handleRoute();
 loadProducts();
 </script>
 </body>

@@ -670,6 +670,16 @@ function openProductModal(id){
             </select>
           </div>
         </div>
+        <div class="pm-grid2">
+          <div class="pm-field">
+            <label>Цвета (через запятую, необязательно)</label>
+            <input id="pmColors" oninput="updatePmPreview()" value="${p?esc(p.colors):''}" placeholder="Чёрный, Синий, Красный">
+          </div>
+          <div class="pm-field">
+            <label>Размеры (через запятую, необязательно)</label>
+            <input id="pmSizes" oninput="updatePmPreview()" value="${p?esc(p.sizes):''}" placeholder="S, M, L, XL">
+          </div>
+        </div>
       </div>
 
       <div class="pm-step">
@@ -935,7 +945,9 @@ async function saveProduct(){
     cost_price: numOrNull(document.getElementById('pmCostPrice').value),
     stock: numOrNull(document.getElementById('pmStock').value),
     rating: numOrNull(document.getElementById('pmRating').value),
-    rating_count: numOrNull(document.getElementById('pmRatingCount').value)
+    rating_count: numOrNull(document.getElementById('pmRatingCount').value),
+    colors: document.getElementById('pmColors').value.trim() || null,
+    sizes: document.getElementById('pmSizes').value.trim() || null
   };
 
   try{

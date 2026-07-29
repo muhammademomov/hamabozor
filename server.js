@@ -147,7 +147,7 @@ app.post('/api/products', requireAuth, async (req, res) => {
     image_data, subtitle_ru, subtitle_tj,
     bundle2_price, bundle3_price, bundle4_price,
     features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
-    cost_price, stock, rating, rating_count
+    cost_price, stock, rating, rating_count, colors, sizes
   } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
@@ -159,14 +159,15 @@ app.post('/api/products', requireAuth, async (req, res) => {
         image_data, subtitle_ru, subtitle_tj,
         bundle2_price, bundle3_price, bundle4_price,
         features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
-        cost_price, stock, rating, rating_count
-      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?)`,
+        cost_price, stock, rating, rating_count, colors, sizes
+      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?)`,
       [
         cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
         image_data || null, subtitle_ru || null, subtitle_tj || null,
         bundle2_price || null, bundle3_price || null, bundle4_price || null,
         features_ru || null, features_tj || null, delivery_ru || null, delivery_tj || null, warranty_ru || null, warranty_tj || null,
-        cost_price || null, stock == null ? null : stock, rating || null, rating_count || null
+        cost_price || null, stock == null ? null : stock, rating || null, rating_count || null,
+        colors || null, sizes || null
       ]
     );
     res.json({ id: result.insertId });
@@ -182,7 +183,7 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
     image_data, subtitle_ru, subtitle_tj,
     bundle2_price, bundle3_price, bundle4_price,
     features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
-    cost_price, stock, rating, rating_count
+    cost_price, stock, rating, rating_count, colors, sizes
   } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
@@ -194,7 +195,7 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
         image_data=?, subtitle_ru=?, subtitle_tj=?,
         bundle2_price=?, bundle3_price=?, bundle4_price=?,
         features_ru=?, features_tj=?, delivery_ru=?, delivery_tj=?, warranty_ru=?, warranty_tj=?,
-        cost_price=?, stock=?, rating=?, rating_count=?
+        cost_price=?, stock=?, rating=?, rating_count=?, colors=?, sizes=?
        WHERE id=?`,
       [
         cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
@@ -202,6 +203,7 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
         bundle2_price || null, bundle3_price || null, bundle4_price || null,
         features_ru || null, features_tj || null, delivery_ru || null, delivery_tj || null, warranty_ru || null, warranty_tj || null,
         cost_price || null, stock == null ? null : stock, rating || null, rating_count || null,
+        colors || null, sizes || null,
         req.params.id
       ]
     );
@@ -255,6 +257,8 @@ async function ensureProductColumns() {
   await ensureColumn('products', 'stock', 'INT NULL');
   await ensureColumn('products', 'rating', 'DECIMAL(2,1) NULL DEFAULT 4.8');
   await ensureColumn('products', 'rating_count', 'INT NULL DEFAULT 0');
+  await ensureColumn('products', 'colors', 'VARCHAR(255) NULL');
+  await ensureColumn('products', 'sizes', 'VARCHAR(255) NULL');
 }
 
 // ----------------------------------------------------------------------------
@@ -330,6 +334,14 @@ async function ensureSchema() {
 }
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// ----------------------------------------------------------------------------
+// отдельные "страницы" товара (/product/название-id) — отдаём тот же сайт,
+// а нужный товар открывает уже JS на странице по числу в конце ссылки
+// ----------------------------------------------------------------------------
+app.get('/product/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // ----------------------------------------------------------------------------
 // раздаём статические файлы сайта (index.html, admin.html) с того же сервера

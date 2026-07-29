@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS products (
   tag         VARCHAR(20),                 -- top / new / NULL
   desc_ru     TEXT,
   desc_tj     TEXT,
+  rating      DECIMAL(2,1) DEFAULT 4.8,
+  rating_count INT DEFAULT 0,
+  colors      VARCHAR(255),                -- цвета через запятую, например "Чёрный,Синий,Красный"
+  sizes       VARCHAR(255),                -- размеры через запятую, например "S,M,L,XL"
   sort_order  INT NOT NULL DEFAULT 0,
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
