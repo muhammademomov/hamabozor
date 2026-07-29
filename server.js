@@ -128,6 +128,29 @@ app.patch('/api/orders/:id', requireAuth, async (req, res) => {
   }
 });
 
+// ----------------------------------------------------------------------------
+// создаём таблицу orders при старте, если её ещё нет — не нужно вручную
+// выполнять schema.sql через сторонние программы
+// ----------------------------------------------------------------------------
+async function ensureSchema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id                INT AUTO_INCREMENT PRIMARY KEY,
+      created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      customer_name     VARCHAR(255) NOT NULL,
+      customer_phone    VARCHAR(50)  NOT NULL,
+      customer_address  VARCHAR(255),
+      comment           TEXT,
+      items             JSON NOT NULL,
+      total             DECIMAL(10,2) NOT NULL DEFAULT 0,
+      status            ENUM('new','progress','done','cancel') NOT NULL DEFAULT 'new',
+      channel           VARCHAR(20),
+      INDEX idx_orders_created_at (created_at)
+    )
+  `);
+  console.log('Таблица orders готова.');
+}
+
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // ----------------------------------------------------------------------------
@@ -135,4 +158,8 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 // ----------------------------------------------------------------------------
 app.use(express.static(path.join(__dirname)));
 
-app.listen(PORT, () => console.log(`Сервер ХАМАБОЗОР запущен на порту ${PORT}`));
+ensureSchema()
+  .catch(e => console.error('Не удалось создать таблицу orders при старте:', e))
+  .finally(() => {
+    app.listen(PORT, () => console.log(`Сервер ХАМАБОЗОР запущен на порту ${PORT}`));
+  });
