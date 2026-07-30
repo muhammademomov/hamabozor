@@ -105,6 +105,18 @@ header{
 .products-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
 .products-toolbar .search-box{flex:1;min-width:180px;max-width:320px}
 .products-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.banners-list{display:flex;flex-direction:column;gap:14px}
+.banner-row{
+  display:flex;gap:14px;align-items:center;background:var(--paper);border:1px solid var(--line);
+  border-radius:14px;padding:12px;
+}
+.banner-row img{width:180px;height:70px;object-fit:cover;border-radius:10px;flex-shrink:0}
+.banner-row-info{flex:1;min-width:0;font-size:12px;color:#8a8478;word-break:break-all}
+.banner-row-actions{display:flex;gap:8px;flex-shrink:0}
+.banner-row-actions button{
+  width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--cream);
+}
+.banner-row-actions .del{color:var(--brick)}
 .product-card{
   background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px;
   display:flex;flex-direction:column;gap:10px;
@@ -348,6 +360,7 @@ tbody tr:hover{background:var(--cream)}
       <div class="section-tabs">
         <button class="section-tab active" id="tabOrders" onclick="showSection('orders')">Заказы</button>
         <button class="section-tab" id="tabProducts" onclick="showSection('products')">Товары</button>
+        <button class="section-tab" id="tabBanners" onclick="showSection('banners')">Баннеры</button>
       </div>
       <div class="header-actions">
         <a class="btn-outline" href="index.html">← На сайт</a>
@@ -425,6 +438,15 @@ tbody tr:hover{background:var(--cream)}
     </div>
 
     <div class="products-grid" id="productsGrid"></div>
+  </div>
+
+  <div class="wrap hidden" id="bannersPage">
+    <div class="products-toolbar">
+      <div class="pm-hint" style="margin:0">Баннеры показываются вверху сайта, друг за другом. Рекомендуемое соотношение — широкое (примерно как обложка).</div>
+      <button class="btn-solid" onclick="document.getElementById('bannerPhotoInput').click()">+ Добавить баннер</button>
+      <input type="file" id="bannerPhotoInput" accept="image/*" style="display:none" onchange="handleBannerUpload(this)">
+    </div>
+    <div class="banners-list" id="bannersList"></div>
   </div>
 </div>
 
@@ -517,16 +539,25 @@ let pmImageData = null;
 let pmExtraImages = [];
 
 let productsLoadedOnce = false;
+let bannersLoadedOnce = false;
+let ADMIN_BANNERS = [];
 
 function showSection(name){
   document.getElementById('tabOrders').classList.toggle('active', name==='orders');
   document.getElementById('tabProducts').classList.toggle('active', name==='products');
+  document.getElementById('tabBanners').classList.toggle('active', name==='banners');
   document.getElementById('ordersPage').classList.toggle('hidden', name!=='orders');
   document.getElementById('productsPage').classList.toggle('hidden', name!=='products');
-  document.getElementById('refreshBtn').onclick = (name==='orders') ? loadOrders : loadProductsAdmin;
+  document.getElementById('bannersPage').classList.toggle('hidden', name!=='banners');
+  document.getElementById('refreshBtn').onclick =
+    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : loadBannersAdmin;
   if(name==='products' && !productsLoadedOnce){
     productsLoadedOnce = true;
     loadProductsAdmin();
+  }
+  if(name==='banners' && !bannersLoadedOnce){
+    bannersLoadedOnce = true;
+    loadBannersAdmin();
   }
 }
 
@@ -1041,6 +1072,85 @@ async function deleteProductConfirm(id){
 }
 
 /* ==========================================================================
+   БАННЕРЫ
+   ========================================================================== */
+async function loadBannersAdmin(){
+  try{
+    const res = await fetch('/api/banners');
+    if(!res.ok) throw new Error('http ' + res.status);
+    ADMIN_BANNERS = await res.json();
+  }catch(e){
+    console.error('Не удалось загрузить баннеры:', e);
+  }
+  renderBannersList();
+}
+
+function renderBannersList(){
+  const box = document.getElementById('bannersList');
+  if(!ADMIN_BANNERS.length){
+    box.innerHTML = `<div class="empty-products">Баннеров пока нет — нажмите «+ Добавить баннер»</div>`;
+    return;
+  }
+  box.innerHTML = ADMIN_BANNERS.map((b,i) => `
+    <div class="banner-row">
+      <img src="${b.image_data}">
+      <div class="banner-row-info">${b.link_url ? 'Ссылка: ' + b.link_url : 'Без ссылки'}</div>
+      <div class="banner-row-actions">
+        <button ${i===0?'disabled':''} onclick="moveBanner(${b.id},'up')">↑</button>
+        <button ${i===ADMIN_BANNERS.length-1?'disabled':''} onclick="moveBanner(${b.id},'down')">↓</button>
+        <button class="del" onclick="deleteBannerConfirm(${b.id})">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function handleBannerUpload(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 5*1024*1024){
+    alert('Файл слишком большой — выберите фото до 5 МБ.');
+    input.value = '';
+    return;
+  }
+  const linkUrl = prompt('Ссылка при клике на баннер (необязательно, можно оставить пустым):', '') || '';
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try{
+      await apiFetch('/api/banners', {
+        method:'POST',
+        body: JSON.stringify({ image_data: reader.result, link_url: linkUrl.trim() || null })
+      });
+      await loadBannersAdmin();
+    }catch(e){
+      console.error('Не удалось сохранить баннер:', e);
+      alert('Не удалось сохранить баннер — проверьте подключение к серверу.');
+    }
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+async function moveBanner(id, direction){
+  try{
+    await apiFetch('/api/banners/' + id + '/move', { method:'PATCH', body: JSON.stringify({ direction }) });
+    await loadBannersAdmin();
+  }catch(e){
+    console.error('Не удалось переместить баннер:', e);
+  }
+}
+
+async function deleteBannerConfirm(id){
+  if(!confirm('Удалить этот баннер?')) return;
+  try{
+    await apiFetch('/api/banners/' + id, { method:'DELETE' });
+    await loadBannersAdmin();
+  }catch(e){
+    console.error('Не удалось удалить баннер:', e);
+    alert('Не удалось удалить баннер — проверьте подключение к серверу.');
+  }
+}
+
+/* ==========================================================================
    СОСТОЯНИЕ
    ========================================================================== */
 let activeDate = 'all';
@@ -1245,10 +1355,12 @@ if(getToken()){
 // автообновление списка каждые 20 секунд, пока открыта панель
 setInterval(() => {
   if(!document.getElementById('app').classList.contains('show')) return;
-  if(document.getElementById('productsPage').classList.contains('hidden')){
+  if(!document.getElementById('ordersPage').classList.contains('hidden')){
     loadOrders();
-  }else{
+  }else if(!document.getElementById('productsPage').classList.contains('hidden')){
     loadProductsAdmin();
+  }else if(!document.getElementById('bannersPage').classList.contains('hidden')){
+    loadBannersAdmin();
   }
 }, 20000);
 </script>

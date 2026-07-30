@@ -42,3 +42,11 @@ CREATE TABLE IF NOT EXISTS products (
   sort_order  INT NOT NULL DEFAULT 0,
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS banners (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  image_data  MEDIUMTEXT NOT NULL,         -- фото баннера (base64)
+  link_url    VARCHAR(500),                -- необязательная ссылка при клике
+  sort_order  INT NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

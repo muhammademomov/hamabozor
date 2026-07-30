@@ -356,8 +356,85 @@ async function ensureSchema() {
     console.log('Таблица products была пустой — добавлен стартовый набор из', seed.length, 'товаров.');
   }
 
-  console.log('Таблицы orders и products готовы.');
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS banners (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      image_data  MEDIUMTEXT NOT NULL,
+      link_url    VARCHAR(500),
+      sort_order  INT NOT NULL DEFAULT 0,
+      created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  console.log('Таблицы orders, products и banners готовы.');
 }
+
+// ----------------------------------------------------------------------------
+// БАННЕРЫ — публичный список (для сайта) + управление только для администратора
+// ----------------------------------------------------------------------------
+app.get('/api/banners', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM banners ORDER BY sort_order ASC, id ASC');
+    res.json(rows);
+  } catch (e) {
+    console.error('Ошибка получения баннеров:', e);
+    res.status(500).json({ error: 'Не удалось получить баннеры' });
+  }
+});
+
+app.post('/api/banners', requireAuth, async (req, res) => {
+  const { image_data, link_url } = req.body || {};
+  if (!image_data) {
+    return res.status(400).json({ error: 'Нужно фото баннера' });
+  }
+  try {
+    const [[{ maxOrder }]] = await pool.query('SELECT COALESCE(MAX(sort_order), -1) as maxOrder FROM banners');
+    const [result] = await pool.query(
+      'INSERT INTO banners (image_data, link_url, sort_order) VALUES (?, ?, ?)',
+      [image_data, link_url || null, maxOrder + 1]
+    );
+    res.json({ id: result.insertId });
+  } catch (e) {
+    console.error('Ошибка создания баннера:', e);
+    res.status(500).json({ error: 'Не удалось создать баннер' });
+  }
+});
+
+app.delete('/api/banners/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM banners WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления баннера:', e);
+    res.status(500).json({ error: 'Не удалось удалить баннер' });
+  }
+});
+
+app.patch('/api/banners/:id/move', requireAuth, async (req, res) => {
+  const { direction } = req.body || {};
+  if (direction !== 'up' && direction !== 'down') {
+    return res.status(400).json({ error: 'direction должен быть up или down' });
+  }
+  try {
+    const [[current]] = await pool.query('SELECT * FROM banners WHERE id = ?', [req.params.id]);
+    if (!current) return res.status(404).json({ error: 'Баннер не найден' });
+
+    const [[neighbor]] = await pool.query(
+      direction === 'up'
+        ? 'SELECT * FROM banners WHERE sort_order < ? ORDER BY sort_order DESC LIMIT 1'
+        : 'SELECT * FROM banners WHERE sort_order > ? ORDER BY sort_order ASC LIMIT 1',
+      [current.sort_order]
+    );
+    if (!neighbor) return res.json({ ok: true }); // уже крайний, менять нечего
+
+    await pool.query('UPDATE banners SET sort_order = ? WHERE id = ?', [neighbor.sort_order, current.id]);
+    await pool.query('UPDATE banners SET sort_order = ? WHERE id = ?', [current.sort_order, neighbor.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка перемещения баннера:', e);
+    res.status(500).json({ error: 'Не удалось переместить баннер' });
+  }
+});
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

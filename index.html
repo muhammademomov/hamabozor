@@ -135,15 +135,23 @@ header{
 .promo-strip{padding:18px 20px 6px}
 .promo-strip-inner{
   max-width:1180px;margin:0 auto;display:flex;gap:14px;overflow-x:auto;
-  scrollbar-width:none;
+  scrollbar-width:none;scroll-snap-type:x mandatory;
 }
 .promo-strip-inner::-webkit-scrollbar{display:none}
 .promo-card{
   flex:0 0 auto;min-width:240px;background:var(--promo-bg,var(--indigo));color:#fff;
-  border-radius:16px;padding:20px 22px;
+  border-radius:16px;padding:20px 22px;scroll-snap-align:start;
 }
 .promo-title{font-family:'Unbounded',sans-serif;font-weight:700;font-size:15px;line-height:1.3}
 .promo-sub{font-size:12px;opacity:.85;margin-top:6px}
+.banner-slide{
+  flex:0 0 100%;scroll-snap-align:center;border-radius:16px;overflow:hidden;
+  cursor:pointer;background:var(--cream);
+}
+.banner-slide img{width:100%;display:block;aspect-ratio:2.2/1;object-fit:cover}
+@media(min-width:700px){
+  .banner-slide{flex:0 0 calc(100% - 60px)}
+}
 
 /* ---------- sections ---------- */
 section.products{padding:48px 20px}
@@ -163,37 +171,46 @@ section.products{padding:48px 20px}
 .tab.active{background:var(--indigo);color:#fff;border-color:var(--indigo)}
 
 .grid{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;
+  display:grid;grid-template-columns:repeat(2,1fr);gap:14px;
   max-width:1180px;margin:0 auto;
 }
 .card{
   background:var(--paper);border-radius:16px;border:1px solid var(--line);
-  overflow:hidden;display:flex;flex-direction:row;cursor:pointer;
+  overflow:hidden;display:flex;flex-direction:column;cursor:pointer;
 }
-.card-info{flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;gap:8px}
-.card-name{font-size:14px;font-weight:700;color:var(--ink);line-height:1.35}
-.card-views{font-size:11px;color:#8a8478;display:flex;align-items:center;gap:4px}
-.card-price-row{margin-top:auto}
+.card-media-wrap{position:relative;width:100%}
+.card-media{
+  width:100%;aspect-ratio:1/1.05;display:flex;align-items:center;justify-content:center;
+  font-size:64px;background:var(--card-bg,var(--cream));position:relative;overflow:hidden;
+}
+.card-media img{width:100%;height:100%;object-fit:cover}
+.card-discount-badge{
+  position:absolute;top:10px;left:10px;background:var(--brick);color:#fff;
+  font-size:12px;font-weight:800;padding:5px 9px;border-radius:10px;z-index:1;
+}
+.card-fav-btn{
+  position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;
+  font-size:16px;z-index:1;color:var(--indigo);
+}
+.card-fav-btn.active{color:var(--brick)}
+.card-info{flex:1;min-width:0;padding:12px;display:flex;flex-direction:column;gap:6px}
+.card-price-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.card-price-now{font-family:'Unbounded',sans-serif;font-weight:800;font-size:17px;color:var(--brick)}
+.card-price-old{font-size:12px;color:#9c9384;text-decoration:line-through}
+.card-name{font-size:13px;font-weight:600;color:var(--ink);line-height:1.35;min-height:36px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .card-buy-btn{
-  margin-top:4px;background:var(--indigo);color:#fff;border-radius:999px;border:none;
-  padding:10px 14px;font-size:13px;font-weight:700;display:flex;align-items:center;
+  margin-top:auto;background:var(--indigo);color:#fff;border-radius:10px;border:none;
+  padding:11px 14px;font-size:13px;font-weight:700;display:flex;align-items:center;
   justify-content:center;gap:6px;width:100%;
 }
 .card-buy-btn:hover{background:var(--indigo-2)}
-.card-media-wrap{position:relative;width:128px;flex-shrink:0}
-.card-media{
-  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
-  font-size:42px;background:var(--card-bg,var(--cream));position:relative;overflow:hidden;
-}
-.card-media img{width:100%;height:100%;object-fit:cover}
 .card-ribbon{
-  position:absolute;top:10px;left:-6px;background:var(--brick);color:#fff;
-  font-size:10px;font-weight:800;letter-spacing:.04em;padding:4px 10px 4px 14px;
-  border-radius:0 4px 4px 0;z-index:1;
+  position:absolute;bottom:8px;left:8px;background:var(--indigo);color:#fff;
+  font-size:10px;font-weight:800;letter-spacing:.04em;padding:4px 9px;
+  border-radius:6px;z-index:1;
 }
-.card-ribbon.new{background:var(--pistachio)}
-.card-dots{position:absolute;top:8px;right:8px;display:flex;gap:4px}
-.card-dot{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--paper);box-shadow:0 0 0 1px rgba(0,0,0,.12)}
 .price-tag{
   position:relative;background:var(--marigold);color:var(--indigo);
   font-family:'Unbounded',sans-serif;font-weight:800;font-size:13px;
@@ -438,7 +455,7 @@ footer p{margin-top:8px;font-size:14px}
 </header>
 
 <section class="promo-strip">
-  <div class="promo-strip-inner">
+  <div class="promo-strip-inner" id="bannerCarousel">
     <div class="promo-card" style="--promo-bg:var(--indigo)">
       <div class="promo-title" data-i18n="promo1_title">Тахфиф барои молҳои интихобшуда</div>
       <div class="promo-sub" data-i18n="promo1_sub">Нишони −% дар корти молро бинед</div>
@@ -710,6 +727,24 @@ function shuffleArray(arr){
   return arr;
 }
 
+async function loadBanners(){
+  try{
+    const res = await fetch('/api/banners');
+    if(!res.ok) throw new Error('http ' + res.status);
+    const data = await res.json();
+    if(Array.isArray(data) && data.length){
+      document.getElementById('bannerCarousel').innerHTML = data.map(b => `
+        <div class="banner-slide" ${b.link_url ? `onclick="window.open('${b.link_url}','_blank')"` : ''}>
+          <img src="${b.image_data}" alt="">
+        </div>
+      `).join('');
+    }
+    // если баннеров нет — остаются стандартные текстовые баннеры (уже в HTML)
+  }catch(e){
+    console.warn('Не удалось загрузить баннеры, показываем стандартные:', e);
+  }
+}
+
 /* ==========================================================================
    МАТНҲО / ТЕКСТЫ (i18n)
    ========================================================================== */
@@ -849,23 +884,42 @@ function colorToHex(name){
 }
 
 function renderCard(p){
-  const colors = (p.colors||'').split(',').map(s=>s.trim()).filter(Boolean).slice(0,3);
+  const isFav = isFavorite(p.id);
+  const discountPct = (p.old_price && p.old_price > p.price)
+    ? Math.round((1 - p.price / p.old_price) * 100) : null;
   return `
     <div class="card" onclick="openProduct(${p.id})">
-      <div class="card-info">
-        <div class="card-name">${lang==='tj'?p.name_tj:p.name_ru}</div>
-        <div class="card-views">👁 ${p.views || 0}</div>
-        <div class="card-price-row">${priceHtml(p)}</div>
-        <button class="card-buy-btn" onclick="event.stopPropagation();addToCart(${p.id})">🛒 ${I18N[lang].add_to_cart}</button>
-      </div>
       <div class="card-media-wrap">
         <div class="card-media" style="--card-bg:${CARD_BG[p.cat]}">
           ${mediaHtml(p)}
-          ${p.tag ? `<span class="card-ribbon ${p.tag}">${p.tag==='top'?(lang==='tj'?'ТОП':'ХИТ'):(lang==='tj'?'НАВ':'NEW')}</span>`:''}
         </div>
-        ${colors.length ? `<div class="card-dots">${colors.map(c=>`<span class="card-dot" style="background:${colorToHex(c)}"></span>`).join('')}</div>` : ''}
+        ${discountPct ? `<span class="card-discount-badge">−${discountPct}%</span>` : ''}
+        <button class="card-fav-btn ${isFav?'active':''}" onclick="event.stopPropagation();toggleFavorite(${p.id})">${isFav?'❤️':'🤍'}</button>
+        ${p.tag==='new' ? `<span class="card-ribbon">${lang==='tj'?'НАВ':'NEW'}</span>` : ''}
+      </div>
+      <div class="card-info">
+        <div class="card-price-row">
+          <span class="card-price-now">${p.price} смн</span>
+          ${p.old_price && p.old_price > p.price ? `<span class="card-price-old">${p.old_price} смн</span>` : ''}
+        </div>
+        <div class="card-name">${lang==='tj'?p.name_tj:p.name_ru}</div>
+        <button class="card-buy-btn" onclick="event.stopPropagation();addToCart(${p.id})">🛒 ${I18N[lang].add_to_cart}</button>
       </div>
     </div>`;
+}
+
+/* ---------- избранное (хранится в браузере) ---------- */
+function loadFavorites(){
+  try{ return new Set(JSON.parse(localStorage.getItem('hamabozor_favorites')||'[]')); }
+  catch(e){ return new Set(); }
+}
+let favoriteIds = loadFavorites();
+function isFavorite(id){ return favoriteIds.has(Number(id)); }
+function toggleFavorite(id){
+  id = Number(id);
+  if(favoriteIds.has(id)) favoriteIds.delete(id); else favoriteIds.add(id);
+  localStorage.setItem('hamabozor_favorites', JSON.stringify([...favoriteIds]));
+  renderProducts();
 }
 
 function filterCat(c){ activeCat=c; renderTabs(); renderProducts(); document.getElementById('catalog').scrollIntoView({behavior:'smooth'}); }
@@ -1374,6 +1428,7 @@ updateCartUI();
 setupWaLinks();
 handleRoute();
 loadProducts();
+loadBanners();
 </script>
 </body>
 </html>
