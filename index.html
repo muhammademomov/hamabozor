@@ -117,46 +117,37 @@ header{
   background:#25D366;color:#fff;border-radius:999px;padding:9px 16px;font-weight:700;
   font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap;
 }
+.wa-icon-btn{background:#25D366;border-color:transparent}
 
-/* ---------- hero ---------- */
-.hero{
-  padding:56px 20px 40px;background:
-    radial-gradient(circle at 85% 20%, rgba(232,163,61,.25), transparent 55%),
-    var(--indigo);
-  color:#fff;
+/* ---------- quicknav ---------- */
+.quicknav{background:var(--paper);border-bottom:1px solid var(--line)}
+.quicknav-inner{
+  max-width:1180px;margin:0 auto;padding:10px 20px;display:flex;gap:10px;
 }
-.hero-inner{max-width:1180px;margin:0 auto;text-align:center}
-.hero h1{color:#fff;font-size:clamp(30px,5vw,52px);line-height:1.05}
-.hero p{color:rgba(255,255,255,.78);font-size:16px;max-width:520px;margin:14px auto 0}
-.hero-cta{
-  margin-top:26px;display:inline-flex;align-items:center;gap:8px;
-  background:var(--marigold);color:var(--indigo);font-weight:800;
-  padding:14px 28px;border-radius:999px;font-size:15px;
+.quicknav-btn{
+  flex:1;text-align:center;padding:11px 14px;border-radius:999px;background:var(--cream);
+  font-size:13px;font-weight:700;color:var(--indigo);border:1px solid var(--line);
+  white-space:nowrap;
 }
-.hero-cta:hover{background:var(--marigold-dark)}
+.quicknav-wa{background:#25D366;color:#fff;border-color:transparent}
 
-/* stalls - signature category nav */
-.stalls{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
-  max-width:900px;margin:36px auto 0;
+/* ---------- promo banners ---------- */
+.promo-strip{padding:18px 20px 6px}
+.promo-strip-inner{
+  max-width:1180px;margin:0 auto;display:flex;gap:14px;overflow-x:auto;
+  scrollbar-width:none;
 }
-.stall{
-  background:var(--paper);border-radius:14px 14px 6px 6px;overflow:hidden;
-  box-shadow:var(--shadow);text-align:center;transition:transform .15s ease;
-  cursor:pointer;border:none;
+.promo-strip-inner::-webkit-scrollbar{display:none}
+.promo-card{
+  flex:0 0 auto;min-width:240px;background:var(--promo-bg,var(--indigo));color:#fff;
+  border-radius:16px;padding:20px 22px;
 }
-.stall:hover{transform:translateY(-4px)}
-.stall-stripe{
-  height:10px;
-  background-image:repeating-linear-gradient(45deg,var(--st-color,var(--marigold)) 0 10px, transparent 10px 20px);
-  background-color:var(--st-color,var(--marigold));
-}
-.stall-body{padding:16px 8px 18px}
-.stall-emoji{font-size:28px}
-.stall-name{margin-top:8px;font-weight:700;font-size:13px;color:var(--indigo)}
+.promo-title{font-family:'Unbounded',sans-serif;font-weight:700;font-size:15px;line-height:1.3}
+.promo-sub{font-size:12px;opacity:.85;margin-top:6px}
 
 /* ---------- sections ---------- */
 section.products{padding:48px 20px}
+.top-products{padding-top:8px}
 .section-head{
   display:flex;align-items:baseline;justify-content:space-between;
   max-width:1180px;margin:0 auto 20px;
@@ -172,27 +163,37 @@ section.products{padding:48px 20px}
 .tab.active{background:var(--indigo);color:#fff;border-color:var(--indigo)}
 
 .grid{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:18px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;
   max-width:1180px;margin:0 auto;
 }
 .card{
   background:var(--paper);border-radius:16px;border:1px solid var(--line);
-  overflow:hidden;display:flex;flex-direction:column;
+  overflow:hidden;display:flex;flex-direction:row;cursor:pointer;
 }
+.card-info{flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;gap:8px}
+.card-name{font-size:14px;font-weight:700;color:var(--ink);line-height:1.35}
+.card-views{font-size:11px;color:#8a8478;display:flex;align-items:center;gap:4px}
+.card-price-row{margin-top:auto}
+.card-buy-btn{
+  margin-top:4px;background:var(--indigo);color:#fff;border-radius:999px;border:none;
+  padding:10px 14px;font-size:13px;font-weight:700;display:flex;align-items:center;
+  justify-content:center;gap:6px;width:100%;
+}
+.card-buy-btn:hover{background:var(--indigo-2)}
+.card-media-wrap{position:relative;width:128px;flex-shrink:0}
 .card-media{
-  aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;
-  font-size:56px;background:var(--card-bg,var(--cream));position:relative;overflow:hidden;
+  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  font-size:42px;background:var(--card-bg,var(--cream));position:relative;overflow:hidden;
 }
 .card-media img{width:100%;height:100%;object-fit:cover}
 .card-ribbon{
   position:absolute;top:10px;left:-6px;background:var(--brick);color:#fff;
   font-size:10px;font-weight:800;letter-spacing:.04em;padding:4px 10px 4px 14px;
-  border-radius:0 4px 4px 0;
+  border-radius:0 4px 4px 0;z-index:1;
 }
 .card-ribbon.new{background:var(--pistachio)}
-.card-body{padding:14px;display:flex;flex-direction:column;gap:10px;flex:1}
-.card-name{font-size:14px;font-weight:600;color:var(--ink);min-height:36px}
-.card-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:auto}
+.card-dots{position:absolute;top:8px;right:8px;display:flex;gap:4px}
+.card-dot{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--paper);box-shadow:0 0 0 1px rgba(0,0,0,.12)}
 .price-tag{
   position:relative;background:var(--marigold);color:var(--indigo);
   font-family:'Unbounded',sans-serif;font-weight:800;font-size:13px;
@@ -206,12 +207,6 @@ section.products{padding:48px 20px}
 .price-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .price-old{font-size:11px;color:#9c9384;text-decoration:line-through}
 .price-discount{font-size:11px;font-weight:700;color:#fff;background:var(--brick);padding:2px 7px;border-radius:8px}
-.add-btn{
-  width:34px;height:34px;border-radius:50%;background:var(--indigo);color:#fff;
-  font-size:18px;display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
-}
-.add-btn:hover{background:var(--indigo-2)}
 
 /* ---------- cart drawer ---------- */
 .overlay{
@@ -225,6 +220,16 @@ section.products{padding:48px 20px}
   transition:transform .25s ease;display:flex;flex-direction:column;
 }
 .drawer.show{transform:translateX(0)}
+.menu-drawer{left:0;right:auto;transform:translateX(-100%)}
+.menu-drawer.show{transform:translateX(0)}
+.menu-body{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.menu-lang-toggle{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.menu-lang-toggle button{flex:1;padding:11px;background:var(--paper);font-size:14px;font-weight:700;color:var(--ink)}
+.menu-lang-toggle button.active{background:var(--indigo);color:#fff}
+.menu-link{
+  display:flex;align-items:center;gap:8px;padding:12px 4px;font-size:14px;font-weight:700;
+  color:var(--ink);border-top:1px solid var(--line);
+}
 .drawer-head{
   padding:18px 20px;border-bottom:1px solid var(--line);
   display:flex;align-items:center;justify-content:space-between;
@@ -313,6 +318,29 @@ section.products{padding:48px 20px}
 .pp-back{width:38px;height:38px;border-radius:50%;background:var(--cream);border:1px solid var(--line);font-size:18px}
 .pp-body{flex:1;overflow-y:auto;padding-bottom:110px}
 .pp-media{aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;font-size:110px;background:var(--pp-bg,var(--cream))}
+.pp-gallery{
+  position:relative;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
+  scrollbar-width:none;
+}
+.pp-gallery::-webkit-scrollbar{display:none}
+.pp-gallery-slide{
+  flex:0 0 100%;scroll-snap-align:center;aspect-ratio:16/10;
+  display:flex;align-items:center;justify-content:center;font-size:110px;
+  background:var(--pp-bg,var(--cream));
+}
+.pp-gallery-slide img{width:100%;height:100%;object-fit:cover}
+.pp-gallery-dots{
+  position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:6px;
+}
+.pp-gallery-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.6)}
+.pp-gallery-dot.active{background:#fff;width:18px;border-radius:4px}
+.pp-card{
+  background:var(--cream);border-radius:16px;padding:18px;margin-top:18px;
+}
+.pp-card .pp-price-row{margin-top:0}
+.pp-bundle-intro{font-size:13px;font-weight:700;color:var(--indigo);margin-bottom:12px}
+.pp-seller-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8a8478;font-weight:700}
+.pp-seller-name{font-size:14px;font-weight:700;color:var(--ink);margin-top:6px}
 .pp-content{padding:22px 20px;max-width:760px;margin:0 auto}
 .pp-cat{font-size:12px;font-weight:700;color:var(--pistachio);text-transform:uppercase;letter-spacing:.05em}
 .pp-title{font-size:24px;margin-top:8px}
@@ -332,13 +360,20 @@ section.products{padding:48px 20px}
 .pp-desc-toggle{
   background:none;color:var(--indigo);font-size:12px;font-weight:700;margin-top:6px;padding:0;
 }
-.pp-bundle{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.pp-bundle{display:flex;gap:8px;flex-wrap:wrap;margin-top:0}
 .pp-bundle-opt{
-  border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:8px 14px;
-  font-size:12px;font-weight:700;color:var(--ink);text-align:center;
+  position:relative;border:1px solid var(--line);background:var(--paper);border-radius:12px;
+  padding:10px 14px;font-size:12px;font-weight:700;color:var(--ink);text-align:center;
+  display:flex;flex-direction:column;gap:2px;flex:1;min-width:90px;
 }
 .pp-bundle-opt.active{border-color:var(--indigo);background:#E2E9F5;color:var(--indigo)}
-.pp-bundle-opt .q{display:block;font-size:11px;color:#8a8478;font-weight:600}
+.pp-bundle-opt .q{font-size:12px;font-weight:700}
+.pp-bundle-total{font-family:'Unbounded',sans-serif;font-weight:800;font-size:13px}
+.pp-bundle-perunit{font-size:10px;color:#8a8478;font-weight:600}
+.pp-bundle-hit{
+  position:absolute;top:-9px;right:8px;background:var(--brick);color:#fff;
+  font-size:9px;font-weight:800;padding:2px 7px;border-radius:999px;letter-spacing:.03em;
+}
 .pp-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
 .pp-badge{background:#E4EEDD;color:#4c5c3a;font-size:12px;font-weight:700;padding:7px 12px;border-radius:10px}
 .pp-features{margin-top:14px;padding-left:20px}
@@ -381,7 +416,6 @@ footer p{margin-top:8px;font-size:14px}
 
 @media(max-width:900px){
   .grid{grid-template-columns:repeat(2,1fr)}
-  .stalls{grid-template-columns:repeat(2,1fr)}
   .searchbar{display:none}
 }
 @media(max-width:520px){
@@ -394,50 +428,37 @@ footer p{margin-top:8px;font-size:14px}
 
 <header>
   <div class="header-inner">
+    <button class="icon-btn" onclick="openMenu()" aria-label="Меню">☰</button>
     <div class="logo"><span></span>ҲАМАБОЗОР</div>
-    <div class="searchbar">
-      🔎 <input id="searchInput" data-i18n-ph="search_placeholder" placeholder="Ҷустуҷӯ...">
-    </div>
     <div class="header-actions">
-      <div class="lang-toggle">
-        <button id="lang-tj" class="active" onclick="setLang('tj')">ТҶ</button>
-        <button id="lang-ru" onclick="setLang('ru')">РУ</button>
-      </div>
-      <a class="wa-btn" id="headerWaLink" target="_blank">💬 <span class="txt">WhatsApp</span></a>
+      <a class="icon-btn wa-icon-btn" id="headerWaLink" target="_blank">💬</a>
       <button class="icon-btn" onclick="openCart()">🛒<span class="badge" id="cartBadge">0</span></button>
     </div>
   </div>
 </header>
 
-<section class="hero">
-  <div class="hero-inner">
-    <h1 data-i18n="hero_title">Ҳама чиз дар як ҷо</h1>
-    <p data-i18n="hero_sub">Электроника, либос ва сумка — бо нархи арзон ва бурдарасонии ройгон дар Душанбе</p>
-    <a href="#catalog" class="hero-cta"><span data-i18n="hero_cta">Ба харид сар кунед</span> →</a>
-
-    <div class="stalls">
-      <button class="stall" onclick="filterCat('electronics')">
-        <div class="stall-stripe" style="--st-color:var(--marigold)"></div>
-        <div class="stall-body"><div class="stall-emoji">📱</div>
-          <div class="stall-name" data-i18n="cat_electronics">Электроника</div></div>
-      </button>
-      <button class="stall" onclick="filterCat('clothing')">
-        <div class="stall-stripe" style="--st-color:var(--brick)"></div>
-        <div class="stall-body"><div class="stall-emoji">👕</div>
-          <div class="stall-name" data-i18n="cat_clothing">Либос</div></div>
-      </button>
-      <button class="stall" onclick="filterCat('bags')">
-        <div class="stall-stripe" style="--st-color:var(--pistachio)"></div>
-        <div class="stall-body"><div class="stall-emoji">👜</div>
-          <div class="stall-name" data-i18n="cat_bags">Сумкаҳо</div></div>
-      </button>
-      <button class="stall" onclick="filterCat('all')">
-        <div class="stall-stripe" style="--st-color:var(--indigo)"></div>
-        <div class="stall-body"><div class="stall-emoji">🛍️</div>
-          <div class="stall-name" data-i18n="cat_all">Ҳама молҳо</div></div>
-      </button>
+<section class="promo-strip">
+  <div class="promo-strip-inner">
+    <div class="promo-card" style="--promo-bg:var(--indigo)">
+      <div class="promo-title" data-i18n="promo1_title">Тахфиф барои молҳои интихобшуда</div>
+      <div class="promo-sub" data-i18n="promo1_sub">Нишони −% дар корти молро бинед</div>
+    </div>
+    <div class="promo-card" style="--promo-bg:var(--pistachio)">
+      <div class="promo-title" data-i18n="promo2_title">Бурдарасонии тез дар Душанбе</div>
+      <div class="promo-sub" data-i18n="promo2_sub">Фармоиш тавассути WhatsApp ё Telegram</div>
+    </div>
+    <div class="promo-card" style="--promo-bg:var(--brick)">
+      <div class="promo-title" data-i18n="promo3_title">Молҳои нав ҳар ҳафта</div>
+      <div class="promo-sub" data-i18n="promo3_sub">Нишони «НАВ» дар корти молро бинед</div>
     </div>
   </div>
+</section>
+
+<section class="products top-products" id="topSection">
+  <div class="section-head">
+    <h2 data-i18n="section_featured">ТОП</h2>
+  </div>
+  <div class="grid" id="topGrid"></div>
 </section>
 
 <section class="products" id="catalog">
@@ -449,6 +470,25 @@ footer p{margin-top:8px;font-size:14px}
 </section>
 
 <div class="overlay" id="overlay" onclick="closeAll()"></div>
+
+<!-- side menu: поиск + язык -->
+<aside class="drawer menu-drawer" id="menuDrawer">
+  <div class="drawer-head">
+    <h3 data-i18n="menu_title">Меню</h3>
+    <button class="close-x" onclick="closeAll()">✕</button>
+  </div>
+  <div class="menu-body">
+    <div class="searchbar">
+      🔎 <input id="searchInput" data-i18n-ph="search_placeholder" placeholder="Ҷустуҷӯ...">
+    </div>
+    <div class="lang-toggle menu-lang-toggle">
+      <button id="lang-tj" class="active" onclick="setLang('tj')">Тоҷикӣ</button>
+      <button id="lang-ru" onclick="setLang('ru')">Русский</button>
+    </div>
+    <a href="#catalog" class="menu-link" onclick="closeAll()">🛍️ <span data-i18n="quicknav_catalog">Феҳрист</span></a>
+    <a class="menu-link" id="menuWaLink" target="_blank">💬 WhatsApp</a>
+  </div>
+</aside>
 
 <!-- cart drawer -->
 <aside class="drawer" id="drawer">
@@ -509,22 +549,39 @@ footer p{margin-top:8px;font-size:14px}
     <button class="icon-btn" onclick="openCart()">🛒<span class="badge" id="cartBadgePP">0</span></button>
   </div>
   <div class="pp-body">
-    <div class="pp-media" id="ppMedia"></div>
+    <div class="pp-gallery" id="ppGallery"></div>
     <div class="pp-content">
       <div class="pp-cat" id="ppCat"></div>
       <h2 class="pp-title" id="ppTitle"></h2>
       <div class="pp-subtitle" id="ppSubtitle"></div>
       <div class="pp-rating" id="ppRating"></div>
-      <div class="pp-meta" id="ppMeta"></div>
-      <div class="pp-price-row" id="ppPrice"></div>
-      <div class="pp-bundle" id="ppBundle"></div>
-      <div class="pp-variant" id="ppColors"></div>
-      <div class="pp-variant" id="ppSizes"></div>
+
+      <div class="pp-card">
+        <div class="pp-price-row" id="ppPrice"></div>
+        <div class="pp-meta" id="ppMeta"></div>
+        <div class="pp-variant" id="ppColors"></div>
+        <div class="pp-variant" id="ppSizes"></div>
+      </div>
+
+      <div class="pp-card" id="ppBundleCard">
+        <div class="pp-bundle-intro" id="ppBundleIntro"></div>
+        <div class="pp-bundle" id="ppBundle"></div>
+      </div>
+
       <div class="pp-badges" id="ppBadges"></div>
-      <div class="pp-desc-label" data-i18n="pp_desc_label">Тавсиф</div>
-      <p class="pp-desc-text" id="ppDesc"></p>
-      <button class="pp-desc-toggle" id="ppDescToggle" onclick="ppToggleDesc()" style="display:none"></button>
-      <ul class="pp-features" id="ppFeatures"></ul>
+
+      <div class="pp-card">
+        <div class="pp-desc-label" data-i18n="pp_desc_label">Тавсиф</div>
+        <p class="pp-desc-text" id="ppDesc"></p>
+        <button class="pp-desc-toggle" id="ppDescToggle" onclick="ppToggleDesc()" style="display:none"></button>
+        <ul class="pp-features" id="ppFeatures"></ul>
+      </div>
+
+      <div class="pp-card" id="ppSellerCard" style="display:none">
+        <div class="pp-seller-label" data-i18n="pp_seller_label">Фурӯшанда</div>
+        <div class="pp-seller-name" id="ppSellerName"></div>
+      </div>
+
       <h3 class="pp-similar-label" data-i18n="pp_similar">Молҳои монанд</h3>
       <div class="similar-grid" id="ppSimilar"></div>
     </div>
@@ -629,7 +686,10 @@ async function loadProducts(){
         rating: num(p.rating),
         rating_count: num(p.rating_count),
         colors: p.colors || '',
-        sizes: p.sizes || ''
+        sizes: p.sizes || '',
+        views: num(p.views) || 0,
+        extra_images: Array.isArray(p.extra_images) ? p.extra_images : [],
+        seller_name: p.seller_name || ''
       }));
     }
   }catch(e){
@@ -660,7 +720,12 @@ const I18N = {
     hero_sub:'Электроника, либос ва сумка — бо нархи арзон ва бурдарасонии ройгон дар Душанбе',
     hero_cta:'Ба харид сар кунед',
     cat_electronics:'Электроника', cat_clothing:'Либос', cat_bags:'Сумкаҳо', cat_all:'Ҳама молҳо',
-    section_top:'Фурӯши хуб 🔥',
+    quicknav_catalog:'Феҳрист', quicknav_top:'Боло',
+    promo1_title:'Тахфиф барои молҳои интихобшуда', promo1_sub:'Нишони −% дар корти молро бинед',
+    promo2_title:'Бурдарасонии тез дар Душанбе', promo2_sub:'Фармоиш тавассути WhatsApp ё Telegram',
+    promo3_title:'Молҳои нав ҳар ҳафта', promo3_sub:'Нишони «НАВ» дар корти молро бинед',
+    menu_title:'Меню',
+    section_top:'Фурӯши хуб 🔥', section_featured:'ТОП',
     add_to_cart:'Илова кардан', added:'Илова шуд ✅',
     cart_title:'Сабади харид', cart_empty:'Сабад холӣ аст',
     cart_total:'Ҷамъ', cart_delivery:'Бурдарасонӣ', cart_free:'Ройгон 🚚',
@@ -672,7 +737,7 @@ const I18N = {
     order_success_sub:'Мо ба зудӣ бо шумо тамос мегирем. Ташаккур барои харид! 🙏',
     close:'Хуб шуд',
     footer_question:'Савол доред? Ба мо нависед.', footer_rights:'Ҳамаи ҳуқуқҳо ҳифз шудаанд',
-    pp_desc_label:'Тавсиф', pp_similar:'Молҳои монанд',
+    pp_desc_label:'Тавсиф', pp_similar:'Молҳои монанд', pp_seller_label:'Фурӯшанда',
   },
   ru:{
     search_placeholder:'Поиск...',
@@ -680,7 +745,12 @@ const I18N = {
     hero_sub:'Электроника, одежда и сумки — по доступным ценам с бесплатной доставкой по Душанбе',
     hero_cta:'Начать покупки',
     cat_electronics:'Электроника', cat_clothing:'Одежда', cat_bags:'Сумки', cat_all:'Все товары',
-    section_top:'Хиты продаж 🔥',
+    quicknav_catalog:'Каталог', quicknav_top:'Наверх',
+    promo1_title:'Скидки на избранные товары', promo1_sub:'Смотрите отметку −% на карточке товара',
+    promo2_title:'Быстрая доставка по Душанбе', promo2_sub:'Оформление через WhatsApp или Telegram',
+    promo3_title:'Новинки каждую неделю', promo3_sub:'Смотрите отметку «NEW» на карточке товара',
+    menu_title:'Меню',
+    section_top:'Хиты продаж 🔥', section_featured:'ТОП',
     add_to_cart:'В корзину', added:'Добавлено ✅',
     cart_title:'Корзина', cart_empty:'Корзина пуста',
     cart_total:'Итого', cart_delivery:'Доставка', cart_free:'Бесплатно 🚚',
@@ -692,7 +762,7 @@ const I18N = {
     order_success_sub:'Мы скоро свяжемся с вами. Спасибо за покупку! 🙏',
     close:'Хорошо',
     footer_question:'Остались вопросы? Напишите нам.', footer_rights:'Все права защищены',
-    pp_desc_label:'Описание', pp_similar:'Похожие товары',
+    pp_desc_label:'Описание', pp_similar:'Похожие товары', pp_seller_label:'Продавец',
   }
 };
 
@@ -730,6 +800,19 @@ function renderProducts(){
   });
   grid.innerHTML = list.map(p=>renderCard(p)).join('') ||
     `<p style="grid-column:1/-1;text-align:center;color:#8a8478;padding:30px 0">—</p>`;
+
+  renderTopSection();
+}
+
+function renderTopSection(){
+  const section = document.getElementById('topSection');
+  const topItems = PRODUCTS.filter(p=>p.tag==='top').slice(0,6);
+  if(topItems.length===0){
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  document.getElementById('topGrid').innerHTML = topItems.map(p=>renderCard(p)).join('');
 }
 
 function priceHtml(p){
@@ -748,19 +831,39 @@ function mediaHtml(p){
   return p.image_data ? `<img src="${p.image_data}" alt="">` : p.emoji;
 }
 
+const COLOR_HEX = {
+  'черный':'#1b1410','чёрный':'#1b1410','black':'#1b1410',
+  'белый':'#ffffff','white':'#ffffff',
+  'синий':'#1c3fae','blue':'#1c3fae','темно-синий':'#0f2570','тёмно-синий':'#0f2570',
+  'красный':'#c1442e','red':'#c1442e',
+  'зеленый':'#3f7a3d','зелёный':'#3f7a3d','green':'#3f7a3d',
+  'желтый':'#e8a33d','жёлтый':'#e8a33d','yellow':'#e8a33d',
+  'серый':'#9c9384','gray':'#9c9384','серебристый':'#c8c2b6',
+  'коричневый':'#7a5230','brown':'#7a5230',
+  'розовый':'#e39bb0','pink':'#e39bb0',
+  'оранжевый':'#e07b39','orange':'#e07b39',
+  'фиолетовый':'#7a4fa0','purple':'#7a4fa0',
+};
+function colorToHex(name){
+  return COLOR_HEX[(name||'').trim().toLowerCase()] || '#c9c2b3';
+}
+
 function renderCard(p){
+  const colors = (p.colors||'').split(',').map(s=>s.trim()).filter(Boolean).slice(0,3);
   return `
     <div class="card" onclick="openProduct(${p.id})">
-      <div class="card-media" style="--card-bg:${CARD_BG[p.cat]}">
-        ${mediaHtml(p)}
-        ${p.tag ? `<span class="card-ribbon ${p.tag}">${p.tag==='top'?(lang==='tj'?'ТОП':'ХИТ'):(lang==='tj'?'НАВ':'NEW')}</span>`:''}
-      </div>
-      <div class="card-body">
+      <div class="card-info">
         <div class="card-name">${lang==='tj'?p.name_tj:p.name_ru}</div>
-        <div class="card-bottom">
-          ${priceHtml(p)}
-          <button class="add-btn" onclick="event.stopPropagation();addToCart(${p.id})">+</button>
+        <div class="card-views">👁 ${p.views || 0}</div>
+        <div class="card-price-row">${priceHtml(p)}</div>
+        <button class="card-buy-btn" onclick="event.stopPropagation();addToCart(${p.id})">🛒 ${I18N[lang].add_to_cart}</button>
+      </div>
+      <div class="card-media-wrap">
+        <div class="card-media" style="--card-bg:${CARD_BG[p.cat]}">
+          ${mediaHtml(p)}
+          ${p.tag ? `<span class="card-ribbon ${p.tag}">${p.tag==='top'?(lang==='tj'?'ТОП':'ХИТ'):(lang==='tj'?'НАВ':'NEW')}</span>`:''}
         </div>
+        ${colors.length ? `<div class="card-dots">${colors.map(c=>`<span class="card-dot" style="background:${colorToHex(c)}"></span>`).join('')}</div>` : ''}
       </div>
     </div>`;
 }
@@ -854,6 +957,8 @@ function closeProduct(){
     ppRenderClose();
   }
 }
+let viewedProductIds = new Set();
+
 function ppRenderOpen(id){
   const p = PRODUCTS.find(x=>x.id===id);
   if(!p) return;
@@ -869,6 +974,12 @@ function ppRenderOpen(id){
   document.body.style.overflow = 'hidden';
   window.scrollTo(0,0);
   document.querySelector('.pp-body').scrollTop = 0;
+
+  if(!viewedProductIds.has(id)){
+    viewedProductIds.add(id);
+    p.views = (p.views || 0) + 1; // сразу обновляем на экране, не дожидаясь ответа сервера
+    fetch('/api/products/' + id + '/view', { method:'POST' }).catch(()=>{});
+  }
 }
 function ppRenderClose(){
   document.getElementById('productPage').classList.remove('show');
@@ -888,8 +999,27 @@ window.addEventListener('popstate', handleRoute);
 function renderProductDetail(){
   const p = PRODUCTS.find(x=>x.id===ppCurrentId);
   if(!p) return;
-  document.getElementById('ppMedia').style.setProperty('--pp-bg', CARD_BG[p.cat]);
-  document.getElementById('ppMedia').innerHTML = mediaHtml(p);
+
+  // галерея (главное фото + доп. фото, либо эмодзи, если фото нет)
+  const images = [p.image_data, ...(Array.isArray(p.extra_images)?p.extra_images:[])].filter(Boolean);
+  const galleryEl = document.getElementById('ppGallery');
+  if(images.length){
+    galleryEl.innerHTML = images.map(src => `
+      <div class="pp-gallery-slide" style="--pp-bg:${CARD_BG[p.cat]}"><img src="${src}"></div>
+    `).join('') + (images.length>1 ? `<div class="pp-gallery-dots">${images.map((_,i)=>`<span class="pp-gallery-dot ${i===0?'active':''}"></span>`).join('')}</div>` : '');
+    if(images.length>1){
+      galleryEl.onscroll = () => {
+        const idx = Math.round(galleryEl.scrollLeft / galleryEl.clientWidth);
+        galleryEl.querySelectorAll('.pp-gallery-dot').forEach((d,i)=>d.classList.toggle('active', i===idx));
+      };
+    }else{
+      galleryEl.onscroll = null;
+    }
+  }else{
+    galleryEl.innerHTML = `<div class="pp-gallery-slide" style="--pp-bg:${CARD_BG[p.cat]}">${p.emoji}</div>`;
+    galleryEl.onscroll = null;
+  }
+
   document.getElementById('ppCat').textContent = CAT_LABELS[p.cat][lang];
   document.getElementById('ppTitle').textContent = lang==='tj'?p.name_tj:p.name_ru;
 
@@ -908,7 +1038,7 @@ function renderProductDetail(){
 
   document.getElementById('ppPrice').innerHTML = priceHtml(p);
 
-  // артикул и наличие на складе
+  // артикул, наличие на складе и просмотры
   const metaParts = [];
   metaParts.push(`${lang==='tj'?'Артикул':'Артикул'}: <b>ART-${String(p.id).padStart(6,'0')}</b>`);
   if(p.stock != null){
@@ -916,6 +1046,7 @@ function renderProductDetail(){
       ? `${lang==='tj'?'Мавҷуд аст':'В наличии'}: <b>${p.stock}</b>`
       : `<b style="color:var(--brick)">${lang==='tj'?'Тамом шуд':'Нет в наличии'}</b>`);
   }
+  metaParts.push(`👁 ${p.views || 0}`);
   document.getElementById('ppMeta').innerHTML = metaParts.join(' &nbsp;·&nbsp; ');
 
   // разворачиваемое описание
@@ -968,15 +1099,28 @@ function renderProductDetail(){
     {qty:4, price:p.bundle4_price},
   ].filter(t => t.price != null && Number(t.price) > 0);
   const bundleEl = document.getElementById('ppBundle');
+  const bundleCardEl = document.getElementById('ppBundleCard');
+  const bundleIntroEl = document.getElementById('ppBundleIntro');
   if(tiers.length > 1){
-    bundleEl.innerHTML = tiers.map(t => `
+    const bestPerUnit = Math.min(...tiers.map(t=>t.price/t.qty));
+    bundleIntroEl.textContent = lang==='tj'
+      ? '2+ дона бештар харед — сарфа бештар кунед'
+      : 'Купите 2+ штуки — экономьте больше';
+    bundleEl.innerHTML = tiers.map(t => {
+      const perUnit = Math.round((t.price/t.qty)*100)/100;
+      const isBest = perUnit === bestPerUnit && t.qty > 1;
+      return `
       <button type="button" class="pp-bundle-opt ${ (ppBundleQty ? ppBundleQty===t.qty : t.qty===1) ? 'active' : ''}" onclick="ppSelectBundle(${t.qty},${t.price})">
-        ${t.qty} ${lang==='tj'?'дона':'шт'}<span class="q">${t.price} смн</span>
-      </button>`).join('');
-    bundleEl.style.display = 'flex';
+        ${isBest ? `<span class="pp-bundle-hit">${lang==='tj'?'ХИТ':'ХИТ'}</span>` : ''}
+        <span class="q">${t.qty} ${lang==='tj'?'дона':'шт'}</span>
+        <span class="pp-bundle-total">${t.price} смн</span>
+        <span class="pp-bundle-perunit">${perUnit} смн/${lang==='tj'?'дона':'шт'}</span>
+      </button>`;
+    }).join('');
+    bundleCardEl.style.display = 'block';
   }else{
     bundleEl.innerHTML = '';
-    bundleEl.style.display = 'none';
+    bundleCardEl.style.display = 'none';
   }
 
   // доставка / гарантия
@@ -991,6 +1135,15 @@ function renderProductDetail(){
   const featuresTxt = lang==='tj'?p.features_tj:p.features_ru;
   const features = (featuresTxt||'').split('\n').map(s=>s.trim()).filter(Boolean);
   document.getElementById('ppFeatures').innerHTML = features.map(f=>`<li>${f}</li>`).join('');
+
+  // продавец / партнёр (если указан)
+  const sellerCardEl = document.getElementById('ppSellerCard');
+  if(p.seller_name){
+    document.getElementById('ppSellerName').textContent = p.seller_name;
+    sellerCardEl.style.display = 'block';
+  }else{
+    sellerCardEl.style.display = 'none';
+  }
 
   const similar = PRODUCTS.filter(x=>x.cat===p.cat && x.id!==p.id).slice(0,6);
   document.getElementById('ppSimilar').innerHTML = similar.map(s=>renderCard(s)).join('') ||
@@ -1059,8 +1212,13 @@ function openCart(){
   document.getElementById('drawer').classList.add('show');
   document.getElementById('overlay').classList.add('show');
 }
+function openMenu(){
+  document.getElementById('menuDrawer').classList.add('show');
+  document.getElementById('overlay').classList.add('show');
+}
 function closeAll(){
   document.getElementById('drawer').classList.remove('show');
+  document.getElementById('menuDrawer').classList.remove('show');
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('checkoutOverlay').classList.remove('show');
   document.getElementById('checkoutForm').style.display='block';
@@ -1205,6 +1363,7 @@ function setupWaLinks(){
   document.getElementById('headerWaLink').href = link;
   document.getElementById('footerWaLink').href = link;
   document.getElementById('fabWa').href = link;
+  document.getElementById('menuWaLink').href = link;
 }
 
 /* ---------- init ---------- */

@@ -182,6 +182,13 @@ header{
   position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;
   background:rgba(27,20,10,.6);color:#fff;font-size:13px;
 }
+.pm-extra-photos{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.pm-extra-photo{position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.pm-extra-photo img{width:100%;height:100%;object-fit:cover}
+.pm-extra-photo button{
+  position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;
+  background:rgba(27,20,10,.7);color:#fff;font-size:10px;line-height:1;
+}
 
 .pm-discount-badge{font-size:12px;font-weight:700;color:var(--brick);margin-top:8px}
 .pm-margin-row{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
@@ -507,6 +514,7 @@ let editingProductId = null;
 let pmSelectedEmoji = '🛍️';
 let pmSelectedTag = '';
 let pmImageData = null;
+let pmExtraImages = [];
 
 let productsLoadedOnce = false;
 
@@ -576,6 +584,7 @@ function openProductModal(id){
   pmSelectedEmoji = p ? p.emoji : '🛍️';
   pmSelectedTag = p ? (p.tag || '') : '';
   pmImageData = p ? (p.image_data || null) : null;
+  pmExtraImages = p && Array.isArray(p.extra_images) ? [...p.extra_images] : [];
 
   document.getElementById('productModal').innerHTML = `
     <div class="pm-form-pane">
@@ -610,6 +619,7 @@ function openProductModal(id){
 
       <div class="pm-step">
         <div class="pm-step-head"><span class="pm-step-num">2</span><span class="pm-step-title">Фото товара</span></div>
+        <div class="pm-hint">Главное фото (показывается в каталоге):</div>
         <div class="pm-photo-drop" id="pmPhotoDrop" onclick="document.getElementById('pmPhotoInput').click()">
           📷 Нажмите, чтобы загрузить фото (JPG, PNG · до 5 МБ)
         </div>
@@ -621,6 +631,14 @@ function openProductModal(id){
         <div class="pm-hint">Если фото не загружено — на сайте будет показана эмодзи-иконка:</div>
         <div class="pm-emoji-pick" id="pmEmojiPick">
           ${EMOJI_PALETTE.map(e => `<button type="button" class="${e===pmSelectedEmoji?'active':''}" onclick="pmPickEmoji('${e}')">${e}</button>`).join('')}
+        </div>
+        <div class="pm-hint" style="margin-top:16px">Дополнительные фото (необязательно, до 4 — покажутся галереей на странице товара):</div>
+        <div class="pm-extra-photos" id="pmExtraPhotos"></div>
+        <button type="button" class="btn-outline" style="margin-top:10px" onclick="document.getElementById('pmExtraPhotoInput').click()">+ Добавить фото</button>
+        <input type="file" id="pmExtraPhotoInput" accept="image/*" style="display:none" onchange="pmHandleExtraPhotoFile(this)">
+        <div class="pm-field">
+          <label>Продавец / партнёр (необязательно)</label>
+          <input id="pmSellerName" oninput="updatePmPreview()" value="${p?esc(p.seller_name):''}" placeholder="Оставьте пустым, если продаёте сами">
         </div>
       </div>
 
@@ -772,6 +790,46 @@ function openProductModal(id){
     </div>
   `;
   document.getElementById('productModalOverlay').classList.add('show');
+  renderPmExtraPhotos();
+  updatePmPreview();
+}
+
+function renderPmExtraPhotos(){
+  const box = document.getElementById('pmExtraPhotos');
+  box.innerHTML = pmExtraImages.map((src,i) => `
+    <div class="pm-extra-photo">
+      <img src="${src}">
+      <button type="button" onclick="pmRemoveExtraPhoto(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function pmHandleExtraPhotoFile(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(pmExtraImages.length >= 4){
+    alert('Максимум 4 дополнительных фото.');
+    input.value = '';
+    return;
+  }
+  if(file.size > 5*1024*1024){
+    alert('Файл слишком большой — выберите фото до 5 МБ.');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    pmExtraImages.push(reader.result);
+    renderPmExtraPhotos();
+    updatePmPreview();
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function pmRemoveExtraPhoto(index){
+  pmExtraImages.splice(index,1);
+  renderPmExtraPhotos();
   updatePmPreview();
 }
 
@@ -947,7 +1005,9 @@ async function saveProduct(){
     rating: numOrNull(document.getElementById('pmRating').value),
     rating_count: numOrNull(document.getElementById('pmRatingCount').value),
     colors: document.getElementById('pmColors').value.trim() || null,
-    sizes: document.getElementById('pmSizes').value.trim() || null
+    sizes: document.getElementById('pmSizes').value.trim() || null,
+    extra_images: pmExtraImages,
+    seller_name: document.getElementById('pmSellerName').value.trim() || null
   };
 
   try{

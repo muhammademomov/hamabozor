@@ -134,10 +134,25 @@ app.patch('/api/orders/:id', requireAuth, async (req, res) => {
 app.get('/api/products', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM products ORDER BY sort_order ASC, id ASC');
-    res.json(rows);
+    const products = rows.map(r => ({
+      ...r,
+      extra_images: typeof r.extra_images === 'string' ? JSON.parse(r.extra_images) : (r.extra_images || [])
+    }));
+    res.json(products);
   } catch (e) {
     console.error('Ошибка получения товаров:', e);
     res.status(500).json({ error: 'Не удалось получить товары' });
+  }
+});
+
+// публичный — увеличивает счётчик просмотров на 1 (вызывается при открытии страницы товара)
+app.post('/api/products/:id/view', async (req, res) => {
+  try {
+    await pool.query('UPDATE products SET views = views + 1 WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка увеличения счётчика просмотров:', e);
+    res.status(500).json({ error: 'Не удалось обновить просмотры' });
   }
 });
 
@@ -147,7 +162,8 @@ app.post('/api/products', requireAuth, async (req, res) => {
     image_data, subtitle_ru, subtitle_tj,
     bundle2_price, bundle3_price, bundle4_price,
     features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
-    cost_price, stock, rating, rating_count, colors, sizes
+    cost_price, stock, rating, rating_count, colors, sizes,
+    extra_images, seller_name
   } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
@@ -159,15 +175,18 @@ app.post('/api/products', requireAuth, async (req, res) => {
         image_data, subtitle_ru, subtitle_tj,
         bundle2_price, bundle3_price, bundle4_price,
         features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
-        cost_price, stock, rating, rating_count, colors, sizes
-      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?)`,
+        cost_price, stock, rating, rating_count, colors, sizes,
+        extra_images, seller_name
+      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?, ?,?)`,
       [
         cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
         image_data || null, subtitle_ru || null, subtitle_tj || null,
         bundle2_price || null, bundle3_price || null, bundle4_price || null,
         features_ru || null, features_tj || null, delivery_ru || null, delivery_tj || null, warranty_ru || null, warranty_tj || null,
         cost_price || null, stock == null ? null : stock, rating || null, rating_count || null,
-        colors || null, sizes || null
+        colors || null, sizes || null,
+        (Array.isArray(extra_images) && extra_images.length) ? JSON.stringify(extra_images) : null,
+        seller_name || null
       ]
     );
     res.json({ id: result.insertId });
@@ -183,7 +202,8 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
     image_data, subtitle_ru, subtitle_tj,
     bundle2_price, bundle3_price, bundle4_price,
     features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
-    cost_price, stock, rating, rating_count, colors, sizes
+    cost_price, stock, rating, rating_count, colors, sizes,
+    extra_images, seller_name
   } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
@@ -195,7 +215,8 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
         image_data=?, subtitle_ru=?, subtitle_tj=?,
         bundle2_price=?, bundle3_price=?, bundle4_price=?,
         features_ru=?, features_tj=?, delivery_ru=?, delivery_tj=?, warranty_ru=?, warranty_tj=?,
-        cost_price=?, stock=?, rating=?, rating_count=?, colors=?, sizes=?
+        cost_price=?, stock=?, rating=?, rating_count=?, colors=?, sizes=?,
+        extra_images=?, seller_name=?
        WHERE id=?`,
       [
         cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
@@ -204,6 +225,8 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
         features_ru || null, features_tj || null, delivery_ru || null, delivery_tj || null, warranty_ru || null, warranty_tj || null,
         cost_price || null, stock == null ? null : stock, rating || null, rating_count || null,
         colors || null, sizes || null,
+        (Array.isArray(extra_images) && extra_images.length) ? JSON.stringify(extra_images) : null,
+        seller_name || null,
         req.params.id
       ]
     );
@@ -259,6 +282,9 @@ async function ensureProductColumns() {
   await ensureColumn('products', 'rating_count', 'INT NULL DEFAULT 0');
   await ensureColumn('products', 'colors', 'VARCHAR(255) NULL');
   await ensureColumn('products', 'sizes', 'VARCHAR(255) NULL');
+  await ensureColumn('products', 'views', 'INT NOT NULL DEFAULT 0');
+  await ensureColumn('products', 'extra_images', 'JSON NULL');
+  await ensureColumn('products', 'seller_name', 'VARCHAR(255) NULL');
 }
 
 // ----------------------------------------------------------------------------

@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS products (
   rating_count INT DEFAULT 0,
   colors      VARCHAR(255),                -- цвета через запятую, например "Чёрный,Синий,Красный"
   sizes       VARCHAR(255),                -- размеры через запятую, например "S,M,L,XL"
+  views       INT NOT NULL DEFAULT 0,      -- счётчик просмотров страницы товара
+  extra_images JSON,                        -- дополнительные фото для галереи (массив ссылок/base64)
+  seller_name VARCHAR(255),                 -- имя партнёра-продавца, если товар не ваш собственный
   sort_order  INT NOT NULL DEFAULT 0,
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
