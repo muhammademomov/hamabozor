@@ -170,7 +170,7 @@ header{
 /* ---------- products ---------- */
 .products-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
 .products-toolbar .search-box{flex:1;min-width:180px;max-width:320px}
-.products-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.products-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
 .banners-list{display:flex;flex-direction:column;gap:14px}
 .banner-row{
   display:flex;gap:14px;align-items:center;background:var(--paper);border:1px solid var(--line);
@@ -191,6 +191,23 @@ header{
   transition:box-shadow .18s,transform .18s;
 }
 .product-card:hover{box-shadow:0 4px 8px rgba(27,20,10,.06), 0 14px 28px rgba(27,20,10,.09);transform:translateY(-2px)}
+
+/* ---------- новая карточка товара: фото справа, статистика слева ---------- */
+.prod-card{
+  background:var(--paper);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  display:flex;flex-direction:row;min-height:190px;
+  box-shadow:0 1px 2px rgba(27,20,10,.04), 0 6px 16px rgba(27,20,10,.05);
+  transition:box-shadow .18s;
+}
+.prod-card:hover{box-shadow:0 4px 10px rgba(27,20,10,.06), 0 14px 28px rgba(27,20,10,.09)}
+.prod-card-off{opacity:.55}
+.prod-body{flex:1;min-width:0;padding:16px 14px;display:flex;flex-direction:column;justify-content:space-between;gap:10px}
+.prod-views{font-size:11px;font-weight:700;color:#8a8478;margin-bottom:4px}
+.prod-stats-row{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
+.prod-stat{font-size:11px;font-weight:700;color:#8a8478}
+.prod-thumb{width:38%;flex-shrink:0;position:relative}
+.prod-thumb .product-emoji{width:100%;height:100%;border-radius:0;aspect-ratio:auto}
+
 .product-emoji{
   width:100%;aspect-ratio:1.4;border-radius:12px;background:var(--cream);
   display:flex;align-items:center;justify-content:center;font-size:40px;position:relative;
@@ -201,15 +218,23 @@ header{
   position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;
   background:var(--marigold);color:var(--indigo);
 }
+.pc-off-badge{
+  position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;
+  background:rgba(27,20,10,.7);color:#fff;
+}
 .pc-cat{font-size:11px;color:#8a8478;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
-.pc-name{font-size:14px;font-weight:700;color:var(--ink);min-height:36px}
-.pc-price-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-family:'Unbounded',sans-serif;font-weight:800;color:var(--indigo);font-size:14px}
+.pc-name{font-size:14px;font-weight:700;color:var(--ink);line-height:1.35}
+.pc-price-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-family:'Unbounded',sans-serif;font-weight:800;color:var(--indigo);font-size:14px;margin-top:6px}
 .pc-price-old{font-family:'Inter',sans-serif;font-weight:600;font-size:12px;color:#9c9384;text-decoration:line-through}
-.pc-actions{display:flex;gap:8px;margin-top:auto}
-.pc-actions button{flex:1;padding:8px 0;border-radius:10px;font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--cream);transition:background .15s}
+.pc-actions{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap}
+.pc-actions button{padding:7px 10px;border-radius:9px;font-size:11px;font-weight:700;border:1px solid var(--line);background:var(--cream);transition:background .15s}
 .pc-actions button:hover{background:var(--line)}
 .pc-actions .pc-delete{color:var(--brick)}
 .empty-products{grid-column:1/-1;text-align:center;color:#8a8478;padding:40px 0}
+@media (max-width:640px){
+  .prod-card{flex-direction:column}
+  .prod-thumb{width:100%;aspect-ratio:1.6}
+}
 
 /* ---------- product modal (форма товара) ---------- */
 .product-modal{
@@ -677,7 +702,7 @@ function showSection(name){
 
 async function loadProductsAdmin(){
   try{
-    const res = await fetch('/api/products');
+    const res = await fetch('/api/products?all=1');
     if(!res.ok) throw new Error('http ' + res.status);
     ADMIN_PRODUCTS = await res.json();
   }catch(e){
@@ -704,21 +729,80 @@ function renderProductsGrid(){
   });
   document.getElementById('productsCount').textContent = list.length + ' из ' + ADMIN_PRODUCTS.length;
   const grid = document.getElementById('productsGrid');
-  grid.innerHTML = list.map(p => `
-    <div class="product-card">
-      <div class="product-emoji">
-        ${p.image_data ? `<img src="${p.image_data}" alt="">` : p.emoji}
-        ${p.tag ? `<span class="pc-tag">${TAG_LABEL[p.tag] || p.tag}</span>` : ''}
+  grid.innerHTML = list.map(p => {
+    const isActive = p.active !== 0;
+    return `
+    <div class="prod-card ${isActive?'':'prod-card-off'}">
+      <div class="prod-body">
+        <div>
+          <div class="prod-views">👁 ${p.views||0} просмотров</div>
+          <div class="pc-name">${p.name_ru}</div>
+          ${productPriceHtml(p)}
+          <div class="prod-stats-row">
+            <span class="prod-stat">📦 ${p.stock ?? '—'} шт</span>
+            <span class="prod-stat">🛒 ${p.sales||0} продаж</span>
+          </div>
+        </div>
+        <div class="pc-actions">
+          <button onclick="openProductOnSite(${p.id})">Открыть</button>
+          <button onclick="openProductModal(${p.id})">Изменить</button>
+          <button onclick="duplicateProductConfirm(${p.id})">Дублировать</button>
+          <button onclick="toggleProductActive(${p.id}, ${isActive})">${isActive?'Скрыть':'Показать'}</button>
+          <button class="pc-delete" onclick="deleteProductConfirm(${p.id})">Удалить</button>
+        </div>
       </div>
-      <div class="pc-cat">${CAT_LABEL[p.cat] || p.cat}</div>
-      <div class="pc-name">${p.name_ru}</div>
-      ${productPriceHtml(p)}
-      <div class="pc-actions">
-        <button onclick="openProductModal(${p.id})">Изменить</button>
-        <button class="pc-delete" onclick="deleteProductConfirm(${p.id})">Удалить</button>
+      <div class="prod-thumb">
+        <div class="product-emoji">
+          ${p.image_data ? `<img src="${p.image_data}" alt="">` : p.emoji}
+          ${p.tag ? `<span class="pc-tag">${TAG_LABEL[p.tag] || p.tag}</span>` : ''}
+          ${!isActive ? `<span class="pc-off-badge">Скрыт</span>` : ''}
+        </div>
       </div>
     </div>
-  `).join('') || `<div class="empty-products">Товаров пока нет</div>`;
+  `;
+  }).join('') || `<div class="empty-products">Товаров пока нет</div>`;
+}
+
+function openProductOnSite(id){
+  const p = ADMIN_PRODUCTS.find(x=>x.id===id);
+  if(!p) return;
+  const slug = (p.name_ru||'товар').toLowerCase().replace(/[^a-zа-яё0-9]+/gi,'-').replace(/^-+|-+$/g,'');
+  window.open('/product/' + slug + '-' + id, '_blank');
+}
+
+async function toggleProductActive(id, currentlyActive){
+  try{
+    await apiFetch('/api/products/' + id + '/active', { method:'PATCH', body: JSON.stringify({ active: !currentlyActive }) });
+    await loadProductsAdmin();
+  }catch(e){
+    console.error('Не удалось изменить статус товара:', e);
+    alert('Не удалось изменить статус — проверьте подключение к серверу.');
+  }
+}
+
+async function duplicateProductConfirm(id){
+  const p = ADMIN_PRODUCTS.find(x=>x.id===id);
+  if(!p) return;
+  if(!confirm(`Создать копию товара «${p.name_ru}»?`)) return;
+  try{
+    const payload = {
+      cat: p.cat, name_ru: p.name_ru + ' (копия)', name_tj: p.name_tj + ' (нусха)',
+      price: p.price, old_price: p.old_price, emoji: p.emoji, tag: p.tag,
+      image_data: p.image_data, subtitle_ru: p.subtitle_ru, subtitle_tj: p.subtitle_tj,
+      bundle2_price: p.bundle2_price, bundle3_price: p.bundle3_price, bundle4_price: p.bundle4_price,
+      features_ru: p.features_ru, features_tj: p.features_tj,
+      delivery_ru: p.delivery_ru, delivery_tj: p.delivery_tj,
+      warranty_ru: p.warranty_ru, warranty_tj: p.warranty_tj,
+      desc_ru: p.desc_ru, desc_tj: p.desc_tj,
+      cost_price: p.cost_price, stock: p.stock, rating: p.rating, rating_count: p.rating_count,
+      colors: p.colors, sizes: p.sizes, extra_images: p.extra_images, seller_name: p.seller_name
+    };
+    await apiFetch('/api/products', { method:'POST', body: JSON.stringify(payload) });
+    await loadProductsAdmin();
+  }catch(e){
+    console.error('Не удалось дублировать товар:', e);
+    alert('Не удалось дублировать товар — проверьте подключение к серверу.');
+  }
 }
 
 function esc(s){ return (s||'').toString().replace(/"/g,'&quot;'); }

@@ -1336,7 +1336,7 @@ function buildOrderText(name, phone, address, comment){
 async function saveOrderToDatabase(channel, name, phone, address, comment){
   const items = Object.entries(cart).map(([id,qty])=>{
     const p = PRODUCTS.find(x=>x.id===Number(id));
-    const item = { name: lang==='tj'?p.name_tj:p.name_ru, qty, price:unitPrice(id) };
+    const item = { id: Number(id), name: lang==='tj'?p.name_tj:p.name_ru, qty, price:unitPrice(id) };
     if(cartVariantNote[id]) item.variant = cartVariantNote[id];
     return item;
   });

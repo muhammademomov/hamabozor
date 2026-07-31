@@ -133,15 +133,51 @@ app.patch('/api/orders/:id', requireAuth, async (req, res) => {
 // ----------------------------------------------------------------------------
 app.get('/api/products', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM products ORDER BY sort_order ASC, id ASC');
+    const showAll = req.query.all === '1'; // ?all=1 — для админки (показывает и скрытые товары)
+    const [rows] = await pool.query(
+      showAll
+        ? 'SELECT * FROM products ORDER BY sort_order ASC, id ASC'
+        : 'SELECT * FROM products WHERE active = 1 ORDER BY sort_order ASC, id ASC'
+    );
+
+    // считаем, сколько раз каждый товар встречался в заказах (по id товара в items)
+    const [orderRows] = await pool.query('SELECT items FROM orders');
+    const salesById = {};
+    for (const o of orderRows) {
+      let items = o.items;
+      if (typeof items === 'string') {
+        try { items = JSON.parse(items); } catch (e) { items = []; }
+      }
+      if (Array.isArray(items)) {
+        for (const it of items) {
+          if (it && it.id != null) {
+            salesById[it.id] = (salesById[it.id] || 0) + (Number(it.qty) || 0);
+          }
+        }
+      }
+    }
+
     const products = rows.map(r => ({
       ...r,
-      extra_images: typeof r.extra_images === 'string' ? JSON.parse(r.extra_images) : (r.extra_images || [])
+      extra_images: typeof r.extra_images === 'string' ? JSON.parse(r.extra_images) : (r.extra_images || []),
+      sales: salesById[r.id] || 0
     }));
     res.json(products);
   } catch (e) {
     console.error('Ошибка получения товаров:', e);
     res.status(500).json({ error: 'Не удалось получить товары' });
+  }
+});
+
+// админ — включить/выключить показ товара на сайте (не удаляя его)
+app.patch('/api/products/:id/active', requireAuth, async (req, res) => {
+  const { active } = req.body || {};
+  try {
+    await pool.query('UPDATE products SET active = ? WHERE id = ?', [active ? 1 : 0, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка изменения активности товара:', e);
+    res.status(500).json({ error: 'Не удалось изменить статус товара' });
   }
 });
 
@@ -285,6 +321,7 @@ async function ensureProductColumns() {
   await ensureColumn('products', 'views', 'INT NOT NULL DEFAULT 0');
   await ensureColumn('products', 'extra_images', 'JSON NULL');
   await ensureColumn('products', 'seller_name', 'VARCHAR(255) NULL');
+  await ensureColumn('products', 'active', 'TINYINT(1) NOT NULL DEFAULT 1');
 }
 
 // ----------------------------------------------------------------------------
