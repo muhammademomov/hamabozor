@@ -106,6 +106,64 @@ header{
 .section-tab.active{background:var(--indigo);color:#fff}
 .section-tab.active:hover{background:var(--indigo)}
 
+/* ---------- sidebar layout ---------- */
+.app{display:flex;min-height:100vh}
+.sidebar{
+  width:240px;flex-shrink:0;background:var(--paper);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:30;
+}
+.sb-logo{padding:22px 20px 18px;display:flex;align-items:center;gap:10px}
+.sb-logomark{
+  width:32px;height:32px;border-radius:9px;background:var(--indigo);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;
+  font-weight:800;font-size:15px;flex-shrink:0;
+}
+.sb-brand{font-family:'Unbounded',sans-serif;font-weight:800;font-size:15px;color:var(--indigo);letter-spacing:-.01em}
+.sb-sub{font-size:11px;color:#8a8478;font-weight:600;margin-top:1px}
+.sb-nav{flex:1;padding:10px 12px;display:flex;flex-direction:column;gap:3px;overflow-y:auto}
+.nav-it{
+  display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;
+  font-size:14px;font-weight:600;color:#6b655a;background:none;text-align:left;
+  transition:background .15s,color .15s;width:100%;
+}
+.nav-it:hover{background:var(--cream);color:var(--ink)}
+.nav-it.active{background:#E2E9F5;color:var(--indigo);font-weight:700}
+.nav-ic{width:18px;text-align:center;flex-shrink:0;font-size:15px}
+.sb-foot{padding:14px 16px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.sb-user{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.sb-avatar{
+  width:34px;height:34px;border-radius:50%;background:var(--indigo);color:#fff;font-weight:800;
+  font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.sb-uinfo{flex:1;min-width:0}
+.sb-uname{font-size:12.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-urole{font-size:10.5px;color:#8a8478;font-weight:600}
+.sb-iconlink{
+  width:30px;height:30px;border-radius:8px;background:var(--cream);display:flex;align-items:center;
+  justify-content:center;color:var(--ink);flex-shrink:0;font-size:14px;text-decoration:none;
+  transition:background .15s;
+}
+.sb-iconlink:hover{background:var(--line)}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{
+  background:var(--paper);border-bottom:1px solid var(--line);height:60px;padding:0 24px;
+  display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;
+  box-shadow:0 2px 12px rgba(27,20,10,.05);
+}
+.tb-title{font-family:'Unbounded',sans-serif;font-weight:700;font-size:16px;color:var(--indigo)}
+.tb-actions{margin-inline-start:auto;display:flex;gap:10px}
+.hamburger{display:none;background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink);padding:4px 6px}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(27,20,10,.4);z-index:29}
+
+@media (max-width:860px){
+  .hamburger{display:flex;align-items:center}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);transition:transform .22s ease;box-shadow:8px 0 24px rgba(27,20,10,.18)}
+  body.sidebar-open .sidebar{transform:translateX(0)}
+  body.sidebar-open .sb-overlay{display:block}
+  .tb-title{font-size:14px}
+}
+
 .wrap{max-width:1280px;margin:0 auto;padding:26px 24px 60px}
 .wrap.hidden{display:none}
 
@@ -381,21 +439,41 @@ tbody tr:hover{background:var(--cream)}
 </div>
 
 <div class="app" id="app">
-  <header>
-    <div class="header-inner">
-      <div class="logo"><span></span>ХАМАБОЗОР <small>· Админ</small></div>
-      <div class="section-tabs">
-        <button class="section-tab active" id="tabOrders" onclick="showSection('orders')">Заказы</button>
-        <button class="section-tab" id="tabProducts" onclick="showSection('products')">Товары</button>
-        <button class="section-tab" id="tabBanners" onclick="showSection('banners')">Баннеры</button>
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logomark">Х</div>
+      <div>
+        <div class="sb-brand">ХАМАБОЗОР</div>
+        <div class="sb-sub">Админ панель</div>
       </div>
-      <div class="header-actions">
-        <a class="btn-outline" href="index.html">← На сайт</a>
+    </div>
+    <nav class="sb-nav">
+      <button class="nav-it active" id="tabOrders" onclick="showSection('orders')"><span class="nav-ic">📦</span> Заказы</button>
+      <button class="nav-it" id="tabProducts" onclick="showSection('products')"><span class="nav-ic">🏷️</span> Товары</button>
+      <button class="nav-it" id="tabBanners" onclick="showSection('banners')"><span class="nav-ic">🖼️</span> Баннеры</button>
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="sb-avatar">А</div>
+        <div class="sb-uinfo">
+          <div class="sb-uname">Администратор</div>
+          <div class="sb-urole">ХАМАБОЗОР</div>
+        </div>
+      </div>
+      <a class="sb-iconlink" href="index.html" title="На сайт">↗</a>
+    </div>
+  </aside>
+  <div class="sb-overlay" id="sbOverlay" onclick="toggleSidebar()"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <div class="tb-title" id="pageTitle">Заказы</div>
+      <div class="tb-actions">
         <button class="btn-outline" id="refreshBtn" onclick="loadOrders()">↻ Обновить</button>
         <button class="btn-outline" onclick="logout()">Выйти</button>
       </div>
-    </div>
-  </header>
+    </header>
 
   <div class="wrap" id="ordersPage">
     <div class="stats">
@@ -474,6 +552,7 @@ tbody tr:hover{background:var(--cream)}
       <input type="file" id="bannerPhotoInput" accept="image/*" style="display:none" onchange="handleBannerUpload(this)">
     </div>
     <div class="banners-list" id="bannersList"></div>
+  </div>
   </div>
 </div>
 
@@ -569,6 +648,12 @@ let productsLoadedOnce = false;
 let bannersLoadedOnce = false;
 let ADMIN_BANNERS = [];
 
+function toggleSidebar(){
+  document.body.classList.toggle('sidebar-open');
+}
+
+const PAGE_TITLES = { orders:'Заказы', products:'Товары', banners:'Баннеры' };
+
 function showSection(name){
   document.getElementById('tabOrders').classList.toggle('active', name==='orders');
   document.getElementById('tabProducts').classList.toggle('active', name==='products');
@@ -576,6 +661,8 @@ function showSection(name){
   document.getElementById('ordersPage').classList.toggle('hidden', name!=='orders');
   document.getElementById('productsPage').classList.toggle('hidden', name!=='products');
   document.getElementById('bannersPage').classList.toggle('hidden', name!=='banners');
+  document.getElementById('pageTitle').textContent = PAGE_TITLES[name] || '';
+  document.body.classList.remove('sidebar-open');
   document.getElementById('refreshBtn').onclick =
     name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : loadBannersAdmin;
   if(name==='products' && !productsLoadedOnce){
