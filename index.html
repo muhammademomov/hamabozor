@@ -351,6 +351,13 @@ section.products{padding:48px 20px}
 }
 .pp-gallery-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.6)}
 .pp-gallery-dot.active{background:#fff;width:18px;border-radius:4px}
+.pp-gallery-arrow{
+  position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;
+  font-size:16px;color:var(--ink);z-index:2;
+}
+.pp-gallery-arrow.prev{left:10px}
+.pp-gallery-arrow.next{right:10px}
 .pp-card{
   background:var(--cream);border-radius:16px;padding:18px;margin-top:18px;
 }
@@ -374,6 +381,11 @@ section.products{padding:48px 20px}
   font-size:13px;font-weight:600;color:var(--ink);
 }
 .pp-chip.active{border-color:var(--indigo);background:#E2E9F5;color:var(--indigo)}
+.pp-color-swatch{
+  width:34px;height:34px;border-radius:50%;background:var(--sw-color,#ccc);
+  border:2px solid var(--paper);box-shadow:0 0 0 1px var(--line);
+}
+.pp-color-swatch.active{box-shadow:0 0 0 2px var(--indigo)}
 .pp-desc-toggle{
   background:none;color:var(--indigo);font-size:12px;font-weight:700;margin-top:6px;padding:0;
 }
@@ -398,7 +410,7 @@ section.products{padding:48px 20px}
 .pp-desc-label{font-size:13px;font-weight:700;color:#6b655a;margin-top:26px;text-transform:uppercase;letter-spacing:.04em}
 .pp-desc-text{font-size:15px;line-height:1.65;margin-top:10px;color:var(--ink)}
 .pp-similar-label{font-size:17px;margin:30px 0 14px}
-.similar-grid{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;margin:0 -20px;padding-left:20px;padding-right:20px}
+.similar-grid{display:flex;flex-direction:column;gap:14px;max-width:360px}
 .similar-grid .card{min-width:150px;flex-shrink:0}
 .pp-footer{
   position:fixed;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--line);
@@ -1060,7 +1072,11 @@ function renderProductDetail(){
   if(images.length){
     galleryEl.innerHTML = images.map(src => `
       <div class="pp-gallery-slide" style="--pp-bg:${CARD_BG[p.cat]}"><img src="${src}"></div>
-    `).join('') + (images.length>1 ? `<div class="pp-gallery-dots">${images.map((_,i)=>`<span class="pp-gallery-dot ${i===0?'active':''}"></span>`).join('')}</div>` : '');
+    `).join('') + (images.length>1 ? `
+      <button type="button" class="pp-gallery-arrow prev" onclick="ppGalleryStep(-1)">‹</button>
+      <button type="button" class="pp-gallery-arrow next" onclick="ppGalleryStep(1)">›</button>
+      <div class="pp-gallery-dots">${images.map((_,i)=>`<span class="pp-gallery-dot ${i===0?'active':''}"></span>`).join('')}</div>
+    ` : '');
     if(images.length>1){
       galleryEl.onscroll = () => {
         const idx = Math.round(galleryEl.scrollLeft / galleryEl.clientWidth);
@@ -1126,7 +1142,9 @@ function renderProductDetail(){
   const colorsEl = document.getElementById('ppColors');
   if(colors.length){
     colorsEl.innerHTML = `<div class="pp-variant-label">${lang==='tj'?'Ранг':'Цвет'}${ppSelectedColor?': '+ppSelectedColor:''}</div>
-      <div class="pp-variant-opts">${colors.map(c=>`<button type="button" class="pp-chip ${ppSelectedColor===c?'active':''}" onclick="ppSelectColor('${c.replace(/'/g,"\\'")}')">${c}</button>`).join('')}</div>`;
+      <div class="pp-variant-opts">${colors.map(c=>`
+        <button type="button" class="pp-color-swatch ${ppSelectedColor===c?'active':''}" style="--sw-color:${colorToHex(c)}" title="${c}" onclick="ppSelectColor('${c.replace(/'/g,"\\'")}')"></button>
+      `).join('')}</div>`;
     colorsEl.style.display = 'block';
   }else{
     colorsEl.innerHTML = '';
@@ -1202,6 +1220,11 @@ function renderProductDetail(){
   const similar = PRODUCTS.filter(x=>x.cat===p.cat && x.id!==p.id).slice(0,6);
   document.getElementById('ppSimilar').innerHTML = similar.map(s=>renderCard(s)).join('') ||
     `<p style="color:#8a8478;font-size:13px">—</p>`;
+}
+
+function ppGalleryStep(dir){
+  const galleryEl = document.getElementById('ppGallery');
+  galleryEl.scrollBy({ left: dir * galleryEl.clientWidth, behavior:'smooth' });
 }
 
 function ppSelectBundle(qty, price){
