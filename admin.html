@@ -38,7 +38,8 @@
 body{
   margin:0;background:var(--cream);color:var(--ink);
   font-family:'Inter',system-ui,-apple-system,sans-serif;
-  -webkit-font-smoothing:antialiased;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  letter-spacing:-.005em;
 }
 h1,h2,h3,.display{
   font-family:'Unbounded',system-ui,sans-serif;font-weight:800;
@@ -46,6 +47,9 @@ h1,h2,h3,.display{
 }
 p{margin:0}
 button{font-family:inherit;cursor:pointer;border:none}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(43,38,32,.20);border-radius:9px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
 input,select{font-family:inherit}
 
 /* ---------- login gate ---------- */
@@ -108,7 +112,8 @@ header{
 
 /* ---------- sidebar layout ---------- */
 .sidebar{
-  width:240px;flex-shrink:0;background:var(--paper);border-right:1px solid var(--line);
+  width:240px;flex-shrink:0;background:rgba(255,253,248,.78);border-right:1px solid var(--line);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);
   display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:30;
 }
 .sb-logo{padding:22px 20px 18px;display:flex;align-items:center;gap:10px}
@@ -146,9 +151,10 @@ header{
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{
-  background:var(--paper);border-bottom:1px solid var(--line);height:60px;padding:0 24px;
+  background:rgba(255,253,248,.78);border-bottom:1px solid var(--line);height:60px;padding:0 24px;
+  -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);
   display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;
-  box-shadow:0 2px 12px rgba(27,20,10,.05);
+  box-shadow:0 1px 0 rgba(27,20,10,.04);
 }
 .tb-title{font-family:'Unbounded',sans-serif;font-weight:700;font-size:16px;color:var(--indigo)}
 .tb-actions{margin-inline-start:auto;display:flex;gap:10px}
