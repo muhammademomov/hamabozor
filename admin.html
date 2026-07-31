@@ -72,7 +72,7 @@ input,select{font-family:inherit}
 
 /* ---------- layout ---------- */
 .app{display:none}
-.app.show{display:block}
+.app.show{display:flex;min-height:100vh}
 header{
   background:var(--paper);border-bottom:1px solid var(--line);
   position:sticky;top:0;z-index:20;
@@ -107,7 +107,6 @@ header{
 .section-tab.active:hover{background:var(--indigo)}
 
 /* ---------- sidebar layout ---------- */
-.app{display:flex;min-height:100vh}
 .sidebar{
   width:240px;flex-shrink:0;background:var(--paper);border-right:1px solid var(--line);
   display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:30;
