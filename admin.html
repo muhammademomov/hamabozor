@@ -1503,8 +1503,8 @@ function closeProductModal(){
 }
 
 async function saveProduct(){
-  const name_ru = document.getElementById('pmNameRu').value.trim();
-  const name_tj = document.getElementById('pmNameTj').value.trim();
+  let name_ru = document.getElementById('pmNameRu').value.trim();
+  let name_tj = document.getElementById('pmNameTj').value.trim();
   const cat = document.getElementById('pmCat').value;
   const tag = document.getElementById('pmTag').value || null;
   const price = Number(document.getElementById('pmPrice').value);
@@ -1512,8 +1512,19 @@ async function saveProduct(){
   const old_price = oldPriceRaw ? Number(oldPriceRaw) : null;
   const errBox = document.getElementById('pmError');
 
-  if(!name_ru || !name_tj || !cat || !price || price <= 0){
+  // название нужно хотя бы на одном языке — второе подставим таким же
+  if(!name_ru && name_tj) name_ru = name_tj;
+  if(!name_tj && name_ru) name_tj = name_ru;
+
+  const missing = [];
+  if(!name_ru) missing.push('название товара (шаг 1)');
+  if(!cat) missing.push('категория (шаг 8, «Категория»)');
+  if(!price || price <= 0) missing.push('цена (шаг 3, «Цена продажи»)');
+
+  if(missing.length){
+    errBox.textContent = 'Не заполнено: ' + missing.join(', ') + '.';
     errBox.style.display = 'block';
+    errBox.scrollIntoView({ behavior:'smooth', block:'center' });
     return;
   }
   errBox.style.display = 'none';
