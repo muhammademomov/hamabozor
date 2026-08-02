@@ -312,6 +312,18 @@ header{
   background:rgba(27,20,10,.7);color:#fff;font-size:10px;line-height:1;
 }
 
+.pm-model-media-list{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.pm-model-media-item{position:relative;width:110px;background:var(--cream);border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.pm-model-media-item video,.pm-model-media-item img{width:100%;height:130px;object-fit:cover;display:block;background:#000}
+.pm-mm-info{padding:6px 8px;font-size:10px;color:var(--ink)}
+.pm-mm-info div:first-child{font-weight:700}
+.pm-mm-info div:last-child{color:#8a8478}
+.pm-model-media-item button{
+  position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;
+  background:rgba(27,20,10,.75);color:#fff;font-size:11px;line-height:1;
+}
+.pm-model-media-add{background:var(--cream);border-radius:10px;padding:12px}
+
 .pm-discount-badge{font-size:12px;font-weight:700;color:var(--brick);margin-top:8px}
 .pm-margin-row{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
 .pm-margin-card{background:var(--cream);border-radius:10px;padding:10px 14px;flex:1;min-width:110px}
@@ -673,6 +685,7 @@ let pmSelectedEmoji = '🛍️';
 let pmSelectedTag = '';
 let pmImageData = null;
 let pmExtraImages = [];
+let pmModelMedia = []; // {id: number|null (null = ещё не сохранено), color, body_type, media_type, media_data}
 
 let productsLoadedOnce = false;
 let bannersLoadedOnce = false;
@@ -819,6 +832,7 @@ function openProductModal(id){
   pmSelectedTag = p ? (p.tag || '') : '';
   pmImageData = p ? (p.image_data || null) : null;
   pmExtraImages = p && Array.isArray(p.extra_images) ? [...p.extra_images] : [];
+  pmModelMedia = p && Array.isArray(p.model_media) ? p.model_media.map(m => ({...m})) : [];
 
   document.getElementById('productModal').innerHTML = `
     <div class="pm-form-pane">
@@ -1010,6 +1024,29 @@ function openProductModal(id){
         <div class="pm-margin-row" id="pmMarginRow"></div>
       </div>
 
+      <div class="pm-step">
+        <div class="pm-step-head"><span class="pm-step-num">10</span><span class="pm-step-title">Видео/фото модели (примерочная)</span></div>
+        <div class="pm-hint">Загрузите готовое видео или фото модели в этом товаре — отдельно для худой и полной фигуры, и по каждому цвету (необязательно). На странице товара покупатель нажимает размер/цвет — и видео переключается автоматически.</div>
+        <div class="pm-model-media-list" id="pmModelMediaList"></div>
+        <div class="pm-model-media-add">
+          <div class="pm-grid2">
+            <div class="pm-field">
+              <label>Телосложение модели</label>
+              <select id="pmMmBodyType">
+                <option value="slim">Стройная (маленькие размеры)</option>
+                <option value="plus">Полная (большие размеры)</option>
+              </select>
+            </div>
+            <div class="pm-field">
+              <label>Цвет (необязательно, если цвет один)</label>
+              <input id="pmMmColor" placeholder="Например: Чёрный">
+            </div>
+          </div>
+          <button type="button" class="btn-outline" onclick="document.getElementById('pmMmFileInput').click()">+ Загрузить видео/фото модели</button>
+          <input type="file" id="pmMmFileInput" accept="video/*,image/*" style="display:none" onchange="pmHandleModelMediaFile(this)">
+        </div>
+      </div>
+
       <div class="pm-error" id="pmError">Заполните обязательные поля (название, категория, цена).</div>
 
       <div class="pm-actions">
@@ -1025,7 +1062,72 @@ function openProductModal(id){
   `;
   document.getElementById('productModalOverlay').classList.add('show');
   renderPmExtraPhotos();
+  renderPmModelMedia();
   updatePmPreview();
+}
+
+function renderPmModelMedia(){
+  const box = document.getElementById('pmModelMediaList');
+  if(!box) return;
+  if(!pmModelMedia.length){
+    box.innerHTML = `<div class="pm-hint" style="margin-bottom:10px">Пока ничего не загружено.</div>`;
+    return;
+  }
+  box.innerHTML = pmModelMedia.map((m,i) => `
+    <div class="pm-model-media-item">
+      ${m.media_type==='video'
+        ? `<video src="${m.media_data}" muted loop autoplay playsinline></video>`
+        : `<img src="${m.media_data}">`}
+      <div class="pm-mm-info">
+        <div><b>${m.body_type==='plus'?'Полная':'Стройная'}</b></div>
+        <div>${m.color ? m.color : 'Все цвета'}</div>
+      </div>
+      <button type="button" onclick="pmRemoveModelMedia(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function pmHandleModelMediaFile(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const isVideo = file.type.startsWith('video/');
+  const maxSize = isVideo ? 25*1024*1024 : 5*1024*1024;
+  if(file.size > maxSize){
+    alert(`Файл слишком большой — выберите ${isVideo?'видео до 25 МБ':'фото до 5 МБ'}. Совет: сделайте видео короче (2-4 секунды) или сожмите его.`);
+    input.value = '';
+    return;
+  }
+  const body_type = document.getElementById('pmMmBodyType').value;
+  const color = document.getElementById('pmMmColor').value.trim() || null;
+  const reader = new FileReader();
+  reader.onload = () => {
+    pmModelMedia.push({
+      id: null,
+      color, body_type,
+      media_type: isVideo ? 'video' : 'image',
+      media_data: reader.result
+    });
+    renderPmModelMedia();
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+async function pmRemoveModelMedia(index){
+  const item = pmModelMedia[index];
+  if(!item) return;
+  if(item.id){
+    // уже сохранено в базе — удаляем сразу через API
+    try{
+      await apiFetch('/api/model-media/' + item.id, { method:'DELETE' });
+    }catch(e){
+      console.error('Не удалось удалить медиа модели:', e);
+      alert('Не удалось удалить — проверьте подключение к серверу.');
+      return;
+    }
+  }
+  pmModelMedia.splice(index,1);
+  renderPmModelMedia();
 }
 
 function renderPmExtraPhotos(){
@@ -1245,11 +1347,23 @@ async function saveProduct(){
   };
 
   try{
+    let productId = editingProductId;
     if(editingProductId){
       await apiFetch('/api/products/' + editingProductId, { method:'PUT', body: JSON.stringify(payload) });
     }else{
-      await apiFetch('/api/products', { method:'POST', body: JSON.stringify(payload) });
+      const created = await apiFetch('/api/products', { method:'POST', body: JSON.stringify(payload) });
+      productId = created.id;
     }
+
+    // загружаем новые видео/фото модели (те, что ещё не сохранены в базе)
+    const pending = pmModelMedia.filter(m => !m.id);
+    for(const m of pending){
+      await apiFetch('/api/products/' + productId + '/model-media', {
+        method:'POST',
+        body: JSON.stringify({ color: m.color, body_type: m.body_type, media_type: m.media_type, media_data: m.media_data })
+      });
+    }
+
     closeProductModal();
     await loadProductsAdmin();
   }catch(e){

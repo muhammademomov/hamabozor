@@ -43,6 +43,17 @@ CREATE TABLE IF NOT EXISTS products (
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS product_model_media (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  product_id  INT NOT NULL,
+  color       VARCHAR(100),                -- цвет, к которому относится фото/видео (необязательно)
+  body_type   ENUM('slim','plus') NOT NULL DEFAULT 'slim',  -- худая / полная модель
+  media_type  ENUM('video','image') NOT NULL DEFAULT 'video',
+  media_data  LONGTEXT NOT NULL,           -- фото/видео модели в товаре (base64)
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_pmm_product (product_id)
+);
+
 CREATE TABLE IF NOT EXISTS banners (
   id          INT AUTO_INCREMENT PRIMARY KEY,
   image_data  MEDIUMTEXT NOT NULL,         -- фото баннера (base64)

@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
 const app = express();
-app.use(express.json({ limit: '8mb' }));
+app.use(express.json({ limit: '45mb' }));
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -157,10 +157,21 @@ app.get('/api/products', async (req, res) => {
       }
     }
 
+    // фото/видео моделей (худая/полная, по цветам) — для всех товаров разом
+    const [mediaRows] = await pool.query('SELECT * FROM product_model_media ORDER BY id ASC');
+    const mediaByProduct = {};
+    for (const m of mediaRows) {
+      (mediaByProduct[m.product_id] = mediaByProduct[m.product_id] || []).push({
+        id: m.id, color: m.color, body_type: m.body_type,
+        media_type: m.media_type, media_data: m.media_data
+      });
+    }
+
     const products = rows.map(r => ({
       ...r,
       extra_images: typeof r.extra_images === 'string' ? JSON.parse(r.extra_images) : (r.extra_images || []),
-      sales: salesById[r.id] || 0
+      sales: salesById[r.id] || 0,
+      model_media: mediaByProduct[r.id] || []
     }));
     res.json(products);
   } catch (e) {
@@ -284,6 +295,38 @@ app.delete('/api/products/:id', requireAuth, async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// МЕДИА МОДЕЛИ — фото/видео товара на модели (худая/полная), по цветам.
+// Переключается на странице товара при выборе цвета/размера.
+// ----------------------------------------------------------------------------
+app.post('/api/products/:id/model-media', requireAuth, async (req, res) => {
+  const { color, body_type, media_type, media_data } = req.body || {};
+  if (!body_type || !media_data) {
+    return res.status(400).json({ error: 'Не хватает данных (тип фигуры или файл)' });
+  }
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO product_model_media (product_id, color, body_type, media_type, media_data)
+       VALUES (?, ?, ?, ?, ?)`,
+      [req.params.id, color || null, body_type, media_type || 'video', media_data]
+    );
+    res.json({ id: result.insertId });
+  } catch (e) {
+    console.error('Ошибка добавления медиа модели:', e);
+    res.status(500).json({ error: 'Не удалось сохранить фото/видео модели' });
+  }
+});
+
+app.delete('/api/model-media/:mediaId', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM product_model_media WHERE id = ?', [req.params.mediaId]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления медиа модели:', e);
+    res.status(500).json({ error: 'Не удалось удалить фото/видео модели' });
+  }
+});
+
+// ----------------------------------------------------------------------------
 // добавляет колонку в таблицу, если её ещё нет — безопасно для уже
 // работающей базы (например, на Railway), не только для новых установок
 // ----------------------------------------------------------------------------
@@ -297,6 +340,21 @@ async function ensureColumn(table, column, definitionSql) {
     await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definitionSql}`);
     console.log(`Добавлена колонка ${table}.${column}`);
   }
+}
+
+async function ensureModelMediaTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS product_model_media (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      product_id  INT NOT NULL,
+      color       VARCHAR(100),
+      body_type   ENUM('slim','plus') NOT NULL DEFAULT 'slim',
+      media_type  ENUM('video','image') NOT NULL DEFAULT 'video',
+      media_data  LONGTEXT NOT NULL,
+      created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_pmm_product (product_id)
+    )
+  `);
 }
 
 async function ensureProductColumns() {
@@ -363,6 +421,7 @@ async function ensureSchema() {
   `);
 
   await ensureProductColumns();
+  await ensureModelMediaTable();
 
   // если товаров ещё нет — заполняем стартовым набором, чтобы сайт не был пустым
   const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM products');

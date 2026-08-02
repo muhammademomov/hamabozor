@@ -358,6 +358,12 @@ section.products{padding:48px 20px}
 }
 .pp-gallery-arrow.prev{left:10px}
 .pp-gallery-arrow.next{right:10px}
+.pp-model-slide{position:relative;aspect-ratio:9/13;background:#111}
+.pp-model-slide video,.pp-model-slide img{width:100%;height:100%;object-fit:cover}
+.pp-model-tag{
+  position:absolute;bottom:12px;left:12px;background:rgba(27,20,10,.7);color:#fff;
+  font-size:11px;font-weight:600;padding:5px 10px;border-radius:20px;letter-spacing:.02em;
+}
 .pp-card{
   background:var(--cream);border-radius:16px;padding:18px;margin-top:18px;
 }
@@ -718,7 +724,8 @@ async function loadProducts(){
         sizes: p.sizes || '',
         views: num(p.views) || 0,
         extra_images: Array.isArray(p.extra_images) ? p.extra_images : [],
-        seller_name: p.seller_name || ''
+        seller_name: p.seller_name || '',
+        model_media: Array.isArray(p.model_media) ? p.model_media : []
       }));
     }
   }catch(e){
@@ -1062,13 +1069,58 @@ function handleRoute(){
 }
 window.addEventListener('popstate', handleRoute);
 
+// определяет телосложение модели по выбранному размеру (S/M/L → стройная, XL и больше → полная)
+function ppSizeToBodyType(size){
+  if(!size) return 'slim';
+  const s = size.toString().trim().toUpperCase();
+  const num = parseFloat(s.replace(',', '.'));
+  if(!isNaN(num)) return num > 50 ? 'plus' : 'slim'; // рос. размерная сетка (42-72)
+  if(s.includes('XL') || s.includes('XXL') || s === 'XXXL' || s === '2XL' || s === '3XL' || s === '4XL') return 'plus';
+  return 'slim';
+}
+
+// ищет подходящее видео/фото модели под выбранный цвет + телосложение (по размеру)
+function ppFindModelMedia(p){
+  const list = Array.isArray(p.model_media) ? p.model_media : [];
+  if(!list.length) return null;
+  const bodyType = ppSizeToBodyType(ppSelectedSize);
+  const color = ppSelectedColor;
+  // 1) точное совпадение по цвету и телосложению
+  let m = list.find(x => x.body_type===bodyType && color && x.color && x.color.toLowerCase()===color.toLowerCase());
+  if(m) return m;
+  // 2) совпадение по телосложению, цвет не важен (не задан у медиа)
+  m = list.find(x => x.body_type===bodyType && !x.color);
+  if(m) return m;
+  // 3) любое совпадение по телосложению
+  m = list.find(x => x.body_type===bodyType);
+  if(m) return m;
+  // 4) хоть что-то, лишь бы было
+  return list[0];
+}
+
 function renderProductDetail(){
   const p = PRODUCTS.find(x=>x.id===ppCurrentId);
   if(!p) return;
 
+  // "примерочная" — видео/фото модели, если оно загружено для этого товара
+  const modelMedia = ppFindModelMedia(p);
+  const galleryEl = document.getElementById('ppGallery');
+
+  if(modelMedia){
+    galleryEl.onscroll = null;
+    galleryEl.innerHTML = `
+      <div class="pp-gallery-slide pp-model-slide" style="--pp-bg:${CARD_BG[p.cat]}">
+        ${modelMedia.media_type==='video'
+          ? `<video src="${modelMedia.media_data}" autoplay muted loop playsinline></video>`
+          : `<img src="${modelMedia.media_data}">`}
+        <div class="pp-model-tag">${lang==='tj'?'Инро дар мушоҳида кунед':'Примерочная'} · ${modelMedia.body_type==='plus'?(lang==='tj'?'Пурра':'Полная'):(lang==='tj'?'Борик':'Стройная')}</div>
+      </div>`;
+    renderProductDetailRest(p);
+    return;
+  }
+
   // галерея (главное фото + доп. фото, либо эмодзи, если фото нет)
   const images = [p.image_data, ...(Array.isArray(p.extra_images)?p.extra_images:[])].filter(Boolean);
-  const galleryEl = document.getElementById('ppGallery');
   if(images.length){
     galleryEl.innerHTML = images.map(src => `
       <div class="pp-gallery-slide" style="--pp-bg:${CARD_BG[p.cat]}"><img src="${src}"></div>
@@ -1090,6 +1142,10 @@ function renderProductDetail(){
     galleryEl.onscroll = null;
   }
 
+  renderProductDetailRest(p);
+}
+
+function renderProductDetailRest(p){
   document.getElementById('ppCat').textContent = CAT_LABELS[p.cat][lang];
   document.getElementById('ppTitle').textContent = lang==='tj'?p.name_tj:p.name_ru;
 
