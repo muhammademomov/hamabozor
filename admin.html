@@ -252,7 +252,7 @@ header{
 
 /* ---------- product modal (форма товара) ---------- */
 .product-modal{
-  max-width:1040px;width:95%;padding:0;display:flex;max-height:90vh;overflow:hidden;
+  max-width:1220px;width:96%;padding:0;display:flex;max-height:90vh;overflow:hidden;
 }
 .pm-form-pane{flex:1.25;overflow-y:auto;padding:26px}
 .pm-preview-pane{
@@ -978,27 +978,24 @@ function openProductModal(id){
 
       <div class="pm-step">
         <div class="pm-step-head"><span class="pm-step-num">1</span><span class="pm-step-title">Название товара</span></div>
-        <div class="pm-grid2">
-          <div class="pm-field">
-            <label>Название (рус.) *</label>
-            <input id="pmNameRu" oninput="updatePmPreview()" value="${p?esc(p.name_ru):''}" placeholder="Беспроводные наушники">
-          </div>
-          <div class="pm-field">
-            <label>Название (тадж.) *</label>
-            <input id="pmNameTj" oninput="updatePmPreview()" value="${p?esc(p.name_tj):''}" placeholder="Гӯшмонакҳои бесим">
-          </div>
+        <div class="pm-field" style="margin-top:0">
+          <label>Название (рус.) *</label>
+          <input id="pmNameRu" oninput="updatePmPreview()" value="${p?esc(p.name_ru):''}" placeholder="Например: Беспроводные наушники">
         </div>
-        <div class="pm-grid2">
-          <div class="pm-field">
-            <label>Подзаголовок (рус., необязательно)</label>
-            <input id="pmSubtitleRu" oninput="updatePmPreview()" value="${p?esc(p.subtitle_ru):''}" placeholder="Короткая фраза под названием">
-          </div>
-          <div class="pm-field">
-            <label>Подзаголовок (тадж., необязательно)</label>
-            <input id="pmSubtitleTj" oninput="updatePmPreview()" value="${p?esc(p.subtitle_tj):''}" placeholder="Ибораи кӯтоҳ">
-          </div>
+        <div class="pm-field">
+          <label>Название (тадж.) *</label>
+          <input id="pmNameTj" oninput="updatePmPreview()" value="${p?esc(p.name_tj):''}" placeholder="Масалан: Гӯшмонакҳои бесим">
+        </div>
+        <div class="pm-field">
+          <label>Подзаголовок (рус., необязательно)</label>
+          <input id="pmSubtitleRu" oninput="updatePmPreview()" value="${p?esc(p.subtitle_ru):''}" placeholder="Короткая фраза под названием">
+        </div>
+        <div class="pm-field">
+          <label>Подзаголовок (тадж., необязательно)</label>
+          <input id="pmSubtitleTj" oninput="updatePmPreview()" value="${p?esc(p.subtitle_tj):''}" placeholder="Ибораи кӯтоҳ">
         </div>
       </div>
+
 
       <div class="pm-step">
         <div class="pm-step-head"><span class="pm-step-num">2</span><span class="pm-step-title">Фото товара</span></div>
