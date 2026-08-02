@@ -33,6 +33,11 @@
   --paper:#FFFDF8;
   --line:rgba(43,38,32,.12);
   --shadow: 0 8px 24px rgba(27,42,74,.10);
+  --brand-blue:#2F6FED;
+  --brand-blue-dark:#1D52C9;
+  --accent-green:#16A34A;
+  --accent-green-dark:#0F7C38;
+  --accent-green-bg:#E7F6EC;
 }
 *{box-sizing:border-box}
 body{
@@ -97,12 +102,12 @@ header{
 }
 .btn-outline:hover{background:var(--cream);border-color:#c9c2b3}
 .btn-solid{
-  border:none;background:var(--indigo);color:#fff;padding:10px 18px;
+  border:none;background:var(--accent-green);color:#fff;padding:10px 18px;
   border-radius:999px;font-size:13px;font-weight:700;
-  box-shadow:0 4px 12px rgba(27,42,74,.28);
+  box-shadow:0 4px 12px rgba(22,163,74,.28);
   transition:background .15s,box-shadow .15s,transform .1s;
 }
-.btn-solid:hover{background:var(--indigo-2);box-shadow:0 6px 16px rgba(27,42,74,.34)}
+.btn-solid:hover{background:var(--accent-green-dark);box-shadow:0 6px 16px rgba(22,163,74,.34)}
 .btn-solid:active,.btn-outline:active{transform:scale(.98)}
 .section-tabs{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper);box-shadow:0 1px 2px rgba(27,20,10,.04)}
 .section-tab{padding:9px 18px;font-size:13px;font-weight:700;color:var(--ink);background:none;transition:background .15s,color .15s}
@@ -118,20 +123,24 @@ header{
 }
 .sb-logo{padding:22px 20px 18px;display:flex;align-items:center;gap:10px}
 .sb-logomark{
-  width:32px;height:32px;border-radius:9px;background:var(--indigo);color:#fff;
+  width:32px;height:32px;border-radius:9px;background:var(--brand-blue);color:#fff;
   display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;
   font-weight:800;font-size:15px;flex-shrink:0;
 }
 .sb-brand{font-family:'Unbounded',sans-serif;font-weight:800;font-size:15px;color:var(--indigo);letter-spacing:-.01em}
 .sb-sub{font-size:11px;color:#8a8478;font-weight:600;margin-top:1px}
-.sb-nav{flex:1;padding:10px 12px;display:flex;flex-direction:column;gap:3px;overflow-y:auto}
+.sb-nav{flex:1;padding:10px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.sb-nav-group{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a39d90;padding:14px 12px 6px}
+.sb-nav-group:first-child{padding-top:4px}
 .nav-it{
-  display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;
-  font-size:14px;font-weight:600;color:#6b655a;background:none;text-align:left;
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
+  font-size:13.5px;font-weight:600;color:#6b655a;background:none;text-align:left;
   transition:background .15s,color .15s;width:100%;
 }
 .nav-it:hover{background:var(--cream);color:var(--ink)}
-.nav-it.active{background:#E2E9F5;color:var(--indigo);font-weight:700}
+.nav-it.active{background:#E7EFFE;color:var(--brand-blue-dark);font-weight:700}
+.nav-it.soon{opacity:.55}
+.nav-it .soon-tag{margin-left:auto;font-size:9px;font-weight:700;background:var(--cream);color:#a39d90;padding:2px 6px;border-radius:6px;letter-spacing:.02em}
 .nav-ic{width:18px;text-align:center;flex-shrink:0;font-size:15px}
 .sb-foot{padding:14px 16px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px}
 .sb-user{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
@@ -324,7 +333,36 @@ header{
 }
 .pm-model-media-add{background:var(--cream);border-radius:10px;padding:12px}
 
-.pm-discount-badge{font-size:12px;font-weight:700;color:var(--brick);margin-top:8px}
+.pm-discount-badge{font-size:12px;font-weight:700;color:var(--accent-green-dark);margin-top:8px}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.dash-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+.dash-card .l{font-size:12px;color:#8a8478;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.dash-card .v{font-family:'Unbounded',sans-serif;font-weight:800;font-size:26px;color:var(--indigo);margin-top:8px}
+.dash-card .v.green{color:var(--accent-green-dark)}
+.soon-card{max-width:420px;margin:60px auto;text-align:center;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:40px 28px;box-shadow:var(--shadow)}
+.soon-emoji{font-size:40px;margin-bottom:14px}
+.soon-title{font-family:'Unbounded',sans-serif;font-weight:800;font-size:17px;color:var(--indigo);margin-bottom:8px}
+.soon-text{font-size:13px;color:#8a8478;line-height:1.5}
+.pm-color-palette{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.pm-color-dot{
+  width:30px;height:30px;border-radius:50%;background:var(--dot-color);border:2px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;
+  text-shadow:0 0 2px rgba(0,0,0,.6);transition:transform .1s,border-color .15s;
+}
+.pm-color-dot:hover{transform:scale(1.08)}
+.pm-color-dot.active{border-color:var(--brand-blue);box-shadow:0 0 0 2px rgba(47,111,237,.25)}
+.pm-size-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.pm-add-row{display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap}
+.pm-add-row input[type="text"],.pm-add-row input:not([type]){
+  flex:1;min-width:140px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--paper);
+}
+.pm-add-row input[type="color"]{width:36px;height:36px;border:1px solid var(--line);border-radius:8px;padding:2px;background:var(--paper)}
+.pm-chip{
+  padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--paper);
+  font-size:13px;font-weight:600;color:var(--ink);transition:background .15s,border-color .15s,color .15s;
+}
+.pm-chip:hover{background:var(--cream)}
+.pm-chip.active{background:var(--brand-blue);border-color:var(--brand-blue);color:#fff}
 .pm-margin-row{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
 .pm-margin-card{background:var(--cream);border-radius:10px;padding:10px 14px;flex:1;min-width:110px}
 .pm-margin-card .v{font-family:'Unbounded',sans-serif;font-weight:800;font-size:16px;color:var(--indigo)}
@@ -490,9 +528,26 @@ tbody tr:hover{background:var(--cream)}
       </div>
     </div>
     <nav class="sb-nav">
+      <div class="sb-nav-group">Главное</div>
+      <button class="nav-it" id="tabDashboard" onclick="showSection('dashboard')"><span class="nav-ic">📊</span> Дашборд</button>
       <button class="nav-it active" id="tabOrders" onclick="showSection('orders')"><span class="nav-ic">📦</span> Заказы</button>
       <button class="nav-it" id="tabProducts" onclick="showSection('products')"><span class="nav-ic">🏷️</span> Товары</button>
+      <button class="nav-it soon" id="tabCustomers" onclick="showSection('customers')"><span class="nav-ic">👥</span> Клиенты <span class="soon-tag">скоро</span></button>
+      <button class="nav-it soon" id="tabLogistics" onclick="showSection('logistics')"><span class="nav-ic">🚚</span> Логистика <span class="soon-tag">скоро</span></button>
+
+      <div class="sb-nav-group">Инструменты</div>
+      <button class="nav-it soon" id="tabAnalytics" onclick="showSection('analytics')"><span class="nav-ic">📈</span> Аналитика <span class="soon-tag">скоро</span></button>
+      <button class="nav-it soon" id="tabMarketing" onclick="showSection('marketing')"><span class="nav-ic">📣</span> Маркетинг <span class="soon-tag">скоро</span></button>
+      <button class="nav-it soon" id="tabFinance" onclick="showSection('finance')"><span class="nav-ic">💰</span> Финансы <span class="soon-tag">скоро</span></button>
+      <button class="nav-it soon" id="tabPurchasing" onclick="showSection('purchasing')"><span class="nav-ic">🛒</span> Закупки <span class="soon-tag">скоро</span></button>
+      <button class="nav-it soon" id="tabPartners" onclick="showSection('partners')"><span class="nav-ic">🤝</span> Блогеры и партнёры <span class="soon-tag">скоро</span></button>
+      <button class="nav-it soon" id="tabActivity" onclick="showSection('activity')"><span class="nav-ic">🕐</span> Активность <span class="soon-tag">скоро</span></button>
       <button class="nav-it" id="tabBanners" onclick="showSection('banners')"><span class="nav-ic">🖼️</span> Баннеры</button>
+      <button class="nav-it soon" id="tabFormbuilder" onclick="showSection('formbuilder')"><span class="nav-ic">🧩</span> Конструктор форм <span class="soon-tag">скоро</span></button>
+
+      <div class="sb-nav-group">Система</div>
+      <button class="nav-it soon" id="tabSettings" onclick="showSection('settings')"><span class="nav-ic">⚙️</span> Настройка <span class="soon-tag">скоро</span></button>
+      <a class="nav-it" href="index.html" target="_blank"><span class="nav-ic">🏪</span> Магазин</a>
     </nav>
     <div class="sb-foot">
       <div class="sb-user">
@@ -516,6 +571,10 @@ tbody tr:hover{background:var(--cream)}
         <button class="btn-outline" onclick="logout()">Выйти</button>
       </div>
     </header>
+
+  <div class="wrap hidden" id="dashboardPage">
+    <div class="dash-grid" id="dashGrid"></div>
+  </div>
 
   <div class="wrap" id="ordersPage">
     <div class="stats">
@@ -594,6 +653,14 @@ tbody tr:hover{background:var(--cream)}
       <input type="file" id="bannerPhotoInput" accept="image/*" style="display:none" onchange="handleBannerUpload(this)">
     </div>
     <div class="banners-list" id="bannersList"></div>
+  </div>
+
+  <div class="wrap hidden" id="comingSoonPage">
+    <div class="soon-card">
+      <div class="soon-emoji" id="soonEmoji">🚧</div>
+      <div class="soon-title" id="soonTitle">Раздел скоро появится</div>
+      <div class="soon-text">Мы уже спланировали этот раздел — он будет добавлен на одном из следующих этапов.</div>
+    </div>
   </div>
   </div>
 </div>
@@ -686,6 +753,16 @@ let pmSelectedTag = '';
 let pmImageData = null;
 let pmExtraImages = [];
 let pmModelMedia = []; // {id: number|null (null = ещё не сохранено), color, body_type, media_type, media_data}
+let pmColorsArr = [];
+let pmSizesArr = [];
+const PM_COLOR_PALETTE = [
+  ['Чёрный','#111111'],['Белый','#FFFFFF'],['Серый','#9CA3AF'],['Тёмно-серый','#4B5563'],
+  ['Красный','#DC2626'],['Бордовый','#7F1D1D'],['Розовый','#F472B6'],['Светло-розовый','#FBCFE8'],
+  ['Оранжевый','#F97316'],['Жёлтый','#FDE047'],['Бежевый','#E7D5B8'],['Кремовый','#F5EDDD'],
+  ['Зелёный','#22C55E'],['Тёмно-зелёный','#166534'],['Оливковый','#78716C'],['Бирюзовый','#14B8A6'],
+  ['Голубой','#38BDF8'],['Синий','#2563EB'],['Тёмно-синий','#1E3A8A'],['Фиолетовый','#7C3AED'],
+  ['Сиреневый','#C4B5FD'],['Коричневый','#78350F'],['Светло-коричневый','#B08968']
+];
 
 let productsLoadedOnce = false;
 let bannersLoadedOnce = false;
@@ -695,19 +772,46 @@ function toggleSidebar(){
   document.body.classList.toggle('sidebar-open');
 }
 
-const PAGE_TITLES = { orders:'Заказы', products:'Товары', banners:'Баннеры' };
+const PAGE_TITLES = {
+  dashboard:'Дашборд', orders:'Заказы', products:'Товары', banners:'Баннеры',
+  customers:'Клиенты', logistics:'Логистика', analytics:'Аналитика', marketing:'Маркетинг',
+  finance:'Финансы', purchasing:'Закупки', partners:'Блогеры и партнёры', activity:'Активность',
+  formbuilder:'Конструктор форм', settings:'Настройка'
+};
+const SOON_SECTIONS = ['customers','logistics','analytics','marketing','finance','purchasing','partners','activity','formbuilder','settings'];
+const SOON_EMOJI = {
+  customers:'👥', logistics:'🚚', analytics:'📈', marketing:'📣', finance:'💰',
+  purchasing:'🛒', partners:'🤝', activity:'🕐', formbuilder:'🧩', settings:'⚙️'
+};
+const REAL_TABS = ['dashboard','orders','products','banners'];
 
 function showSection(name){
-  document.getElementById('tabOrders').classList.toggle('active', name==='orders');
-  document.getElementById('tabProducts').classList.toggle('active', name==='products');
-  document.getElementById('tabBanners').classList.toggle('active', name==='banners');
+  REAL_TABS.forEach(t => {
+    const btn = document.getElementById('tab' + t[0].toUpperCase() + t.slice(1));
+    if(btn) btn.classList.toggle('active', name===t);
+  });
+  document.querySelectorAll('.nav-it.soon').forEach(b => b.classList.remove('active'));
+  if(SOON_SECTIONS.includes(name)){
+    const btn = document.getElementById('tab' + name[0].toUpperCase() + name.slice(1));
+    if(btn) btn.classList.add('active');
+  }
+
+  document.getElementById('dashboardPage').classList.toggle('hidden', name!=='dashboard');
   document.getElementById('ordersPage').classList.toggle('hidden', name!=='orders');
   document.getElementById('productsPage').classList.toggle('hidden', name!=='products');
   document.getElementById('bannersPage').classList.toggle('hidden', name!=='banners');
+  document.getElementById('comingSoonPage').classList.toggle('hidden', !SOON_SECTIONS.includes(name));
+
+  if(SOON_SECTIONS.includes(name)){
+    document.getElementById('soonEmoji').textContent = SOON_EMOJI[name] || '🚧';
+    document.getElementById('soonTitle').textContent = (PAGE_TITLES[name]||'Раздел') + ' — скоро появится';
+  }
+
   document.getElementById('pageTitle').textContent = PAGE_TITLES[name] || '';
   document.body.classList.remove('sidebar-open');
+  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners') ? '' : 'none';
   document.getElementById('refreshBtn').onclick =
-    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : loadBannersAdmin;
+    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : null;
   if(name==='products' && !productsLoadedOnce){
     productsLoadedOnce = true;
     loadProductsAdmin();
@@ -715,6 +819,35 @@ function showSection(name){
   if(name==='banners' && !bannersLoadedOnce){
     bannersLoadedOnce = true;
     loadBannersAdmin();
+  }
+  if(name==='dashboard'){
+    loadDashboard();
+  }
+}
+
+async function loadDashboard(){
+  const grid = document.getElementById('dashGrid');
+  grid.innerHTML = `<div class="dash-card"><div class="l">Загрузка…</div></div>`;
+  try{
+    const [ordersRes, productsRes] = await Promise.all([
+      fetch('/api/orders', { headers:{ 'Authorization':'Bearer '+getToken() } }),
+      fetch('/api/products?all=1')
+    ]);
+    const orders = ordersRes.ok ? await ordersRes.json() : [];
+    const products = productsRes.ok ? await productsRes.json() : [];
+    const activeOrders = Array.isArray(orders) ? orders : (orders.orders || []);
+    const notCancelled = activeOrders.filter(o => o.status !== 'cancel');
+    const revenue = notCancelled.reduce((sum,o) => sum + (Number(o.total)||0), 0);
+    const newOrders = activeOrders.filter(o => o.status === 'new').length;
+    grid.innerHTML = `
+      <div class="dash-card"><div class="l">Всего заказов</div><div class="v">${activeOrders.length}</div></div>
+      <div class="dash-card"><div class="l">Новые заказы</div><div class="v green">${newOrders}</div></div>
+      <div class="dash-card"><div class="l">Выручка (без отменённых)</div><div class="v">${revenue.toLocaleString('ru-RU')} смн</div></div>
+      <div class="dash-card"><div class="l">Товаров в каталоге</div><div class="v">${Array.isArray(products)?products.length:0}</div></div>
+    `;
+  }catch(e){
+    console.error('Не удалось загрузить дашборд:', e);
+    grid.innerHTML = `<div class="dash-card"><div class="l">Не удалось загрузить данные</div></div>`;
   }
 }
 
@@ -833,6 +966,8 @@ function openProductModal(id){
   pmImageData = p ? (p.image_data || null) : null;
   pmExtraImages = p && Array.isArray(p.extra_images) ? [...p.extra_images] : [];
   pmModelMedia = p && Array.isArray(p.model_media) ? p.model_media.map(m => ({...m})) : [];
+  pmColorsArr = p && p.colors ? p.colors.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  pmSizesArr = p && p.sizes ? p.sizes.split(',').map(s=>s.trim()).filter(Boolean) : [];
 
   document.getElementById('productModal').innerHTML = `
     <div class="pm-form-pane">
@@ -936,14 +1071,21 @@ function openProductModal(id){
             </select>
           </div>
         </div>
-        <div class="pm-grid2">
-          <div class="pm-field">
-            <label>Цвета (через запятую, необязательно)</label>
-            <input id="pmColors" oninput="updatePmPreview()" value="${p?esc(p.colors):''}" placeholder="Чёрный, Синий, Красный">
+        <div class="pm-field">
+          <label>Цвета (необязательно)</label>
+          <div class="pm-color-palette" id="pmColorPalette"></div>
+          <div class="pm-add-row">
+            <input id="pmColorCustomName" placeholder="Название цвета (например: Бирюзовый)">
+            <input type="color" id="pmColorCustomHex" value="#888888">
+            <button type="button" class="btn-outline" onclick="pmAddCustomColor()">+ Добавить</button>
           </div>
-          <div class="pm-field">
-            <label>Размеры (через запятую, необязательно)</label>
-            <input id="pmSizes" oninput="updatePmPreview()" value="${p?esc(p.sizes):''}" placeholder="S, M, L, XL">
+        </div>
+        <div class="pm-field">
+          <label>Размеры (необязательно)</label>
+          <div class="pm-size-chips" id="pmSizeChips"></div>
+          <div class="pm-add-row">
+            <input id="pmSizeCustom" placeholder="Другой размер (например: 3XL, 46)">
+            <button type="button" class="btn-outline" onclick="pmAddCustomSize()">+ Добавить</button>
           </div>
         </div>
       </div>
@@ -1063,6 +1205,8 @@ function openProductModal(id){
   document.getElementById('productModalOverlay').classList.add('show');
   renderPmExtraPhotos();
   renderPmModelMedia();
+  renderPmColorPalette();
+  renderPmSizeChips();
   updatePmPreview();
 }
 
@@ -1128,6 +1272,68 @@ async function pmRemoveModelMedia(index){
   }
   pmModelMedia.splice(index,1);
   renderPmModelMedia();
+}
+
+function renderPmColorPalette(){
+  const box = document.getElementById('pmColorPalette');
+  if(!box) return;
+  const extra = pmColorsArr.filter(c => !PM_COLOR_PALETTE.some(([n])=>n===c));
+  const all = [...PM_COLOR_PALETTE, ...extra.map(c=>[c,'#888888'])];
+  box.innerHTML = all.map(([name,hex]) => `
+    <button type="button" class="pm-color-dot ${pmColorsArr.includes(name)?'active':''}"
+      style="--dot-color:${hex}" title="${name}" onclick="pmToggleColor('${name.replace(/'/g,"\\'")}')">
+      ${pmColorsArr.includes(name)?'✓':''}
+    </button>
+  `).join('');
+}
+
+function pmToggleColor(name){
+  const i = pmColorsArr.indexOf(name);
+  if(i>=0) pmColorsArr.splice(i,1); else pmColorsArr.push(name);
+  renderPmColorPalette();
+  updatePmPreview();
+}
+
+function pmAddCustomColor(){
+  const nameInput = document.getElementById('pmColorCustomName');
+  const name = nameInput.value.trim();
+  if(!name) return;
+  if(!pmColorsArr.includes(name)) pmColorsArr.push(name);
+  if(!PM_COLOR_PALETTE.some(([n])=>n===name)){
+    PM_COLOR_PALETTE.push([name, document.getElementById('pmColorCustomHex').value]);
+  }
+  nameInput.value = '';
+  renderPmColorPalette();
+  updatePmPreview();
+}
+
+const PM_SIZE_PRESETS = ['XS','S','M','L','XL','XXL','36','37','38','39','40','41','42','43','44'];
+
+function renderPmSizeChips(){
+  const box = document.getElementById('pmSizeChips');
+  if(!box) return;
+  const extra = pmSizesArr.filter(s => !PM_SIZE_PRESETS.includes(s));
+  const all = [...PM_SIZE_PRESETS, ...extra];
+  box.innerHTML = all.map(s => `
+    <button type="button" class="pm-chip ${pmSizesArr.includes(s)?'active':''}" onclick="pmToggleSize('${s.replace(/'/g,"\\'")}')">${s}</button>
+  `).join('');
+}
+
+function pmToggleSize(s){
+  const i = pmSizesArr.indexOf(s);
+  if(i>=0) pmSizesArr.splice(i,1); else pmSizesArr.push(s);
+  renderPmSizeChips();
+  updatePmPreview();
+}
+
+function pmAddCustomSize(){
+  const input = document.getElementById('pmSizeCustom');
+  const s = input.value.trim();
+  if(!s) return;
+  if(!pmSizesArr.includes(s)) pmSizesArr.push(s);
+  input.value = '';
+  renderPmSizeChips();
+  updatePmPreview();
 }
 
 function renderPmExtraPhotos(){
@@ -1340,8 +1546,8 @@ async function saveProduct(){
     stock: numOrNull(document.getElementById('pmStock').value),
     rating: numOrNull(document.getElementById('pmRating').value),
     rating_count: numOrNull(document.getElementById('pmRatingCount').value),
-    colors: document.getElementById('pmColors').value.trim() || null,
-    sizes: document.getElementById('pmSizes').value.trim() || null,
+    colors: pmColorsArr.length ? pmColorsArr.join(', ') : null,
+    sizes: pmSizesArr.length ? pmSizesArr.join(', ') : null,
     extra_images: pmExtraImages,
     seller_name: document.getElementById('pmSellerName').value.trim() || null
   };
