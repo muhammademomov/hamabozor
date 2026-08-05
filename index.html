@@ -240,12 +240,12 @@ section.products{padding:48px 20px}
 /* ---------- cart drawer ---------- */
 .overlay{
   position:fixed;inset:0;background:rgba(27,20,10,.45);opacity:0;pointer-events:none;
-  transition:opacity .2s ease;z-index:90;
+  transition:opacity .2s ease;z-index:98;
 }
 .overlay.show{opacity:1;pointer-events:auto}
 .drawer{
   position:fixed;top:0;right:0;height:100%;width:380px;max-width:92vw;
-  background:var(--paper);z-index:95;transform:translateX(100%);
+  background:var(--paper);z-index:99;transform:translateX(100%);
   transition:transform .25s ease;display:flex;flex-direction:column;
 }
 .drawer.show{transform:translateX(0)}
@@ -293,7 +293,7 @@ section.products{padding:48px 20px}
 
 /* ---------- checkout modal ---------- */
 .modal-overlay{
-  position:fixed;inset:0;background:rgba(27,20,10,.5);z-index:98;
+  position:fixed;inset:0;background:rgba(27,20,10,.5);z-index:100;
   display:none;align-items:center;justify-content:center;padding:16px;
 }
 .modal-overlay.show{display:flex}
@@ -644,7 +644,7 @@ footer p{margin-top:8px;font-size:14px}
       <span id="ppQty">1</span>
       <button onclick="ppChangeQty(1)">+</button>
     </div>
-    <button class="pp-add-btn" onclick="ppAddToCart()"><span id="ppAddBtnLabel" data-i18n="add_to_cart">Илова кардан</span></button>
+    <button class="pp-add-btn" id="ppAddBtn" onclick="ppAddOrOpenCart()"><span id="ppAddBtnLabel" data-i18n="add_to_cart">Илова кардан</span></button>
   </div>
 </div>
 
@@ -1352,8 +1352,16 @@ function updatePpAddBtnLabel(){
   if(!label || !ppCurrentId) return;
   const inCart = cart[ppCurrentId] || 0;
   label.textContent = inCart
-    ? (lang==='tj' ? `✓ Дар сабад (${inCart}) — боз илова кунед` : `✓ В корзине (${inCart}) — добавить ещё`)
+    ? (lang==='tj' ? `✓ Дар сабад (${inCart}) — Давом додан` : `✓ В корзине (${inCart}) — Продолжить`)
     : I18N[lang].add_to_cart;
+}
+
+function ppAddOrOpenCart(){
+  if(cart[ppCurrentId]){
+    openCart();
+  }else{
+    ppAddToCart();
+  }
 }
 
 function ppAddToCart(){
