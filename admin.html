@@ -800,6 +800,7 @@ async function loadOrders(){
   try{
     const data = await apiFetch('/api/orders');
     ORDERS = data.map(row => ({
+      ...row,
       id: row.id,
       date: new Date(row.created_at),
       name: row.customer_name,
