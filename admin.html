@@ -343,6 +343,19 @@ header{
 .soon-emoji{font-size:40px;margin-bottom:14px}
 .soon-title{font-family:'Unbounded',sans-serif;font-weight:800;font-size:17px;color:var(--indigo);margin-bottom:8px}
 .soon-text{font-size:13px;color:#8a8478;line-height:1.5}
+.courier-setup-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow)}
+.courier-setup-title{font-family:'Unbounded',sans-serif;font-weight:800;font-size:15px;color:var(--indigo);margin-bottom:8px}
+.courier-setup-result{margin-top:10px;font-size:13px;font-weight:600}
+.couriers-list{display:flex;flex-direction:column;gap:10px}
+.courier-card{
+  background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 16px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;box-shadow:var(--shadow);
+}
+.courier-info b{font-size:14px;color:var(--indigo)}
+.courier-info div{font-size:12px;color:#8a8478;margin-top:2px}
+.courier-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px}
+.courier-badge.active{background:var(--accent-green-bg,#E7F6EC);color:var(--accent-green-dark)}
+.courier-badge.pending{background:#FDEDD3;color:#a76a10}
 .pm-color-palette{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .pm-color-dot{
   width:30px;height:30px;border-radius:50%;background:var(--dot-color);border:2px solid var(--line);
@@ -533,7 +546,7 @@ tbody tr:hover{background:var(--cream)}
       <button class="nav-it active" id="tabOrders" onclick="showSection('orders')"><span class="nav-ic">📦</span> Заказы</button>
       <button class="nav-it" id="tabProducts" onclick="showSection('products')"><span class="nav-ic">🏷️</span> Товары</button>
       <button class="nav-it soon" id="tabCustomers" onclick="showSection('customers')"><span class="nav-ic">👥</span> Клиенты <span class="soon-tag">скоро</span></button>
-      <button class="nav-it soon" id="tabLogistics" onclick="showSection('logistics')"><span class="nav-ic">🚚</span> Логистика <span class="soon-tag">скоро</span></button>
+      <button class="nav-it" id="tabLogistics" onclick="showSection('logistics')"><span class="nav-ic">🚚</span> Курьеры</button>
 
       <div class="sb-nav-group">Инструменты</div>
       <button class="nav-it soon" id="tabAnalytics" onclick="showSection('analytics')"><span class="nav-ic">📈</span> Аналитика <span class="soon-tag">скоро</span></button>
@@ -620,7 +633,7 @@ tbody tr:hover{background:var(--cream)}
         <thead>
           <tr>
             <th>№</th><th>Дата</th><th>Клиент</th><th>Телефон</th>
-            <th>Товары</th><th>Сумма</th><th>Статус</th>
+            <th>Товары</th><th>Сумма</th><th>Источник</th><th>Статус</th>
           </tr>
         </thead>
         <tbody id="ordersBody"></tbody>
@@ -653,6 +666,18 @@ tbody tr:hover{background:var(--cream)}
       <input type="file" id="bannerPhotoInput" accept="image/*" style="display:none" onchange="handleBannerUpload(this)">
     </div>
     <div class="banners-list" id="bannersList"></div>
+  </div>
+
+  <div class="wrap hidden" id="logisticsPage">
+    <div class="courier-setup-card">
+      <div class="courier-setup-title">🤖 Подключение бота курьеров</div>
+      <div class="pm-hint">Нажми один раз, чтобы подключить бота к этому сайту (нужно после каждого создания/смены токена бота в переменных Railway).</div>
+      <button class="btn-outline" onclick="setupCourierBot()">Подключить бота</button>
+      <div id="courierSetupResult" class="courier-setup-result"></div>
+    </div>
+    <div class="pm-step-head" style="margin:22px 0 10px"><span class="pm-step-title">Курьеры</span></div>
+    <div class="pm-hint">Курьер один раз находит бота в Telegram и нажимает /start — он появится здесь. Подтверди его, чтобы он начал получать заказы.</div>
+    <div class="couriers-list" id="couriersList"></div>
   </div>
 
   <div class="wrap hidden" id="comingSoonPage">
@@ -709,6 +734,8 @@ async function apiFetch(path, options={}){
    ЗАКАЗЫ — загружаются через API с сервера (server.js + MySQL)
    ========================================================================== */
 const STATUS_LABEL = { new:'Новый', progress:'В обработке', done:'Выполнен', cancel:'Отменён' };
+const CHANNEL_LABEL = { direct:'Сайт', whatsapp:'WhatsApp', telegram:'Telegram' };
+const DELIVERY_LABEL = { waiting:'Ожидает курьера', accepted:'Принят курьером', in_transit:'В пути', delivered:'Доставлен' };
 const STATUS_CLASS = { new:'badge-new', progress:'badge-progress', done:'badge-done', cancel:'badge-cancel' };
 
 let ORDERS = []; // сюда загружаются реальные заказы из базы данных
@@ -774,16 +801,16 @@ function toggleSidebar(){
 
 const PAGE_TITLES = {
   dashboard:'Дашборд', orders:'Заказы', products:'Товары', banners:'Баннеры',
-  customers:'Клиенты', logistics:'Логистика', analytics:'Аналитика', marketing:'Маркетинг',
+  customers:'Клиенты', logistics:'Курьеры', analytics:'Аналитика', marketing:'Маркетинг',
   finance:'Финансы', purchasing:'Закупки', partners:'Блогеры и партнёры', activity:'Активность',
   formbuilder:'Конструктор форм', settings:'Настройка'
 };
-const SOON_SECTIONS = ['customers','logistics','analytics','marketing','finance','purchasing','partners','activity','formbuilder','settings'];
+const SOON_SECTIONS = ['customers','analytics','marketing','finance','purchasing','partners','activity','formbuilder','settings'];
 const SOON_EMOJI = {
-  customers:'👥', logistics:'🚚', analytics:'📈', marketing:'📣', finance:'💰',
+  customers:'👥', analytics:'📈', marketing:'📣', finance:'💰',
   purchasing:'🛒', partners:'🤝', activity:'🕐', formbuilder:'🧩', settings:'⚙️'
 };
-const REAL_TABS = ['dashboard','orders','products','banners'];
+const REAL_TABS = ['dashboard','orders','products','banners','logistics'];
 
 function showSection(name){
   REAL_TABS.forEach(t => {
@@ -800,6 +827,7 @@ function showSection(name){
   document.getElementById('ordersPage').classList.toggle('hidden', name!=='orders');
   document.getElementById('productsPage').classList.toggle('hidden', name!=='products');
   document.getElementById('bannersPage').classList.toggle('hidden', name!=='banners');
+  document.getElementById('logisticsPage').classList.toggle('hidden', name!=='logistics');
   document.getElementById('comingSoonPage').classList.toggle('hidden', !SOON_SECTIONS.includes(name));
 
   if(SOON_SECTIONS.includes(name)){
@@ -809,9 +837,9 @@ function showSection(name){
 
   document.getElementById('pageTitle').textContent = PAGE_TITLES[name] || '';
   document.body.classList.remove('sidebar-open');
-  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners') ? '' : 'none';
+  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics') ? '' : 'none';
   document.getElementById('refreshBtn').onclick =
-    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : null;
+    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : null;
   if(name==='products' && !productsLoadedOnce){
     productsLoadedOnce = true;
     loadProductsAdmin();
@@ -822,6 +850,9 @@ function showSection(name){
   }
   if(name==='dashboard'){
     loadDashboard();
+  }
+  if(name==='logistics'){
+    loadCouriers();
   }
 }
 
@@ -1605,6 +1636,56 @@ async function deleteProductConfirm(id){
 /* ==========================================================================
    БАННЕРЫ
    ========================================================================== */
+async function setupCourierBot(){
+  const box = document.getElementById('courierSetupResult');
+  box.style.color = 'var(--ink)';
+  box.textContent = 'Подключаю...';
+  try{
+    const result = await apiFetch('/api/telegram/set-webhook', { method:'POST' });
+    box.style.color = 'var(--accent-green-dark)';
+    box.textContent = '✅ Бот подключён! Теперь курьеры могут писать /start.';
+  }catch(e){
+    console.error('Не удалось подключить бота:', e);
+    box.style.color = 'var(--brick)';
+    box.textContent = '❌ Не удалось подключить — проверь, что в Railway задана переменная TELEGRAM_BOT_TOKEN.';
+  }
+}
+
+async function loadCouriers(){
+  const box = document.getElementById('couriersList');
+  box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
+  try{
+    const couriers = await apiFetch('/api/couriers');
+    if(!couriers.length){
+      box.innerHTML = `<div class="pm-hint">Пока никто не написал боту /start.</div>`;
+      return;
+    }
+    box.innerHTML = couriers.map(c => `
+      <div class="courier-card">
+        <div class="courier-info">
+          <b>${c.display_name || c.first_name || 'Курьер'}</b>
+          <div>${c.username ? '@'+c.username : 'без username'} · заявка: ${new Date(c.created_at).toLocaleDateString('ru-RU')}</div>
+        </div>
+        <span class="courier-badge ${c.active?'active':'pending'}">${c.active?'✅ Активен':'⏳ Ожидает'}</span>
+        <button class="btn-outline" onclick="toggleCourier(${c.id}, ${c.active?0:1})">${c.active?'Отключить':'Подтвердить'}</button>
+      </div>
+    `).join('');
+  }catch(e){
+    console.error('Не удалось загрузить курьеров:', e);
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+async function toggleCourier(id, active){
+  try{
+    await apiFetch('/api/couriers/' + id, { method:'PATCH', body: JSON.stringify({ active }) });
+    loadCouriers();
+  }catch(e){
+    console.error('Не удалось изменить курьера:', e);
+    alert('Не удалось сохранить — проверь подключение к серверу.');
+  }
+}
+
 async function loadBannersAdmin(){
   try{
     const res = await fetch('/api/banners');
@@ -1740,7 +1821,7 @@ function renderTable(list){
   const body = document.getElementById('ordersBody');
   document.getElementById('filtersCount').textContent = `${list.length} заказ(ов)`;
   if(list.length===0){
-    body.innerHTML = `<tr class="empty-row"><td colspan="7">Заказов не найдено</td></tr>`;
+    body.innerHTML = `<tr class="empty-row"><td colspan="8">Заказов не найдено</td></tr>`;
     return;
   }
   body.innerHTML = list.map(o=>{
@@ -1753,6 +1834,7 @@ function renderTable(list){
         <td data-label="Телефон">${o.phone}</td>
         <td data-label="Товары"><span class="order-items">${itemsText}</span></td>
         <td data-label="Сумма"><span class="order-sum">${orderTotal(o)} смн</span></td>
+        <td data-label="Источник">${CHANNEL_LABEL[o.channel] || 'Сайт'}</td>
         <td data-label="Статус"><span class="badge-status ${STATUS_CLASS[o.status]}">${STATUS_LABEL[o.status]}</span></td>
       </tr>`;
   }).join('');
@@ -1781,6 +1863,7 @@ function openOrder(id){
       <button class="om-close" onclick="closeOrder()">✕</button>
     </div>
     <div class="om-date">${fmtDate(o.date)}</div>
+    <div class="om-line" style="margin-top:2px;color:#8a8478">Источник: ${CHANNEL_LABEL[o.channel] || 'Сайт'}</div>
 
     <div class="om-section">
       <div class="om-label">Клиент</div>
@@ -1799,6 +1882,9 @@ function openOrder(id){
     <div class="om-section">
       <div class="om-label">Статус заказа</div>
       <div class="om-status-row">${statusBtns}</div>
+      ${o.delivery_status && o.delivery_status !== 'waiting' ? `
+        <div class="om-line" style="margin-top:10px">🚚 Доставка: ${DELIVERY_LABEL[o.delivery_status] || o.delivery_status}${o.courier_id ? ' · курьер #' + o.courier_id : ''}</div>
+      ` : ''}
     </div>
 
   `;

@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN; // токен бота для курьеров (из BotFather)
 
 if (!JWT_SECRET || !ADMIN_EMAIL || !ADMIN_PASSWORD_HASH) {
   console.warn(
@@ -122,6 +123,14 @@ app.patch('/api/orders/:id', requireAuth, async (req, res) => {
   try {
     await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id]);
     res.json({ ok: true });
+
+    // при переводе в обработку — рассылаем заказ курьерам в Telegram (если ещё не отправляли)
+    if (status === 'progress') {
+      const [[order]] = await pool.query('SELECT delivery_status FROM orders WHERE id = ?', [req.params.id]);
+      if (order && order.delivery_status === 'waiting') {
+        broadcastOrderToCouriers(req.params.id).catch(e => console.error('Ошибка рассылки курьерам:', e));
+      }
+    }
   } catch (e) {
     console.error('Ошибка обновления статуса:', e);
     res.status(500).json({ error: 'Не удалось обновить статус' });
@@ -327,6 +336,198 @@ app.delete('/api/model-media/:mediaId', requireAuth, async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// ТЕЛЕГРАМ-БОТ ДЛЯ КУРЬЕРОВ
+// ----------------------------------------------------------------------------
+async function tgCall(method, payload) {
+  if (!TELEGRAM_BOT_TOKEN) {
+    console.warn('⚠️  TELEGRAM_BOT_TOKEN не задан — бот для курьеров не работает.');
+    return null;
+  }
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  } catch (e) {
+    console.error(`Ошибка запроса к Telegram (${method}):`, e);
+    return null;
+  }
+}
+
+function buildOrderMessage(order, extraLine) {
+  const items = (typeof order.items === 'string' ? JSON.parse(order.items) : order.items) || [];
+  const itemsText = items.map(i => `• ${i.name} ×${i.qty}`).join('\n');
+  return (
+    `📦 <b>Заказ #${order.id}</b>\n\n` +
+    `${itemsText}\n\n` +
+    `👤 ${order.customer_name}\n` +
+    `📞 ${order.customer_phone}\n` +
+    (order.customer_address ? `📍 Адрес: ${order.customer_address}\n` : '') +
+    (order.comment ? `🧭 Ориентир/комментарий: ${order.comment}\n` : '') +
+    `💰 Итого: ${order.total} смн` +
+    (extraLine ? `\n\n${extraLine}` : '')
+  );
+}
+
+// рассылает заказ всем подтверждённым курьерам с кнопкой "Принять заказ"
+async function broadcastOrderToCouriers(orderId) {
+  const [[order]] = await pool.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+  if (!order) return;
+  const [couriers] = await pool.query('SELECT * FROM couriers WHERE active = 1');
+  if (!couriers.length) {
+    console.warn('⚠️  Нет активных курьеров — заказ #' + orderId + ' некому отправить.');
+    return;
+  }
+  const text = buildOrderMessage(order);
+  const keyboard = { inline_keyboard: [[{ text: '✅ Принять заказ', callback_data: `accept_${order.id}` }]] };
+  const broadcast = [];
+  for (const c of couriers) {
+    const result = await tgCall('sendMessage', {
+      chat_id: c.telegram_chat_id, text, parse_mode: 'HTML', reply_markup: keyboard,
+    });
+    if (result && result.ok) {
+      broadcast.push({ chat_id: c.telegram_chat_id, message_id: result.result.message_id });
+    }
+  }
+  await pool.query('UPDATE orders SET telegram_broadcast = ? WHERE id = ?', [JSON.stringify(broadcast), order.id]);
+}
+
+// вебхук — сюда Telegram присылает все обновления (сообщения и нажатия кнопок)
+app.post('/api/telegram/webhook/:token', async (req, res) => {
+  if (req.params.token !== TELEGRAM_BOT_TOKEN) return res.sendStatus(403);
+  res.sendStatus(200); // отвечаем сразу, дальше обрабатываем в фоне
+
+  try {
+    const update = req.body;
+
+    // курьер написал /start — регистрируем как "ожидает подтверждения"
+    if (update.message && update.message.text === '/start') {
+      const chat = update.message.chat;
+      const [[existing]] = await pool.query('SELECT * FROM couriers WHERE telegram_chat_id = ?', [chat.id]);
+      if (!existing) {
+        await pool.query(
+          'INSERT INTO couriers (telegram_chat_id, first_name, username, active) VALUES (?, ?, ?, 0)',
+          [chat.id, chat.first_name || '', chat.username || '']
+        );
+        await tgCall('sendMessage', {
+          chat_id: chat.id,
+          text: 'Салом! Дархости шумо ба администратор фиристода шуд. Лутфан интизор шавед. 🙏\n\n(Привет! Заявка отправлена администратору, ждите подтверждения.)',
+        });
+      } else if (existing.active) {
+        await tgCall('sendMessage', { chat_id: chat.id, text: '✅ Шумо аллакай тасдиқ шудаед. Мунтазири фармоишҳо бошед.' });
+      } else {
+        await tgCall('sendMessage', { chat_id: chat.id, text: '⏳ Дархости шумо ҳанӯз тасдиқ нашудааст.' });
+      }
+      return;
+    }
+
+    // курьер нажал одну из кнопок
+    if (update.callback_query) {
+      const cq = update.callback_query;
+      const [action, orderIdStr] = cq.data.split('_');
+      const orderId = Number(orderIdStr);
+      const [[courier]] = await pool.query('SELECT * FROM couriers WHERE telegram_chat_id = ?', [cq.from.id]);
+      const [[order]] = await pool.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+      if (!courier || !order) {
+        await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Хатогӣ — фармоиш ёфт нашуд.' });
+        return;
+      }
+
+      if (action === 'accept') {
+        if (order.courier_id) {
+          await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Ин фармоиш аллакай гирифта шудааст.', show_alert: true });
+          return;
+        }
+        await pool.query('UPDATE orders SET courier_id = ?, delivery_status = ? WHERE id = ?', [courier.id, 'accepted', orderId]);
+        await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Фармоиш гирифта шуд! ✅' });
+
+        // обновляем сообщения у всех курьеров: у принявшего — кнопка "В пути", у остальных — "уже занят"
+        const broadcast = typeof order.telegram_broadcast === 'string' ? JSON.parse(order.telegram_broadcast) : (order.telegram_broadcast || []);
+        for (const b of broadcast) {
+          if (b.chat_id === cq.from.id) {
+            await tgCall('editMessageText', {
+              chat_id: b.chat_id, message_id: b.message_id, parse_mode: 'HTML',
+              text: buildOrderMessage(order, '✅ Шумо ин фармоишро гирифтед.'),
+              reply_markup: { inline_keyboard: [[{ text: '🚚 Дар роҳ (в пути)', callback_data: `transit_${orderId}` }]] },
+            });
+          } else {
+            await tgCall('editMessageText', {
+              chat_id: b.chat_id, message_id: b.message_id, parse_mode: 'HTML',
+              text: buildOrderMessage(order, '🚫 Ин фармоишро курьери дигар гирифт.'),
+            });
+          }
+        }
+      }
+
+      if (action === 'transit') {
+        if (order.courier_id !== courier.id) {
+          await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Ин фармоиши шумо нест.' });
+          return;
+        }
+        await pool.query('UPDATE orders SET delivery_status = ? WHERE id = ?', ['in_transit', orderId]);
+        await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Қайд шуд: дар роҳ 🚚' });
+        await tgCall('editMessageText', {
+          chat_id: cq.message.chat.id, message_id: cq.message.message_id, parse_mode: 'HTML',
+          text: buildOrderMessage(order, '🚚 Дар роҳ...'),
+          reply_markup: { inline_keyboard: [[{ text: '📦 Расонида шуд (доставлено)', callback_data: `delivered_${orderId}` }]] },
+        });
+      }
+
+      if (action === 'delivered') {
+        if (order.courier_id !== courier.id) {
+          await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Ин фармоиши шумо нест.' });
+          return;
+        }
+        await pool.query('UPDATE orders SET delivery_status = ?, status = ? WHERE id = ?', ['delivered', 'done', orderId]);
+        await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Раҳмат! Фармоиш анҷом ёфт ✅' });
+        await tgCall('editMessageText', {
+          chat_id: cq.message.chat.id, message_id: cq.message.message_id, parse_mode: 'HTML',
+          text: buildOrderMessage(order, '✅ Расонида шуд.'),
+        });
+      }
+    }
+  } catch (e) {
+    console.error('Ошибка обработки Telegram webhook:', e);
+  }
+});
+
+// одноразовая настройка — подключает вебхук бота к этому серверу (нажимается в админке)
+app.post('/api/telegram/set-webhook', requireAuth, async (req, res) => {
+  if (!TELEGRAM_BOT_TOKEN) return res.status(400).json({ error: 'TELEGRAM_BOT_TOKEN не задан в настройках Railway' });
+  const url = `https://${req.get('host')}/api/telegram/webhook/${TELEGRAM_BOT_TOKEN}`;
+  const result = await tgCall('setWebhook', { url });
+  if (result && result.ok) res.json({ ok: true, url });
+  else res.status(500).json({ error: 'Telegram отклонил запрос', details: result });
+});
+
+// список курьеров (для админки)
+app.get('/api/couriers', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM couriers ORDER BY active DESC, created_at DESC');
+    res.json(rows);
+  } catch (e) {
+    console.error('Ошибка получения курьеров:', e);
+    res.status(500).json({ error: 'Не удалось получить курьеров' });
+  }
+});
+
+// подтвердить / переименовать / отключить курьера
+app.patch('/api/couriers/:id', requireAuth, async (req, res) => {
+  const { active, display_name } = req.body || {};
+  try {
+    if (active !== undefined) await pool.query('UPDATE couriers SET active = ? WHERE id = ?', [active ? 1 : 0, req.params.id]);
+    if (display_name !== undefined) await pool.query('UPDATE couriers SET display_name = ? WHERE id = ?', [display_name, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка изменения курьера:', e);
+    res.status(500).json({ error: 'Не удалось изменить курьера' });
+  }
+});
+
+
+// ----------------------------------------------------------------------------
 // добавляет колонку в таблицу, если её ещё нет — безопасно для уже
 // работающей базы (например, на Railway), не только для новых установок
 // ----------------------------------------------------------------------------
@@ -340,6 +541,23 @@ async function ensureColumn(table, column, definitionSql) {
     await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definitionSql}`);
     console.log(`Добавлена колонка ${table}.${column}`);
   }
+}
+
+async function ensureCourierTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS couriers (
+      id                INT AUTO_INCREMENT PRIMARY KEY,
+      telegram_chat_id  BIGINT NOT NULL UNIQUE,
+      first_name        VARCHAR(255),
+      username          VARCHAR(255),
+      display_name      VARCHAR(255),
+      active            TINYINT(1) NOT NULL DEFAULT 0,
+      created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await ensureColumn('orders', 'courier_id', 'INT NULL');
+  await ensureColumn('orders', 'delivery_status', "ENUM('waiting','accepted','in_transit','delivered') NOT NULL DEFAULT 'waiting'");
+  await ensureColumn('orders', 'telegram_broadcast', 'JSON NULL');
 }
 
 async function ensureModelMediaTable() {
@@ -422,6 +640,7 @@ async function ensureSchema() {
 
   await ensureProductColumns();
   await ensureModelMediaTable();
+  await ensureCourierTables();
 
   // если товаров ещё нет — заполняем стартовым набором, чтобы сайт не был пустым
   const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM products');

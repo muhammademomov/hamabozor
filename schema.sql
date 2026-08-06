@@ -54,6 +54,18 @@ CREATE TABLE IF NOT EXISTS product_model_media (
   INDEX idx_pmm_product (product_id)
 );
 
+CREATE TABLE IF NOT EXISTS couriers (
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  telegram_chat_id  BIGINT NOT NULL UNIQUE,
+  first_name        VARCHAR(255),
+  username          VARCHAR(255),
+  display_name      VARCHAR(255),
+  active            TINYINT(1) NOT NULL DEFAULT 0,
+  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- в таблицу orders также добавляются (автоматически при старте сервера):
+--   courier_id INT NULL, delivery_status ENUM('waiting','accepted','in_transit','delivered'), telegram_broadcast JSON
+
 CREATE TABLE IF NOT EXISTS banners (
   id          INT AUTO_INCREMENT PRIMARY KEY,
   image_data  MEDIUMTEXT NOT NULL,         -- фото баннера (base64)
