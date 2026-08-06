@@ -356,6 +356,18 @@ header{
 .courier-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px}
 .courier-badge.active{background:var(--accent-green-bg,#E7F6EC);color:var(--accent-green-dark)}
 .courier-badge.pending{background:#FDEDD3;color:#a76a10}
+.cb-textarea{
+  width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+  font-family:inherit;font-size:13px;background:var(--cream);resize:vertical;margin-bottom:10px;
+}
+.courier-modal{max-width:520px;width:100%}
+.courier-card-details{font-size:12px;color:#8a8478;margin-top:4px;line-height:1.6}
+.courier-card-actions{display:flex;gap:8px;flex-wrap:wrap}
+.modal-close-x{
+  position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;
+  background:var(--cream);color:var(--ink);font-size:15px;display:flex;align-items:center;
+  justify-content:center;z-index:2;
+}
 .pm-color-palette{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .pm-color-dot{
   width:30px;height:30px;border-radius:50%;background:var(--dot-color);border:2px solid var(--line);
@@ -633,7 +645,7 @@ tbody tr:hover{background:var(--cream)}
         <thead>
           <tr>
             <th>№</th><th>Дата</th><th>Клиент</th><th>Телефон</th>
-            <th>Товары</th><th>Сумма</th><th>Источник</th><th>Статус</th>
+            <th>Товары</th><th>Сумма</th><th>Источник</th><th>Курьер</th><th>Статус</th>
           </tr>
         </thead>
         <tbody id="ordersBody"></tbody>
@@ -675,9 +687,53 @@ tbody tr:hover{background:var(--cream)}
       <button class="btn-outline" onclick="setupCourierBot()">Подключить бота</button>
       <div id="courierSetupResult" class="courier-setup-result"></div>
     </div>
+
+    <div class="courier-setup-card" style="margin-top:14px">
+      <div class="courier-setup-title">📣 Сообщение всем курьерам</div>
+      <textarea id="courierBroadcastText" class="cb-textarea" placeholder="Например: сегодня работаем до 22:00"></textarea>
+      <button class="btn-solid" onclick="sendCourierBroadcast()">Отправить всем курьерам</button>
+      <div id="courierBroadcastResult" class="courier-setup-result"></div>
+    </div>
+
     <div class="pm-step-head" style="margin:22px 0 10px"><span class="pm-step-title">Курьеры</span></div>
-    <div class="pm-hint">Курьер один раз находит бота в Telegram и нажимает /start — он появится здесь. Подтверди его, чтобы он начал получать заказы.</div>
+    <div class="pm-hint">Добавь курьера вручную — он получит доступ к боту, как только пришлёт свой номер телефона боту (номер должен совпасть с указанным здесь).</div>
+    <button class="btn-solid" style="margin-bottom:16px" onclick="openCourierForm()">+ Добавить курьера</button>
     <div class="couriers-list" id="couriersList"></div>
+  </div>
+
+  <div class="modal-overlay" id="courierModalOverlay">
+    <div class="order-modal courier-modal" style="position:relative">
+      <button class="modal-close-x" onclick="closeCourierForm()" aria-label="Закрыть">✕</button>
+      <h3>Новый курьер</h3>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Имя *</label><input id="crFirstName" placeholder="Иван"></div>
+        <div class="pm-field"><label>Фамилия</label><input id="crLastName" placeholder="Иванов"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Телефон *</label><input id="crPhone" placeholder="+992 90 000 00 00"></div>
+        <div class="pm-field"><label>Доп. телефон</label><input id="crPhone2" placeholder="необязательно"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field">
+          <label>Вид транспорта</label>
+          <select id="crVehicleType">
+            <option value="Пешком">Пешком</option>
+            <option value="Велосипед">Велосипед</option>
+            <option value="Мотоцикл">Мотоцикл</option>
+            <option value="Автомобиль">Автомобиль</option>
+          </select>
+        </div>
+        <div class="pm-field"><label>Номер транспорта</label><input id="crVehicleNumber" placeholder="если есть"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>ИНН</label><input id="crInn"></div>
+        <div class="pm-field"><label>Номер паспорта</label><input id="crPassport"></div>
+      </div>
+      <div class="pm-field"><label>Адрес</label><input id="crAddress"></div>
+      <div class="pm-field"><label>Telegram username (необязательно)</label><input id="crUsername" placeholder="@username"></div>
+      <div class="pm-error" id="courierFormError">Заполните имя и телефон.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveCourier()">Сохранить курьера</button>
+    </div>
   </div>
 
   <div class="wrap hidden" id="comingSoonPage">
@@ -1641,7 +1697,7 @@ async function setupCourierBot(){
   box.style.color = 'var(--ink)';
   box.textContent = 'Подключаю...';
   try{
-    const result = await apiFetch('/api/telegram/set-webhook', { method:'POST' });
+    await apiFetch('/api/telegram/set-webhook', { method:'POST' });
     box.style.color = 'var(--accent-green-dark)';
     box.textContent = '✅ Бот подключён! Теперь курьеры могут писать /start.';
   }catch(e){
@@ -1651,23 +1707,92 @@ async function setupCourierBot(){
   }
 }
 
+async function sendCourierBroadcast(){
+  const textEl = document.getElementById('courierBroadcastText');
+  const box = document.getElementById('courierBroadcastResult');
+  const text = textEl.value.trim();
+  if(!text) return;
+  box.style.color = 'var(--ink)';
+  box.textContent = 'Отправляю...';
+  try{
+    const result = await apiFetch('/api/couriers/broadcast', { method:'POST', body: JSON.stringify({ text }) });
+    box.style.color = 'var(--accent-green-dark)';
+    box.textContent = `✅ Отправлено курьерам: ${result.count}`;
+    textEl.value = '';
+  }catch(e){
+    console.error('Не удалось разослать сообщение:', e);
+    box.style.color = 'var(--brick)';
+    box.textContent = '❌ Не удалось отправить.';
+  }
+}
+
+function openCourierForm(){
+  ['crFirstName','crLastName','crPhone','crPhone2','crVehicleNumber','crInn','crPassport','crAddress','crUsername'].forEach(id=>{
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('crVehicleType').value = 'Пешком';
+  document.getElementById('courierFormError').style.display = 'none';
+  document.getElementById('courierModalOverlay').classList.add('show');
+}
+function closeCourierForm(){
+  document.getElementById('courierModalOverlay').classList.remove('show');
+}
+
+async function saveCourier(){
+  const first_name = document.getElementById('crFirstName').value.trim();
+  const phone = document.getElementById('crPhone').value.trim();
+  const errBox = document.getElementById('courierFormError');
+  if(!first_name || !phone){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+
+  const payload = {
+    first_name,
+    last_name: document.getElementById('crLastName').value.trim() || null,
+    phone,
+    phone2: document.getElementById('crPhone2').value.trim() || null,
+    vehicle_type: document.getElementById('crVehicleType').value,
+    vehicle_number: document.getElementById('crVehicleNumber').value.trim() || null,
+    inn: document.getElementById('crInn').value.trim() || null,
+    passport_number: document.getElementById('crPassport').value.trim() || null,
+    address: document.getElementById('crAddress').value.trim() || null,
+    username: document.getElementById('crUsername').value.trim() || null,
+  };
+  try{
+    await apiFetch('/api/couriers', { method:'POST', body: JSON.stringify(payload) });
+    closeCourierForm();
+    loadCouriers();
+  }catch(e){
+    console.error('Не удалось добавить курьера:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
+  }
+}
+
 async function loadCouriers(){
   const box = document.getElementById('couriersList');
   box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
   try{
     const couriers = await apiFetch('/api/couriers');
     if(!couriers.length){
-      box.innerHTML = `<div class="pm-hint">Пока никто не написал боту /start.</div>`;
+      box.innerHTML = `<div class="pm-hint">Курьеров пока нет — нажми «+ Добавить курьера».</div>`;
       return;
     }
     box.innerHTML = couriers.map(c => `
       <div class="courier-card">
         <div class="courier-info">
-          <b>${c.display_name || c.first_name || 'Курьер'}</b>
-          <div>${c.username ? '@'+c.username : 'без username'} · заявка: ${new Date(c.created_at).toLocaleDateString('ru-RU')}</div>
+          <b>${[c.first_name,c.last_name].filter(Boolean).join(' ') || 'Курьер'}</b>
+          <div class="courier-card-details">
+            📞 ${c.phone || '—'}${c.phone2?(' / '+c.phone2):''}<br>
+            🚗 ${c.vehicle_type||'—'}${c.vehicle_number?(' · '+c.vehicle_number):''}<br>
+            ${c.address ? '📍 '+c.address+'<br>' : ''}
+            ${c.telegram_chat_id ? '✅ Подключён к боту' : '⏳ Ещё не писал боту'}
+          </div>
         </div>
-        <span class="courier-badge ${c.active?'active':'pending'}">${c.active?'✅ Активен':'⏳ Ожидает'}</span>
-        <button class="btn-outline" onclick="toggleCourier(${c.id}, ${c.active?0:1})">${c.active?'Отключить':'Подтвердить'}</button>
+        <div class="courier-card-actions">
+          <span class="courier-badge ${c.active?'active':'pending'}">${c.active?'Активен':'Отключён'}</span>
+          <button class="btn-outline" onclick="toggleCourier(${c.id}, ${c.active?0:1})">${c.active?'Отключить':'Включить'}</button>
+          <button class="btn-outline" onclick="deleteCourier(${c.id})">Удалить</button>
+        </div>
       </div>
     `).join('');
   }catch(e){
@@ -1683,6 +1808,17 @@ async function toggleCourier(id, active){
   }catch(e){
     console.error('Не удалось изменить курьера:', e);
     alert('Не удалось сохранить — проверь подключение к серверу.');
+  }
+}
+
+async function deleteCourier(id){
+  if(!confirm('Удалить этого курьера?')) return;
+  try{
+    await apiFetch('/api/couriers/' + id, { method:'DELETE' });
+    loadCouriers();
+  }catch(e){
+    console.error('Не удалось удалить курьера:', e);
+    alert('Не удалось удалить — проверь подключение к серверу.');
   }
 }
 
@@ -1821,7 +1957,7 @@ function renderTable(list){
   const body = document.getElementById('ordersBody');
   document.getElementById('filtersCount').textContent = `${list.length} заказ(ов)`;
   if(list.length===0){
-    body.innerHTML = `<tr class="empty-row"><td colspan="8">Заказов не найдено</td></tr>`;
+    body.innerHTML = `<tr class="empty-row"><td colspan="9">Заказов не найдено</td></tr>`;
     return;
   }
   body.innerHTML = list.map(o=>{
@@ -1835,6 +1971,7 @@ function renderTable(list){
         <td data-label="Товары"><span class="order-items">${itemsText}</span></td>
         <td data-label="Сумма"><span class="order-sum">${orderTotal(o)} смн</span></td>
         <td data-label="Источник">${CHANNEL_LABEL[o.channel] || 'Сайт'}</td>
+        <td data-label="Курьер">${o.courier_name ? `🚚 ${o.courier_name}` : '—'}</td>
         <td data-label="Статус"><span class="badge-status ${STATUS_CLASS[o.status]}">${STATUS_LABEL[o.status]}</span></td>
       </tr>`;
   }).join('');
@@ -1883,7 +2020,7 @@ function openOrder(id){
       <div class="om-label">Статус заказа</div>
       <div class="om-status-row">${statusBtns}</div>
       ${o.delivery_status && o.delivery_status !== 'waiting' ? `
-        <div class="om-line" style="margin-top:10px">🚚 Доставка: ${DELIVERY_LABEL[o.delivery_status] || o.delivery_status}${o.courier_id ? ' · курьер #' + o.courier_id : ''}</div>
+        <div class="om-line" style="margin-top:10px">🚚 Доставка: ${DELIVERY_LABEL[o.delivery_status] || o.delivery_status}${o.courier_name ? ' · курьер: ' + o.courier_name + (o.courier_phone?' ('+o.courier_phone+')':'') : ''}</div>
       ` : ''}
     </div>
 

@@ -98,7 +98,14 @@ app.post('/api/admin/login', async (req, res) => {
 // ----------------------------------------------------------------------------
 app.get('/api/orders', requireAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM orders ORDER BY created_at DESC');
+    const [rows] = await pool.query(`
+      SELECT o.*,
+        CASE WHEN c.id IS NOT NULL THEN TRIM(CONCAT(c.first_name, ' ', COALESCE(c.last_name,''))) ELSE NULL END AS courier_name,
+        c.phone AS courier_phone
+      FROM orders o
+      LEFT JOIN couriers c ON c.id = o.courier_id
+      ORDER BY o.created_at DESC
+    `);
     const orders = rows.map(r => ({
       ...r,
       items: typeof r.items === 'string' ? JSON.parse(r.items) : r.items,
@@ -394,6 +401,19 @@ async function broadcastOrderToCouriers(orderId) {
   await pool.query('UPDATE orders SET telegram_broadcast = ? WHERE id = ?', [JSON.stringify(broadcast), order.id]);
 }
 
+function normalizePhone(p) {
+  return (p || '').replace(/\D/g, '').slice(-9); // последние 9 цифр — для сравнения номеров
+}
+
+// рассылает произвольный текст всем подключённым (привязанным) курьерам
+async function broadcastMessageToCouriers(text) {
+  const [couriers] = await pool.query('SELECT * FROM couriers WHERE telegram_chat_id IS NOT NULL AND active = 1');
+  for (const c of couriers) {
+    await tgCall('sendMessage', { chat_id: c.telegram_chat_id, text });
+  }
+  return couriers.length;
+}
+
 // вебхук — сюда Telegram присылает все обновления (сообщения и нажатия кнопок)
 app.post('/api/telegram/webhook/:token', async (req, res) => {
   if (req.params.token !== TELEGRAM_BOT_TOKEN) return res.sendStatus(403);
@@ -402,23 +422,50 @@ app.post('/api/telegram/webhook/:token', async (req, res) => {
   try {
     const update = req.body;
 
-    // курьер написал /start — регистрируем как "ожидает подтверждения"
+    // курьер написал /start — просим номер телефона, чтобы привязать к записи, которую создал админ
     if (update.message && update.message.text === '/start') {
       const chat = update.message.chat;
       const [[existing]] = await pool.query('SELECT * FROM couriers WHERE telegram_chat_id = ?', [chat.id]);
-      if (!existing) {
+      if (existing) {
+        await tgCall('sendMessage', {
+          chat_id: chat.id,
+          text: `✅ Шумо аллакай ҳамчун курьер васл шудед: ${existing.first_name || ''} ${existing.last_name || ''}`.trim(),
+        });
+      } else {
+        await tgCall('sendMessage', {
+          chat_id: chat.id,
+          text: 'Салом! Барои пайваст шудан ҳамчун курьер, рақами телефони худро фиристед 👇\n\n(Привет! Чтобы подключиться как курьер, отправьте свой номер телефона кнопкой ниже.)',
+          reply_markup: {
+            keyboard: [[{ text: '📱 Фиристодани рақами телефон', request_contact: true }]],
+            resize_keyboard: true, one_time_keyboard: true,
+          },
+        });
+      }
+      return;
+    }
+
+    // курьер поделился номером телефона — ищем его среди курьеров, добавленных админом
+    if (update.message && update.message.contact) {
+      const chat = update.message.chat;
+      const phone = normalizePhone(update.message.contact.phone_number);
+      const [rows] = await pool.query('SELECT * FROM couriers WHERE telegram_chat_id IS NULL');
+      const match = rows.find(c => normalizePhone(c.phone) === phone || normalizePhone(c.phone2) === phone);
+      if (match) {
         await pool.query(
-          'INSERT INTO couriers (telegram_chat_id, first_name, username, active) VALUES (?, ?, ?, 0)',
-          [chat.id, chat.first_name || '', chat.username || '']
+          'UPDATE couriers SET telegram_chat_id = ?, username = ? WHERE id = ?',
+          [chat.id, chat.username || null, match.id]
         );
         await tgCall('sendMessage', {
           chat_id: chat.id,
-          text: 'Салом! Дархости шумо ба администратор фиристода шуд. Лутфан интизор шавед. 🙏\n\n(Привет! Заявка отправлена администратору, ждите подтверждения.)',
+          text: `✅ Хуш омадед, ${match.first_name || ''} ${match.last_name || ''}! Шумо ҳамчун курьер пайваст шудед. Фармоишҳо дар ин ҷо пайдо мешаванд.`.trim(),
+          reply_markup: { remove_keyboard: true },
         });
-      } else if (existing.active) {
-        await tgCall('sendMessage', { chat_id: chat.id, text: '✅ Шумо аллакай тасдиқ шудаед. Мунтазири фармоишҳо бошед.' });
       } else {
-        await tgCall('sendMessage', { chat_id: chat.id, text: '⏳ Дархости шумо ҳанӯз тасдиқ нашудааст.' });
+        await tgCall('sendMessage', {
+          chat_id: chat.id,
+          text: 'Рақами шумо дар рӯйхати курьерон ёфт нашуд. Лутфан ба администратор муроҷиат кунед, то шуморо илова кунад.',
+          reply_markup: { remove_keyboard: true },
+        });
       }
       return;
     }
@@ -440,17 +487,17 @@ app.post('/api/telegram/webhook/:token', async (req, res) => {
           await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Ин фармоиш аллакай гирифта шудааст.', show_alert: true });
           return;
         }
-        await pool.query('UPDATE orders SET courier_id = ?, delivery_status = ? WHERE id = ?', [courier.id, 'accepted', orderId]);
+        // курьер сразу считается "в пути" — отдельного шага "принял" в статусах не показываем
+        await pool.query('UPDATE orders SET courier_id = ?, delivery_status = ? WHERE id = ?', [courier.id, 'in_transit', orderId]);
         await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Фармоиш гирифта шуд! ✅' });
 
-        // обновляем сообщения у всех курьеров: у принявшего — кнопка "В пути", у остальных — "уже занят"
         const broadcast = typeof order.telegram_broadcast === 'string' ? JSON.parse(order.telegram_broadcast) : (order.telegram_broadcast || []);
         for (const b of broadcast) {
           if (b.chat_id === cq.from.id) {
             await tgCall('editMessageText', {
               chat_id: b.chat_id, message_id: b.message_id, parse_mode: 'HTML',
-              text: buildOrderMessage(order, '✅ Шумо ин фармоишро гирифтед.'),
-              reply_markup: { inline_keyboard: [[{ text: '🚚 Дар роҳ (в пути)', callback_data: `transit_${orderId}` }]] },
+              text: buildOrderMessage(order, '✅ Шумо ин фармоишро гирифтед. Дар роҳ ҳастед 🚚'),
+              reply_markup: { inline_keyboard: [[{ text: '📦 Расонида шуд (доставлено)', callback_data: `delivered_${orderId}` }]] },
             });
           } else {
             await tgCall('editMessageText', {
@@ -459,20 +506,6 @@ app.post('/api/telegram/webhook/:token', async (req, res) => {
             });
           }
         }
-      }
-
-      if (action === 'transit') {
-        if (order.courier_id !== courier.id) {
-          await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Ин фармоиши шумо нест.' });
-          return;
-        }
-        await pool.query('UPDATE orders SET delivery_status = ? WHERE id = ?', ['in_transit', orderId]);
-        await tgCall('answerCallbackQuery', { callback_query_id: cq.id, text: 'Қайд шуд: дар роҳ 🚚' });
-        await tgCall('editMessageText', {
-          chat_id: cq.message.chat.id, message_id: cq.message.message_id, parse_mode: 'HTML',
-          text: buildOrderMessage(order, '🚚 Дар роҳ...'),
-          reply_markup: { inline_keyboard: [[{ text: '📦 Расонида шуд (доставлено)', callback_data: `delivered_${orderId}` }]] },
-        });
       }
 
       if (action === 'delivered') {
@@ -513,16 +546,70 @@ app.get('/api/couriers', requireAuth, async (req, res) => {
   }
 });
 
-// подтвердить / переименовать / отключить курьера
-app.patch('/api/couriers/:id', requireAuth, async (req, res) => {
-  const { active, display_name } = req.body || {};
+// добавить курьера вручную (админ заполняет все данные заранее)
+app.post('/api/couriers', requireAuth, async (req, res) => {
+  const { first_name, last_name, phone, phone2, vehicle_type, vehicle_number, inn, passport_number, address, username } = req.body || {};
+  if (!first_name || !phone) {
+    return res.status(400).json({ error: 'Укажите хотя бы имя и телефон' });
+  }
   try {
-    if (active !== undefined) await pool.query('UPDATE couriers SET active = ? WHERE id = ?', [active ? 1 : 0, req.params.id]);
-    if (display_name !== undefined) await pool.query('UPDATE couriers SET display_name = ? WHERE id = ?', [display_name, req.params.id]);
+    const [result] = await pool.query(
+      `INSERT INTO couriers (first_name, last_name, phone, phone2, vehicle_type, vehicle_number, inn, passport_number, address, username, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [first_name, last_name || null, phone, phone2 || null, vehicle_type || null, vehicle_number || null, inn || null, passport_number || null, address || null, (username || '').replace(/^@/, '') || null]
+    );
+    res.json({ id: result.insertId });
+  } catch (e) {
+    console.error('Ошибка добавления курьера:', e);
+    res.status(500).json({ error: 'Не удалось добавить курьера' });
+  }
+});
+
+// изменить данные курьера / подтвердить-отключить
+app.patch('/api/couriers/:id', requireAuth, async (req, res) => {
+  const allowed = ['first_name','last_name','phone','phone2','vehicle_type','vehicle_number','inn','passport_number','address','username','active','display_name'];
+  const body = req.body || {};
+  const sets = [];
+  const values = [];
+  for (const key of allowed) {
+    if (body[key] !== undefined) {
+      sets.push(`${key} = ?`);
+      values.push(key === 'active' ? (body[key] ? 1 : 0) : body[key]);
+    }
+  }
+  if (!sets.length) return res.json({ ok: true });
+  values.push(req.params.id);
+  try {
+    await pool.query(`UPDATE couriers SET ${sets.join(', ')} WHERE id = ?`, values);
     res.json({ ok: true });
   } catch (e) {
     console.error('Ошибка изменения курьера:', e);
     res.status(500).json({ error: 'Не удалось изменить курьера' });
+  }
+});
+
+// удалить курьера
+app.delete('/api/couriers/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('UPDATE orders SET courier_id = NULL WHERE courier_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM couriers WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления курьера:', e);
+    res.status(500).json({ error: 'Не удалось удалить курьера' });
+  }
+});
+
+// разослать сообщение всем подключённым курьерам (для модераторов/админа)
+app.post('/api/couriers/broadcast', requireAuth, async (req, res) => {
+  const { text } = req.body || {};
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Пустое сообщение' });
+  try {
+    const count = await broadcastMessageToCouriers(text.trim());
+    res.json({ ok: true, count });
+  } catch (e) {
+    console.error('Ошибка рассылки курьерам:', e);
+    res.status(500).json({ error: 'Не удалось разослать сообщение' });
   }
 });
 
@@ -547,14 +634,33 @@ async function ensureCourierTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS couriers (
       id                INT AUTO_INCREMENT PRIMARY KEY,
-      telegram_chat_id  BIGINT NOT NULL UNIQUE,
+      telegram_chat_id  BIGINT NULL UNIQUE,
       first_name        VARCHAR(255),
+      last_name         VARCHAR(255),
       username          VARCHAR(255),
       display_name      VARCHAR(255),
-      active            TINYINT(1) NOT NULL DEFAULT 0,
+      phone             VARCHAR(50),
+      phone2            VARCHAR(50),
+      vehicle_type      VARCHAR(50),
+      vehicle_number    VARCHAR(50),
+      inn               VARCHAR(50),
+      passport_number   VARCHAR(50),
+      address           VARCHAR(255),
+      active            TINYINT(1) NOT NULL DEFAULT 1,
       created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  // на случай, если таблица уже существовала в старом виде — доводим до нужной структуры
+  await ensureColumn('couriers', 'last_name', 'VARCHAR(255) NULL');
+  await ensureColumn('couriers', 'phone', 'VARCHAR(50) NULL');
+  await ensureColumn('couriers', 'phone2', 'VARCHAR(50) NULL');
+  await ensureColumn('couriers', 'vehicle_type', 'VARCHAR(50) NULL');
+  await ensureColumn('couriers', 'vehicle_number', 'VARCHAR(50) NULL');
+  await ensureColumn('couriers', 'inn', 'VARCHAR(50) NULL');
+  await ensureColumn('couriers', 'passport_number', 'VARCHAR(50) NULL');
+  await ensureColumn('couriers', 'address', 'VARCHAR(255) NULL');
+  try { await pool.query('ALTER TABLE couriers MODIFY COLUMN telegram_chat_id BIGINT NULL'); } catch (e) { /* уже так */ }
+
   await ensureColumn('orders', 'courier_id', 'INT NULL');
   await ensureColumn('orders', 'delivery_status', "ENUM('waiting','accepted','in_transit','delivered') NOT NULL DEFAULT 'waiting'");
   await ensureColumn('orders', 'telegram_broadcast', 'JSON NULL');
