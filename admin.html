@@ -357,7 +357,7 @@ header{
 .courier-badge.active{background:var(--accent-green-bg,#E7F6EC);color:var(--accent-green-dark)}
 .courier-badge.pending{background:#FDEDD3;color:#a76a10}
 .pt-summary-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}
-.pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.pt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;width:100%}
 .pt-card{
   background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;
   box-shadow:var(--shadow);cursor:pointer;transition:transform .1s,box-shadow .15s;
@@ -2375,8 +2375,6 @@ async function loadPurchasingPage(){
       const sold = Number(p.sales) || 0;
       const profit = marginUnit * sold;
       const purchasesForProduct = ALL_PURCHASES.filter(pr => pr.product_id === p.id);
-      const qtyBought = purchasesForProduct.reduce((s,pr)=>s+pr.qty,0);
-      const spent = purchasesForProduct.reduce((s,pr)=>s+pr.qty*Number(pr.unit_price),0);
       return `
       <div class="pr-card">
         <div class="pr-card-title">${esc(p.name_ru)}</div>
@@ -2388,7 +2386,7 @@ async function loadPurchasingPage(){
           <div class="pr-metric"><div class="l">Продано</div><div class="v">${sold} шт</div></div>
           <div class="pr-metric"><div class="l">Прибыль</div><div class="v green">${profit.toLocaleString('ru-RU')} смн</div></div>
         </div>
-        <div class="pr-history">${purchasesForProduct.length} закупок · ${qtyBought} шт куплено · ${spent.toLocaleString('ru-RU')} смн потрачено</div>
+        ${purchasesForProduct.length ? `<div class="pr-history">${purchasesForProduct.length} закупок · ${purchasesForProduct.reduce((s,pr)=>s+pr.qty,0)} шт куплено · ${purchasesForProduct.reduce((s,pr)=>s+pr.qty*Number(pr.unit_price),0).toLocaleString('ru-RU')} смн потрачено</div>` : ''}
       </div>
     `;}).join('');
   }catch(e){
