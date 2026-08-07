@@ -356,6 +356,34 @@ header{
 .courier-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px}
 .courier-badge.active{background:var(--accent-green-bg,#E7F6EC);color:var(--accent-green-dark)}
 .courier-badge.pending{background:#FDEDD3;color:#a76a10}
+.pt-summary-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}
+.pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.pt-card{
+  background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;
+  box-shadow:var(--shadow);cursor:pointer;transition:transform .1s,box-shadow .15s;
+}
+.pt-card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(27,42,74,.14)}
+.pt-card-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.pt-avatar{
+  width:38px;height:38px;border-radius:50%;background:var(--brand-blue);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;
+}
+.pt-card-head b{font-size:14.5px;color:var(--indigo);flex:1}
+.pt-stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.pt-stat .v{font-family:'Unbounded',sans-serif;font-weight:800;font-size:15px;color:var(--indigo)}
+.pt-stat .v.green{color:var(--accent-green-dark)}
+.pt-stat .l{font-size:11px;color:#8a8478;margin-top:2px}
+.pt-mini-row{display:flex;justify-content:space-between;font-size:12.5px;color:#6b655a;padding-top:8px;border-top:1px solid var(--line)}
+.pt-mini-row b{color:var(--ink)}
+.pt-detail-modal{max-width:900px;width:96%;max-height:90vh;overflow-y:auto;padding:28px}
+.pt-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:18px 0 20px;flex-wrap:wrap}
+.pt-tab{padding:10px 16px;font-size:13px;font-weight:700;color:#8a8478;border-bottom:2px solid transparent;margin-bottom:-1px}
+.pt-tab.active{color:var(--brand-blue-dark);border-bottom-color:var(--brand-blue)}
+.pt-overview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px 24px}
+.pt-overview-grid .l{font-size:12px;color:#8a8478;font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+.pt-overview-grid .v{font-family:'Unbounded',sans-serif;font-weight:800;font-size:19px;color:var(--indigo);margin-top:6px}
+.pt-overview-grid .v.green{color:var(--accent-green-dark)}
+.pt-overview-grid .v.red{color:var(--brick)}
 .cb-textarea{
   width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
   font-family:inherit;font-size:13px;background:var(--cream);resize:vertical;margin-bottom:10px;
@@ -708,13 +736,16 @@ tbody tr:hover{background:var(--cream)}
   </div>
 
   <div class="wrap hidden" id="partnersPage">
+    <div class="pt-summary-row" id="ptSummaryRow"></div>
     <button class="btn-solid" style="margin-bottom:16px" onclick="openPartnerForm()">+ Добавить партнёра</button>
-    <div class="couriers-list" id="partnersList"></div>
+    <div class="pt-grid" id="partnersList"></div>
   </div>
 
-  <div class="wrap hidden" id="partnerDetailPage">
-    <button class="btn-outline" style="margin-bottom:16px" onclick="backToPartners()">← Все партнёры</button>
-    <div id="partnerDetailContent"></div>
+  <div class="modal-overlay" id="partnerDetailOverlay">
+    <div class="order-modal pt-detail-modal" style="position:relative">
+      <button class="modal-close-x" onclick="closePartnerDetail()" aria-label="Закрыть">✕</button>
+      <div id="partnerDetailContent"></div>
+    </div>
   </div>
 
   <div class="modal-overlay" id="partnerModalOverlay">
@@ -959,7 +990,7 @@ function showSection(name){
   document.getElementById('bannersPage').classList.toggle('hidden', name!=='banners');
   document.getElementById('logisticsPage').classList.toggle('hidden', name!=='logistics');
   document.getElementById('partnersPage').classList.toggle('hidden', name!=='partners');
-  document.getElementById('partnerDetailPage').classList.add('hidden');
+  document.getElementById('partnerDetailOverlay').classList.remove('show');
   document.getElementById('comingSoonPage').classList.toggle('hidden', !SOON_SECTIONS.includes(name));
 
   if(SOON_SECTIONS.includes(name)){
@@ -1925,28 +1956,49 @@ let currentPartnerId = null;
 const DEAL_TYPE_LABEL = { commission:'Комиссия', wholesale:'Опт' };
 
 async function loadPartners(){
+  const summaryBox = document.getElementById('ptSummaryRow');
   const box = document.getElementById('partnersList');
   box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
   try{
     const partners = await apiFetch('/api/partners');
     ALL_PARTNERS = partners;
+
+    const totalRevenue = partners.reduce((s,p)=>s+p.stats.revenue,0);
+    const totalOrders = partners.reduce((s,p)=>s+p.stats.orders_count,0);
+    const totalProfit = partners.reduce((s,p)=>s+p.stats.our_profit,0);
+    const totalExpenses = partners.reduce((s,p)=>s+p.stats.expenses_total,0);
+    const avgMargin = totalRevenue ? (totalProfit/totalRevenue*100) : 0;
+    summaryBox.innerHTML = `
+      <div class="dash-card"><div class="l">Общая выручка</div><div class="v">${totalRevenue.toLocaleString('ru-RU')} смн</div></div>
+      <div class="dash-card"><div class="l">Всего заказов</div><div class="v">${totalOrders}</div></div>
+      <div class="dash-card"><div class="l">Наша прибыль</div><div class="v green">${totalProfit.toLocaleString('ru-RU')} смн</div></div>
+      <div class="dash-card"><div class="l">Расходы</div><div class="v" style="color:var(--brick)">${totalExpenses.toLocaleString('ru-RU')} смн</div></div>
+      <div class="dash-card"><div class="l">Средняя маржа</div><div class="v">${avgMargin.toFixed(1)}%</div></div>
+    `;
+
     if(!partners.length){
       box.innerHTML = `<div class="pm-hint">Партнёров пока нет — нажми «+ Добавить партнёра».</div>`;
       return;
     }
-    box.innerHTML = partners.map(p => `
-      <div class="courier-card" style="cursor:pointer" onclick="openPartnerDetail(${p.id})">
-        <div class="courier-info">
+    box.innerHTML = partners.map(p => {
+      const margin = p.stats.revenue ? (p.stats.our_profit/p.stats.revenue*100) : 0;
+      return `
+      <div class="pt-card" onclick="openPartnerDetail(${p.id})">
+        <div class="pt-card-head">
+          <div class="pt-avatar">${esc(p.name).charAt(0).toUpperCase()}</div>
           <b>${esc(p.name)}</b>
-          <div class="courier-card-details">
-            ${DEAL_TYPE_LABEL[p.deal_type]} · комиссия ${p.commission_percent}%<br>
-            📦 Товаров: ${p.stats.products_count} · продано штук: ${p.stats.units_sold}<br>
-            💰 Должен партнёру: <b>${p.stats.balance_due.toLocaleString('ru-RU')} смн</b>
-          </div>
+          <span class="courier-badge ${p.active?'active':'pending'}">${p.active?'Активен':'Отключён'}</span>
         </div>
-        <span class="courier-badge ${p.active?'active':'pending'}">${p.active?'Активен':'Отключён'}</span>
+        <div class="pt-stats-row">
+          <div class="pt-stat"><div class="v">${p.stats.revenue.toLocaleString('ru-RU')}</div><div class="l">Выручка, смн</div></div>
+          <div class="pt-stat"><div class="v">${p.stats.orders_count}</div><div class="l">Заказы</div></div>
+          <div class="pt-stat"><div class="v green">${p.stats.our_profit.toLocaleString('ru-RU')}</div><div class="l">Прибыль, смн</div></div>
+        </div>
+        <div class="pt-mini-row"><span>Расходы</span><b>${p.stats.expenses_total.toLocaleString('ru-RU')} смн</b></div>
+        <div class="pt-mini-row"><span>Маржа</span><b>${margin.toFixed(1)}%</b></div>
+        <div class="pt-mini-row"><span>К оплате партнёру</span><b style="color:var(--brick)">${p.stats.balance_due.toLocaleString('ru-RU')} смн</b></div>
       </div>
-    `).join('');
+    `;}).join('');
   }catch(e){
     console.error('Не удалось загрузить партнёров:', e);
     box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
@@ -1991,73 +2043,175 @@ async function savePartner(){
   }
 }
 
-function backToPartners(){
-  document.getElementById('partnerDetailPage').classList.add('hidden');
-  document.getElementById('partnersPage').classList.remove('hidden');
+function closePartnerDetail(){
+  document.getElementById('partnerDetailOverlay').classList.remove('show');
 }
+
+let currentPartnerData = null;
+let currentPartnerTab = 'overview';
 
 async function openPartnerDetail(id){
   currentPartnerId = id;
-  document.getElementById('partnersPage').classList.add('hidden');
-  document.getElementById('partnerDetailPage').classList.remove('hidden');
+  currentPartnerTab = 'overview';
+  document.getElementById('partnerDetailOverlay').classList.add('show');
   const box = document.getElementById('partnerDetailContent');
   box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
   try{
-    const p = await apiFetch('/api/partners/' + id);
-    box.innerHTML = `
-      <div class="courier-setup-card">
-        <div class="courier-setup-title">${esc(p.name)}</div>
-        <div class="pm-hint">${DEAL_TYPE_LABEL[p.deal_type]} · комиссия ${p.commission_percent}% ${p.phone?(' · 📞 '+esc(p.phone)):''} ${p.telegram?(' · '+esc(p.telegram)):''}</div>
-        ${p.notes ? `<div class="pm-hint" style="margin-top:6px">${esc(p.notes)}</div>` : ''}
-        <div class="dash-grid" style="margin-top:14px">
-          <div class="dash-card"><div class="l">Товаров партнёра</div><div class="v">${p.stats.products_count}</div></div>
-          <div class="dash-card"><div class="l">Продано, шт</div><div class="v">${p.stats.units_sold}</div></div>
-          <div class="dash-card"><div class="l">Причитается со сделок</div><div class="v">${p.stats.owed_from_sales.toLocaleString('ru-RU')} смн</div></div>
-          <div class="dash-card"><div class="l">Расходы партнёра</div><div class="v">${p.stats.expenses_total.toLocaleString('ru-RU')} смн</div></div>
-          <div class="dash-card"><div class="l">Уже выплачено</div><div class="v green">${p.stats.paid_total.toLocaleString('ru-RU')} смн</div></div>
-          <div class="dash-card"><div class="l">Остаток долга</div><div class="v" style="color:var(--brick)">${p.stats.balance_due.toLocaleString('ru-RU')} смн</div></div>
-        </div>
-      </div>
-
-      <div class="courier-setup-card" style="margin-top:14px">
-        <div class="courier-setup-title">📋 Расходы</div>
-        <button class="btn-outline" onclick="openExpenseForm()">+ Добавить расход</button>
-        <div class="couriers-list" style="margin-top:12px">
-          ${p.expenses.length ? p.expenses.map(e => `
-            <div class="courier-card">
-              <div class="courier-info">
-                <b>${esc(e.title)}</b>
-                <div class="courier-card-details">${Number(e.amount).toLocaleString('ru-RU')} смн · доля партнёра ${e.partner_share_percent}% (${(e.amount*e.partner_share_percent/100).toLocaleString('ru-RU')} смн)</div>
-              </div>
-              <button class="btn-outline" onclick="deleteExpense(${e.id})">Удалить</button>
-            </div>
-          `).join('') : '<div class="pm-hint">Расходов пока нет.</div>'}
-        </div>
-      </div>
-
-      <div class="courier-setup-card" style="margin-top:14px">
-        <div class="courier-setup-title">💵 Выплаты</div>
-        <button class="btn-solid" onclick="openPayoutForm()">+ Записать выплату</button>
-        <div class="couriers-list" style="margin-top:12px">
-          ${p.payouts.length ? p.payouts.map(po => `
-            <div class="courier-card">
-              <div class="courier-info">
-                <b>${Number(po.amount).toLocaleString('ru-RU')} смн</b>
-                <div class="courier-card-details">${po.note?esc(po.note)+' · ':''}${new Date(po.created_at).toLocaleDateString('ru-RU')}</div>
-              </div>
-            </div>
-          `).join('') : '<div class="pm-hint">Выплат пока не было.</div>'}
-        </div>
-      </div>
-
-      <div class="courier-setup-card" style="margin-top:14px">
-        <div class="courier-setup-title">🏷️ Товары партнёра</div>
-        <div class="pm-hint">${p.products.length ? p.products.map(pr=>esc(pr.name_ru)).join(', ') : 'Пока нет привязанных товаров — выбери партнёра в форме товара.'}</div>
-      </div>
-    `;
+    currentPartnerData = await apiFetch('/api/partners/' + id);
+    renderPartnerDetail();
   }catch(e){
     console.error('Не удалось загрузить партнёра:', e);
     box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+function setPartnerTab(tab){
+  currentPartnerTab = tab;
+  renderPartnerDetail();
+}
+
+function renderPartnerDetail(){
+  const p = currentPartnerData;
+  if(!p) return;
+  const box = document.getElementById('partnerDetailContent');
+  const tabs = [
+    ['overview','Обзор'], ['orders','Заказы'], ['products','Товары'],
+    ['expenses','Расходы'], ['payouts','Выплаты'], ['settings','Настройки']
+  ];
+
+  let body = '';
+  if(currentPartnerTab === 'overview'){
+    const margin = p.stats.revenue ? (p.stats.our_profit/p.stats.revenue*100) : 0;
+    body = `
+      <div class="pt-overview-grid">
+        <div><div class="l">Заказы (выполнено)</div><div class="v">${p.stats.orders_count}</div></div>
+        <div><div class="l">Выручка</div><div class="v">${p.stats.revenue.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l">Наша прибыль</div><div class="v green">${p.stats.our_profit.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l">Причитается партнёру</div><div class="v">${p.stats.owed_from_sales.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l">Маржа</div><div class="v">${margin.toFixed(1)}%</div></div>
+        <div><div class="l">Расходы партнёра</div><div class="v red">${p.stats.expenses_total.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l">Уже выплачено</div><div class="v green">${p.stats.paid_total.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l">К оплате партнёру</div><div class="v red">${p.stats.balance_due.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l">Товаров</div><div class="v">${p.stats.products_count}</div></div>
+      </div>
+      ${p.notes ? `<div class="pm-hint" style="margin-top:20px">📝 ${esc(p.notes)}</div>` : ''}
+    `;
+  } else if(currentPartnerTab === 'orders'){
+    body = (p.stats.orders && p.stats.orders.length) ? p.stats.orders.map(o => `
+      <div class="courier-card">
+        <div class="courier-info">
+          <b>Заказ #${o.id}</b>
+          <div class="courier-card-details">${new Date(o.date).toLocaleDateString('ru-RU')} · ${o.items.map(i=>esc(i.name)+' ×'+i.qty).join(', ')}</div>
+        </div>
+        <b>${o.revenue.toLocaleString('ru-RU')} смн</b>
+      </div>
+    `).join('') : `<div class="pm-hint">Пока нет завершённых заказов с товарами этого партнёра.</div>`;
+  } else if(currentPartnerTab === 'products'){
+    body = p.products.length ? p.products.map(pr => `
+      <div class="courier-card">
+        <div class="courier-info"><b>${esc(pr.name_ru)}</b><div class="courier-card-details">Цена: ${pr.price} смн${pr.cost_price?(' · Себестоимость: '+pr.cost_price+' смн'):''}</div></div>
+      </div>
+    `).join('') : `<div class="pm-hint">Пока нет привязанных товаров — выбери этого партнёра в форме товара.</div>`;
+  } else if(currentPartnerTab === 'expenses'){
+    body = `
+      <button class="btn-outline" style="margin-bottom:14px" onclick="openExpenseForm()">+ Добавить расход</button>
+      ${p.expenses.length ? p.expenses.map(e => `
+        <div class="courier-card">
+          <div class="courier-info">
+            <b>${esc(e.title)}</b>
+            <div class="courier-card-details">${Number(e.amount).toLocaleString('ru-RU')} смн · доля партнёра ${e.partner_share_percent}% (${(e.amount*e.partner_share_percent/100).toLocaleString('ru-RU')} смн)</div>
+          </div>
+          <button class="btn-outline" onclick="deleteExpense(${e.id})">Удалить</button>
+        </div>
+      `).join('') : '<div class="pm-hint">Расходов пока нет.</div>'}
+    `;
+  } else if(currentPartnerTab === 'payouts'){
+    body = `
+      <button class="btn-solid" style="margin-bottom:14px" onclick="openPayoutForm()">+ Записать выплату</button>
+      ${p.payouts.length ? p.payouts.map(po => `
+        <div class="courier-card">
+          <div class="courier-info">
+            <b>${Number(po.amount).toLocaleString('ru-RU')} смн</b>
+            <div class="courier-card-details">${po.note?esc(po.note)+' · ':''}${new Date(po.created_at).toLocaleDateString('ru-RU')}</div>
+          </div>
+        </div>
+      `).join('') : '<div class="pm-hint">Выплат пока не было.</div>'}
+    `;
+  } else if(currentPartnerTab === 'settings'){
+    body = `
+      <div class="pm-field"><label>Имя / название</label><input id="ptEditName" value="${esc(p.name)}"></div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Телефон</label><input id="ptEditPhone" value="${esc(p.phone||'')}"></div>
+        <div class="pm-field"><label>Telegram</label><input id="ptEditTelegram" value="${esc(p.telegram||'')}"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field">
+          <label>Тип сделки</label>
+          <select id="ptEditDealType">
+            <option value="commission" ${p.deal_type==='commission'?'selected':''}>Комиссия</option>
+            <option value="wholesale" ${p.deal_type==='wholesale'?'selected':''}>Опт</option>
+          </select>
+        </div>
+        <div class="pm-field"><label>Мой % комиссии</label><input id="ptEditCommission" type="number" value="${p.commission_percent}"></div>
+      </div>
+      <div class="pm-field"><label>Заметки</label><textarea id="ptEditNotes" class="cb-textarea">${esc(p.notes||'')}</textarea></div>
+      <button class="btn-solid" onclick="updatePartnerSettings()">Сохранить изменения</button>
+      <button class="btn-outline" style="margin-top:10px" onclick="toggleActivePartner()">${p.active?'Отключить партнёра':'Включить партнёра'}</button>
+      <button class="btn-outline" style="margin-top:10px;color:var(--brick)" onclick="deletePartner()">Удалить партнёра</button>
+    `;
+  }
+
+  box.innerHTML = `
+    <h3>${esc(p.name)}</h3>
+    <div class="pm-hint">${DEAL_TYPE_LABEL[p.deal_type]} · комиссия ${p.commission_percent}%${p.phone?(' · 📞 '+esc(p.phone)):''}${p.telegram?(' · '+esc(p.telegram)):''}</div>
+    <div class="pt-tabs">
+      ${tabs.map(([key,label]) => `<button class="pt-tab ${currentPartnerTab===key?'active':''}" onclick="setPartnerTab('${key}')">${label}</button>`).join('')}
+    </div>
+    <div>${body}</div>
+  `;
+}
+
+async function updatePartnerSettings(){
+  try{
+    await apiFetch('/api/partners/' + currentPartnerId, {
+      method:'PATCH',
+      body: JSON.stringify({
+        name: document.getElementById('ptEditName').value.trim(),
+        phone: document.getElementById('ptEditPhone').value.trim() || null,
+        telegram: document.getElementById('ptEditTelegram').value.trim() || null,
+        deal_type: document.getElementById('ptEditDealType').value,
+        commission_percent: Number(document.getElementById('ptEditCommission').value) || 0,
+        notes: document.getElementById('ptEditNotes').value.trim() || null,
+      })
+    });
+    await openPartnerDetail(currentPartnerId);
+    loadPartners();
+  }catch(e){
+    console.error('Не удалось сохранить партнёра:', e);
+    alert('Не удалось сохранить — проверь подключение к серверу.');
+  }
+}
+
+async function toggleActivePartner(){
+  try{
+    await apiFetch('/api/partners/' + currentPartnerId, { method:'PATCH', body: JSON.stringify({ active: currentPartnerData.active ? 0 : 1 }) });
+    await openPartnerDetail(currentPartnerId);
+    loadPartners();
+  }catch(e){
+    console.error('Не удалось изменить партнёра:', e);
+    alert('Не удалось сохранить — проверь подключение к серверу.');
+  }
+}
+
+async function deletePartner(){
+  if(!confirm('Удалить этого партнёра? Товары останутся, но потеряют привязку.')) return;
+  try{
+    await apiFetch('/api/partners/' + currentPartnerId, { method:'DELETE' });
+    closePartnerDetail();
+    loadPartners();
+  }catch(e){
+    console.error('Не удалось удалить партнёра:', e);
+    alert('Не удалось удалить — проверь подключение к серверу.');
   }
 }
 

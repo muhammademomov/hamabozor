@@ -173,24 +173,34 @@ app.post('/api/orders/:id/assign-courier', requireAuth, async (req, res) => {
 // ----------------------------------------------------------------------------
 
 // считает статистику по одному партнёру: продажи, что причитается, расходы, выплаты, остаток долга
-async function computePartnerStats(partnerId, partner) {
-  const [productRows] = await pool.query('SELECT id, cost_price FROM products WHERE partner_id = ?', [partnerId]);
+async function computePartnerStats(partnerId, partner, includeOrders) {
+  const [productRows] = await pool.query('SELECT id, name_ru, cost_price FROM products WHERE partner_id = ?', [partnerId]);
   const productIds = new Set(productRows.map(p => p.id));
   const costById = {};
   productRows.forEach(p => { costById[p.id] = Number(p.cost_price) || 0; });
 
-  const [orders] = await pool.query("SELECT items FROM orders WHERE status = 'done'");
+  const [orders] = await pool.query("SELECT id, created_at, items FROM orders WHERE status = 'done'");
   let revenue = 0;   // сумма продаж по розничной цене
   let wholesaleBase = 0; // сумма по оптовой (себестоимость) цене
   let unitsSold = 0;
+  let ordersCount = 0;
+  const orderList = [];
   for (const o of orders) {
     const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+    let orderRevenue = 0;
+    const matchedItems = [];
     for (const item of items) {
       if (productIds.has(item.id)) {
         revenue += (Number(item.price) || 0) * (Number(item.qty) || 0);
         wholesaleBase += (costById[item.id] || 0) * (Number(item.qty) || 0);
         unitsSold += Number(item.qty) || 0;
+        orderRevenue += (Number(item.price) || 0) * (Number(item.qty) || 0);
+        matchedItems.push(item);
       }
+    }
+    if (matchedItems.length) {
+      ordersCount += 1;
+      if (includeOrders) orderList.push({ id: o.id, date: o.created_at, items: matchedItems, revenue: Math.round(orderRevenue * 100) / 100 });
     }
   }
 
@@ -212,12 +222,15 @@ async function computePartnerStats(partnerId, partner) {
 
   return {
     products_count: productRows.length,
+    orders_count: ordersCount,
     units_sold: unitsSold,
     revenue: Math.round(revenue * 100) / 100,
+    our_profit: Math.round((revenue - owedFromSales) * 100) / 100,
     owed_from_sales: Math.round(owedFromSales * 100) / 100,
     expenses_total: Math.round(expensesTotal * 100) / 100,
     paid_total: Math.round(paidTotal * 100) / 100,
     balance_due: Math.round(balanceDue * 100) / 100,
+    orders: includeOrders ? orderList : undefined,
   };
 }
 
@@ -239,7 +252,7 @@ app.get('/api/partners/:id', requireAuth, async (req, res) => {
     const [expenses] = await pool.query('SELECT * FROM partner_expenses WHERE partner_id = ? ORDER BY created_at DESC', [req.params.id]);
     const [payouts] = await pool.query('SELECT * FROM partner_payouts WHERE partner_id = ? ORDER BY created_at DESC', [req.params.id]);
     const [products] = await pool.query('SELECT id, name_ru, price, cost_price FROM products WHERE partner_id = ?', [req.params.id]);
-    const stats = await computePartnerStats(partner.id, partner);
+    const stats = await computePartnerStats(partner.id, partner, true);
     res.json({ ...partner, stats, expenses, payouts, products });
   } catch (e) {
     console.error('Ошибка получения партнёра:', e);
