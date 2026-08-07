@@ -384,6 +384,7 @@ header{
 .pt-overview-grid .v{font-family:'Unbounded',sans-serif;font-weight:800;font-size:19px;color:var(--indigo);margin-top:6px}
 .pt-overview-grid .v.green{color:var(--accent-green-dark)}
 .pt-overview-grid .v.red{color:var(--brick)}
+.pc-partner-tag{font-size:11px;font-weight:700;color:var(--brand-blue-dark);background:#E7EFFE;display:inline-block;padding:3px 9px;border-radius:20px;margin:4px 0}
 .cb-textarea{
   width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
   font-family:inherit;font-size:13px;background:var(--cream);resize:vertical;margin-bottom:10px;
@@ -698,6 +699,10 @@ tbody tr:hover{background:var(--cream)}
         <option value="clothing">Одежда</option>
         <option value="bags">Сумки</option>
       </select>
+      <select class="status-select" id="productPartnerFilter">
+        <option value="all">Все партнёры</option>
+        <option value="none">Без партнёра</option>
+      </select>
       <div class="filters-count" id="productsCount"></div>
       <button class="btn-solid" onclick="openProductModal()">+ Добавить товар</button>
     </div>
@@ -935,6 +940,7 @@ const EMOJI_PALETTE = ['🎧','⌚','🔌','🔊','🔋','📱','💻','🖱️'
 let ADMIN_PRODUCTS = [];
 let productSearchQuery = '';
 let productCatFilterVal = 'all';
+let productPartnerFilterVal = 'all';
 let editingProductId = null;
 let pmSelectedEmoji = '🛍️';
 let pmSelectedTag = '';
@@ -1056,7 +1062,23 @@ async function loadProductsAdmin(){
   }catch(e){
     console.error('Не удалось загрузить товары:', e);
   }
+  if(!ALL_PARTNERS.length){
+    try{ ALL_PARTNERS = await apiFetch('/api/partners'); }catch(e){ /* не критично */ }
+  }
+  populatePartnerFilter();
   renderProductsGrid();
+}
+
+function populatePartnerFilter(){
+  const sel = document.getElementById('productPartnerFilter');
+  if(!sel || sel.dataset.filled) return;
+  ALL_PARTNERS.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  sel.dataset.filled = '1';
 }
 
 function productPriceHtml(p){
@@ -1068,12 +1090,20 @@ function productPriceHtml(p){
   return `<div class="pc-price-row"><span>${price} смн</span></div>`;
 }
 
+function getPartnerName(id){
+  const p = ALL_PARTNERS.find(x=>x.id===id);
+  return p ? p.name : 'Партнёр #' + id;
+}
+
 function renderProductsGrid(){
   const q = productSearchQuery.toLowerCase().trim();
   const list = ADMIN_PRODUCTS.filter(p=>{
     const matchCat = productCatFilterVal==='all' || p.cat===productCatFilterVal;
+    const matchPartner = productPartnerFilterVal==='all'
+      || (productPartnerFilterVal==='none' && !p.partner_id)
+      || (p.partner_id === Number(productPartnerFilterVal));
     const matchQ = !q || p.name_ru.toLowerCase().includes(q) || p.name_tj.toLowerCase().includes(q);
-    return matchCat && matchQ;
+    return matchCat && matchQ && matchPartner;
   });
   document.getElementById('productsCount').textContent = list.length + ' из ' + ADMIN_PRODUCTS.length;
   const grid = document.getElementById('productsGrid');
@@ -1085,6 +1115,7 @@ function renderProductsGrid(){
         <div>
           <div class="prod-views">👁 ${p.views||0} просмотров</div>
           <div class="pc-name">${p.name_ru}</div>
+          ${p.partner_id ? `<div class="pc-partner-tag">🤝 ${esc(getPartnerName(p.partner_id))}</div>` : ''}
           ${productPriceHtml(p)}
           <div class="prod-stats-row">
             <span class="prod-stat">📦 ${p.stock ?? '—'} шт</span>
@@ -2593,6 +2624,7 @@ document.getElementById('statusSelect').addEventListener('change', e=>{ activeSt
 document.getElementById('orderModalOverlay').addEventListener('click', e=>{ if(e.target.id==='orderModalOverlay') closeOrder(); });
 document.getElementById('productSearchInput').addEventListener('input', e=>{ productSearchQuery = e.target.value; renderProductsGrid(); });
 document.getElementById('productCatFilter').addEventListener('change', e=>{ productCatFilterVal = e.target.value; renderProductsGrid(); });
+document.getElementById('productPartnerFilter').addEventListener('change', e=>{ productPartnerFilterVal = e.target.value; renderProductsGrid(); });
 document.getElementById('productModalOverlay').addEventListener('click', e=>{ if(e.target.id==='productModalOverlay') closeProductModal(); });
 renderDateTabs();
 
