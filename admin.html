@@ -397,6 +397,17 @@ header{
 .pt-prod-cell{display:flex;align-items:center;gap:8px}
 .pt-prod-cell img{width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0}
 .pt-prod-thumb-empty{width:34px;height:34px;border-radius:8px;background:var(--cream);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pt-page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.pt-page-title{font-family:'Unbounded',sans-serif;font-weight:800;font-size:16px;color:var(--indigo)}
+.pr-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+.pr-card-title{font-weight:700;font-size:14px;color:var(--indigo);margin-bottom:12px}
+.pr-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.pr-metric{background:var(--cream);border-radius:10px;padding:10px 12px}
+.pr-metric .l{font-size:11px;color:#8a8478}
+.pr-metric .v{font-family:'Unbounded',sans-serif;font-weight:800;font-size:15px;color:var(--indigo);margin-top:3px}
+.pr-metric .v.blue{color:var(--brand-blue-dark)}
+.pr-metric .v.green{color:var(--accent-green-dark)}
+.pr-history{font-size:12px;color:#8a8478;padding-top:10px;border-top:1px solid var(--line)}
 .pc-partner-tag{font-size:11px;font-weight:700;color:var(--brand-blue-dark);background:#E7EFFE;display:inline-block;padding:3px 9px;border-radius:20px;margin:4px 0}
 .cb-textarea{
   width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
@@ -612,7 +623,7 @@ tbody tr:hover{background:var(--cream)}
       <button class="nav-it soon" id="tabAnalytics" onclick="showSection('analytics')"><span class="nav-ic">📈</span> Аналитика <span class="soon-tag">скоро</span></button>
       <button class="nav-it soon" id="tabMarketing" onclick="showSection('marketing')"><span class="nav-ic">📣</span> Маркетинг <span class="soon-tag">скоро</span></button>
       <button class="nav-it soon" id="tabFinance" onclick="showSection('finance')"><span class="nav-ic">💰</span> Финансы <span class="soon-tag">скоро</span></button>
-      <button class="nav-it soon" id="tabPurchasing" onclick="showSection('purchasing')"><span class="nav-ic">🛒</span> Закупки <span class="soon-tag">скоро</span></button>
+      <button class="nav-it" id="tabPurchasing" onclick="showSection('purchasing')"><span class="nav-ic">🛒</span> Закупки</button>
       <button class="nav-it" id="tabPartners" onclick="showSection('partners')"><span class="nav-ic">🤝</span> Партнёры</button>
       <button class="nav-it soon" id="tabActivity" onclick="showSection('activity')"><span class="nav-ic">🕐</span> Активность <span class="soon-tag">скоро</span></button>
       <button class="nav-it" id="tabBanners" onclick="showSection('banners')"><span class="nav-ic">🖼️</span> Баннеры</button>
@@ -757,6 +768,36 @@ tbody tr:hover{background:var(--cream)}
     <div class="pt-summary-row" id="ptSummaryRow"></div>
     <button class="btn-solid" style="margin-bottom:16px" onclick="openPartnerForm()">+ Добавить партнёра</button>
     <div class="pt-grid" id="partnersList"></div>
+  </div>
+
+  <div class="wrap hidden" id="purchasingPage">
+    <div class="pt-page-head">
+      <div class="pt-page-title">📈 Маржа по товарам</div>
+      <button class="btn-solid" onclick="openPurchaseForm()">+ Добавить закупку</button>
+    </div>
+    <div class="pt-grid" id="purchasingGrid"></div>
+  </div>
+
+  <div class="modal-overlay" id="purchaseModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:460px">
+      <button class="modal-close-x" onclick="closePurchaseForm()" aria-label="Закрыть">✕</button>
+      <h3>+ Добавить закупку</h3>
+      <div class="pm-field">
+        <label>Товар</label>
+        <select id="prProductId">
+          <option value="">Выберите товар...</option>
+        </select>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Количество (шт)</label><input id="prQty" type="number" min="1" placeholder="50"></div>
+        <div class="pm-field"><label>Цена за ед. (смн)</label><input id="prUnitPrice" type="number" min="0" placeholder="80"></div>
+      </div>
+      <div class="pm-field"><label>Дата закупки</label><input id="prDate" type="date"></div>
+      <div class="pm-field"><label>Поставщик</label><input id="prSupplier" placeholder="ООО Поставщик"></div>
+      <div class="pm-field"><label>Заметка</label><input id="prNote" placeholder="необязательно"></div>
+      <div class="pm-error" id="purchaseFormError">Заполните товар, количество, цену и дату.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="savePurchase()">💾 Сохранить закупку</button>
+    </div>
   </div>
 
   <div class="modal-overlay" id="partnerDetailOverlay">
@@ -985,12 +1026,12 @@ const PAGE_TITLES = {
   finance:'Финансы', purchasing:'Закупки', partners:'Партнёры', activity:'Активность',
   formbuilder:'Конструктор форм', settings:'Настройка'
 };
-const SOON_SECTIONS = ['customers','analytics','marketing','finance','purchasing','activity','formbuilder','settings'];
+const SOON_SECTIONS = ['customers','analytics','marketing','finance','activity','formbuilder','settings'];
 const SOON_EMOJI = {
   customers:'👥', analytics:'📈', marketing:'📣', finance:'💰',
   purchasing:'🛒', activity:'🕐', formbuilder:'🧩', settings:'⚙️'
 };
-const REAL_TABS = ['dashboard','orders','products','banners','logistics','partners'];
+const REAL_TABS = ['dashboard','orders','products','banners','logistics','partners','purchasing'];
 
 function showSection(name){
   REAL_TABS.forEach(t => {
@@ -1009,6 +1050,7 @@ function showSection(name){
   document.getElementById('bannersPage').classList.toggle('hidden', name!=='banners');
   document.getElementById('logisticsPage').classList.toggle('hidden', name!=='logistics');
   document.getElementById('partnersPage').classList.toggle('hidden', name!=='partners');
+  document.getElementById('purchasingPage').classList.toggle('hidden', name!=='purchasing');
   document.getElementById('partnerDetailOverlay').classList.remove('show');
   document.getElementById('comingSoonPage').classList.toggle('hidden', !SOON_SECTIONS.includes(name));
 
@@ -1019,9 +1061,9 @@ function showSection(name){
 
   document.getElementById('pageTitle').textContent = PAGE_TITLES[name] || '';
   document.body.classList.remove('sidebar-open');
-  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics'||name==='partners') ? '' : 'none';
+  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics'||name==='partners'||name==='purchasing') ? '' : 'none';
   document.getElementById('refreshBtn').onclick =
-    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : name==='partners' ? loadPartners : null;
+    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : name==='partners' ? loadPartners : name==='purchasing' ? loadPurchasingPage : null;
   if(name==='products' && !productsLoadedOnce){
     productsLoadedOnce = true;
     loadProductsAdmin();
@@ -1038,6 +1080,9 @@ function showSection(name){
   }
   if(name==='partners'){
     loadPartners();
+  }
+  if(name==='purchasing'){
+    loadPurchasingPage();
   }
 }
 
@@ -2298,6 +2343,100 @@ async function deletePartner(){
   }catch(e){
     console.error('Не удалось удалить партнёра:', e);
     alert('Не удалось удалить — проверь подключение к серверу.');
+  }
+}
+
+/* ==========================================================================
+   ЗАКУПКИ
+   ========================================================================== */
+let ALL_PURCHASES = [];
+
+async function loadPurchasingPage(){
+  const grid = document.getElementById('purchasingGrid');
+  grid.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
+  try{
+    if(!ADMIN_PRODUCTS.length){
+      const res = await fetch('/api/products?all=1');
+      ADMIN_PRODUCTS = await res.json();
+    }
+    ALL_PURCHASES = await apiFetch('/api/purchases');
+    populatePurchaseProductSelect();
+
+    if(!ADMIN_PRODUCTS.length){
+      grid.innerHTML = `<div class="pm-hint">Пока нет товаров — сначала добавь товар в разделе «Товары».</div>`;
+      return;
+    }
+
+    grid.innerHTML = ADMIN_PRODUCTS.map(p => {
+      const price = Number(p.price) || 0;
+      const cost = Number(p.cost_price) || 0;
+      const marginUnit = price - cost;
+      const marginPct = price ? (marginUnit/price*100) : 0;
+      const sold = Number(p.sales) || 0;
+      const profit = marginUnit * sold;
+      const purchasesForProduct = ALL_PURCHASES.filter(pr => pr.product_id === p.id);
+      const qtyBought = purchasesForProduct.reduce((s,pr)=>s+pr.qty,0);
+      const spent = purchasesForProduct.reduce((s,pr)=>s+pr.qty*Number(pr.unit_price),0);
+      return `
+      <div class="pr-card">
+        <div class="pr-card-title">${esc(p.name_ru)}</div>
+        <div class="pr-metrics">
+          <div class="pr-metric"><div class="l">Цена продажи</div><div class="v">${price} смн</div></div>
+          <div class="pr-metric"><div class="l">Себестоимость</div><div class="v">${cost} смн</div></div>
+          <div class="pr-metric"><div class="l">Маржа/ед</div><div class="v blue">${marginUnit} смн</div></div>
+          <div class="pr-metric"><div class="l">Маржа %</div><div class="v blue">${marginPct.toFixed(1)}%</div></div>
+          <div class="pr-metric"><div class="l">Продано</div><div class="v">${sold} шт</div></div>
+          <div class="pr-metric"><div class="l">Прибыль</div><div class="v green">${profit.toLocaleString('ru-RU')} смн</div></div>
+        </div>
+        <div class="pr-history">${purchasesForProduct.length} закупок · ${qtyBought} шт куплено · ${spent.toLocaleString('ru-RU')} смн потрачено</div>
+      </div>
+    `;}).join('');
+  }catch(e){
+    console.error('Не удалось загрузить закупки:', e);
+    grid.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+function populatePurchaseProductSelect(){
+  const sel = document.getElementById('prProductId');
+  sel.innerHTML = '<option value="">Выберите товар...</option>' +
+    ADMIN_PRODUCTS.map(p => `<option value="${p.id}">${esc(p.name_ru)}</option>`).join('');
+}
+
+function openPurchaseForm(){
+  document.getElementById('prQty').value = '';
+  document.getElementById('prUnitPrice').value = '';
+  document.getElementById('prDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('prSupplier').value = '';
+  document.getElementById('prNote').value = '';
+  document.getElementById('purchaseFormError').style.display = 'none';
+  document.getElementById('purchaseModalOverlay').classList.add('show');
+}
+function closePurchaseForm(){ document.getElementById('purchaseModalOverlay').classList.remove('show'); }
+
+async function savePurchase(){
+  const product_id = Number(document.getElementById('prProductId').value);
+  const qty = Number(document.getElementById('prQty').value);
+  const unit_price = Number(document.getElementById('prUnitPrice').value);
+  const purchase_date = document.getElementById('prDate').value;
+  const errBox = document.getElementById('purchaseFormError');
+  if(!product_id || !qty || !unit_price || !purchase_date){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  try{
+    await apiFetch('/api/purchases', {
+      method:'POST',
+      body: JSON.stringify({
+        product_id, qty, unit_price, purchase_date,
+        supplier: document.getElementById('prSupplier').value.trim() || null,
+        note: document.getElementById('prNote').value.trim() || null,
+      })
+    });
+    closePurchaseForm();
+    loadPurchasingPage();
+  }catch(e){
+    console.error('Не удалось сохранить закупку:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
   }
 }
 

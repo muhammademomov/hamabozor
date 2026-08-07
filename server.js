@@ -386,6 +386,46 @@ app.post('/api/partners/:id/payouts', requireAuth, async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// ЗАКУПКИ — учёт партий товара (кол-во, цена, поставщик), для расчёта маржи
+// ----------------------------------------------------------------------------
+app.get('/api/purchases', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM purchases ORDER BY purchase_date DESC, created_at DESC');
+    res.json(rows);
+  } catch (e) {
+    console.error('Ошибка получения закупок:', e);
+    res.status(500).json({ error: 'Не удалось получить закупки' });
+  }
+});
+
+app.post('/api/purchases', requireAuth, async (req, res) => {
+  const { product_id, qty, unit_price, purchase_date, supplier, note } = req.body || {};
+  if (!product_id || !qty || unit_price == null || !purchase_date) {
+    return res.status(400).json({ error: 'Заполните товар, количество, цену и дату' });
+  }
+  try {
+    await pool.query(
+      'INSERT INTO purchases (product_id, qty, unit_price, purchase_date, supplier, note) VALUES (?, ?, ?, ?, ?, ?)',
+      [product_id, qty, unit_price, purchase_date, supplier || null, note || null]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка добавления закупки:', e);
+    res.status(500).json({ error: 'Не удалось добавить закупку' });
+  }
+});
+
+app.delete('/api/purchases/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM purchases WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления закупки:', e);
+    res.status(500).json({ error: 'Не удалось удалить закупку' });
+  }
+});
+
+// ----------------------------------------------------------------------------
 // ТОВАРЫ — публичный список (для сайта) + CRUD только для администратора
 // ----------------------------------------------------------------------------
 app.get('/api/products', async (req, res) => {
@@ -876,6 +916,22 @@ async function ensureColumn(table, column, definitionSql) {
   }
 }
 
+async function ensurePurchasesTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS purchases (
+      id             INT AUTO_INCREMENT PRIMARY KEY,
+      product_id     INT NOT NULL,
+      qty            INT NOT NULL,
+      unit_price     DECIMAL(10,2) NOT NULL,
+      purchase_date  DATE NOT NULL,
+      supplier       VARCHAR(255),
+      note           VARCHAR(255),
+      created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_purchases_product (product_id)
+    )
+  `);
+}
+
 async function ensurePartnerTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS partners (
@@ -1032,6 +1088,7 @@ async function ensureSchema() {
   await ensureModelMediaTable();
   await ensureCourierTables();
   await ensurePartnerTables();
+  await ensurePurchasesTable();
 
   // если товаров ещё нет — заполняем стартовым набором, чтобы сайт не был пустым
   const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM products');

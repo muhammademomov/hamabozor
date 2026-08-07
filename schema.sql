@@ -54,6 +54,17 @@ CREATE TABLE IF NOT EXISTS product_model_media (
   INDEX idx_pmm_product (product_id)
 );
 
+CREATE TABLE IF NOT EXISTS purchases (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  product_id     INT NOT NULL,
+  qty            INT NOT NULL,
+  unit_price     DECIMAL(10,2) NOT NULL,
+  purchase_date  DATE NOT NULL,
+  supplier       VARCHAR(255),
+  note           VARCHAR(255),
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS partners (
   id                  INT AUTO_INCREMENT PRIMARY KEY,
   name                VARCHAR(255) NOT NULL,
