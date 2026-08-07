@@ -54,6 +54,34 @@ CREATE TABLE IF NOT EXISTS product_model_media (
   INDEX idx_pmm_product (product_id)
 );
 
+CREATE TABLE IF NOT EXISTS partners (
+  id                  INT AUTO_INCREMENT PRIMARY KEY,
+  name                VARCHAR(255) NOT NULL,
+  phone               VARCHAR(50),
+  telegram            VARCHAR(255),
+  deal_type           ENUM('commission','wholesale') NOT NULL DEFAULT 'commission',
+  commission_percent  DECIMAL(5,2) NOT NULL DEFAULT 0,
+  notes               TEXT,
+  active              TINYINT(1) NOT NULL DEFAULT 1,
+  created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS partner_expenses (
+  id                    INT AUTO_INCREMENT PRIMARY KEY,
+  partner_id            INT NOT NULL,
+  title                 VARCHAR(255) NOT NULL,
+  amount                DECIMAL(10,2) NOT NULL,
+  partner_share_percent DECIMAL(5,2) NOT NULL DEFAULT 100,
+  created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS partner_payouts (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  partner_id  INT NOT NULL,
+  amount      DECIMAL(10,2) NOT NULL,
+  note        VARCHAR(255),
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- в таблицу products также добавляется (автоматически): partner_id INT NULL
+
 CREATE TABLE IF NOT EXISTS couriers (
   id                INT AUTO_INCREMENT PRIMARY KEY,
   telegram_chat_id  BIGINT NOT NULL UNIQUE,

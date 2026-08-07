@@ -169,6 +169,169 @@ app.post('/api/orders/:id/assign-courier', requireAuth, async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// ПАРТНЁРЫ — учёт комиссии/опта, расходов и выплат
+// ----------------------------------------------------------------------------
+
+// считает статистику по одному партнёру: продажи, что причитается, расходы, выплаты, остаток долга
+async function computePartnerStats(partnerId, partner) {
+  const [productRows] = await pool.query('SELECT id, cost_price FROM products WHERE partner_id = ?', [partnerId]);
+  const productIds = new Set(productRows.map(p => p.id));
+  const costById = {};
+  productRows.forEach(p => { costById[p.id] = Number(p.cost_price) || 0; });
+
+  const [orders] = await pool.query("SELECT items FROM orders WHERE status = 'done'");
+  let revenue = 0;   // сумма продаж по розничной цене
+  let wholesaleBase = 0; // сумма по оптовой (себестоимость) цене
+  let unitsSold = 0;
+  for (const o of orders) {
+    const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+    for (const item of items) {
+      if (productIds.has(item.id)) {
+        revenue += (Number(item.price) || 0) * (Number(item.qty) || 0);
+        wholesaleBase += (costById[item.id] || 0) * (Number(item.qty) || 0);
+        unitsSold += Number(item.qty) || 0;
+      }
+    }
+  }
+
+  const base = partner.deal_type === 'wholesale' ? wholesaleBase : revenue;
+  const commissionCut = base * (Number(partner.commission_percent) || 0) / 100;
+  const owedFromSales = base - commissionCut;
+
+  const [[expenseRow]] = await pool.query(
+    'SELECT COALESCE(SUM(amount * partner_share_percent / 100), 0) AS total FROM partner_expenses WHERE partner_id = ?',
+    [partnerId]
+  );
+  const [[payoutRow]] = await pool.query(
+    'SELECT COALESCE(SUM(amount), 0) AS total FROM partner_payouts WHERE partner_id = ?',
+    [partnerId]
+  );
+  const expensesTotal = Number(expenseRow.total) || 0;
+  const paidTotal = Number(payoutRow.total) || 0;
+  const balanceDue = owedFromSales - expensesTotal - paidTotal;
+
+  return {
+    products_count: productRows.length,
+    units_sold: unitsSold,
+    revenue: Math.round(revenue * 100) / 100,
+    owed_from_sales: Math.round(owedFromSales * 100) / 100,
+    expenses_total: Math.round(expensesTotal * 100) / 100,
+    paid_total: Math.round(paidTotal * 100) / 100,
+    balance_due: Math.round(balanceDue * 100) / 100,
+  };
+}
+
+app.get('/api/partners', requireAuth, async (req, res) => {
+  try {
+    const [partners] = await pool.query('SELECT * FROM partners ORDER BY active DESC, created_at DESC');
+    const withStats = await Promise.all(partners.map(async p => ({ ...p, stats: await computePartnerStats(p.id, p) })));
+    res.json(withStats);
+  } catch (e) {
+    console.error('Ошибка получения партнёров:', e);
+    res.status(500).json({ error: 'Не удалось получить партнёров' });
+  }
+});
+
+app.get('/api/partners/:id', requireAuth, async (req, res) => {
+  try {
+    const [[partner]] = await pool.query('SELECT * FROM partners WHERE id = ?', [req.params.id]);
+    if (!partner) return res.status(404).json({ error: 'Партнёр не найден' });
+    const [expenses] = await pool.query('SELECT * FROM partner_expenses WHERE partner_id = ? ORDER BY created_at DESC', [req.params.id]);
+    const [payouts] = await pool.query('SELECT * FROM partner_payouts WHERE partner_id = ? ORDER BY created_at DESC', [req.params.id]);
+    const [products] = await pool.query('SELECT id, name_ru, price, cost_price FROM products WHERE partner_id = ?', [req.params.id]);
+    const stats = await computePartnerStats(partner.id, partner);
+    res.json({ ...partner, stats, expenses, payouts, products });
+  } catch (e) {
+    console.error('Ошибка получения партнёра:', e);
+    res.status(500).json({ error: 'Не удалось получить партнёра' });
+  }
+});
+
+app.post('/api/partners', requireAuth, async (req, res) => {
+  const { name, phone, telegram, deal_type, commission_percent, notes } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Укажите имя партнёра' });
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO partners (name, phone, telegram, deal_type, commission_percent, notes, active)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+      [name, phone || null, telegram || null, deal_type === 'wholesale' ? 'wholesale' : 'commission', commission_percent || 0, notes || null]
+    );
+    res.json({ id: result.insertId });
+  } catch (e) {
+    console.error('Ошибка добавления партнёра:', e);
+    res.status(500).json({ error: 'Не удалось добавить партнёра' });
+  }
+});
+
+app.patch('/api/partners/:id', requireAuth, async (req, res) => {
+  const allowed = ['name','phone','telegram','deal_type','commission_percent','notes','active'];
+  const body = req.body || {};
+  const sets = []; const values = [];
+  for (const key of allowed) {
+    if (body[key] !== undefined) { sets.push(`${key} = ?`); values.push(key === 'active' ? (body[key]?1:0) : body[key]); }
+  }
+  if (!sets.length) return res.json({ ok: true });
+  values.push(req.params.id);
+  try {
+    await pool.query(`UPDATE partners SET ${sets.join(', ')} WHERE id = ?`, values);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка изменения партнёра:', e);
+    res.status(500).json({ error: 'Не удалось изменить партнёра' });
+  }
+});
+
+app.delete('/api/partners/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('UPDATE products SET partner_id = NULL WHERE partner_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM partner_expenses WHERE partner_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM partner_payouts WHERE partner_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM partners WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления партнёра:', e);
+    res.status(500).json({ error: 'Не удалось удалить партнёра' });
+  }
+});
+
+app.post('/api/partners/:id/expenses', requireAuth, async (req, res) => {
+  const { title, amount, partner_share_percent } = req.body || {};
+  if (!title || !amount) return res.status(400).json({ error: 'Укажите название и сумму' });
+  try {
+    await pool.query(
+      'INSERT INTO partner_expenses (partner_id, title, amount, partner_share_percent) VALUES (?, ?, ?, ?)',
+      [req.params.id, title, amount, partner_share_percent ?? 100]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка добавления расхода:', e);
+    res.status(500).json({ error: 'Не удалось добавить расход' });
+  }
+});
+
+app.delete('/api/partner-expenses/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM partner_expenses WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления расхода:', e);
+    res.status(500).json({ error: 'Не удалось удалить расход' });
+  }
+});
+
+app.post('/api/partners/:id/payouts', requireAuth, async (req, res) => {
+  const { amount, note } = req.body || {};
+  if (!amount) return res.status(400).json({ error: 'Укажите сумму' });
+  try {
+    await pool.query('INSERT INTO partner_payouts (partner_id, amount, note) VALUES (?, ?, ?)', [req.params.id, amount, note || null]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка записи выплаты:', e);
+    res.status(500).json({ error: 'Не удалось записать выплату' });
+  }
+});
+
+// ----------------------------------------------------------------------------
 // ТОВАРЫ — публичный список (для сайта) + CRUD только для администратора
 // ----------------------------------------------------------------------------
 app.get('/api/products', async (req, res) => {
@@ -250,7 +413,7 @@ app.post('/api/products', requireAuth, async (req, res) => {
     bundle2_price, bundle3_price, bundle4_price,
     features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
     cost_price, stock, rating, rating_count, colors, sizes,
-    extra_images, seller_name
+    extra_images, seller_name, partner_id
   } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
@@ -263,8 +426,8 @@ app.post('/api/products', requireAuth, async (req, res) => {
         bundle2_price, bundle3_price, bundle4_price,
         features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
         cost_price, stock, rating, rating_count, colors, sizes,
-        extra_images, seller_name
-      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?, ?,?)`,
+        extra_images, seller_name, partner_id
+      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?, ?,?,?)`,
       [
         cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
         image_data || null, subtitle_ru || null, subtitle_tj || null,
@@ -273,7 +436,7 @@ app.post('/api/products', requireAuth, async (req, res) => {
         cost_price || null, stock == null ? null : stock, rating || null, rating_count || null,
         colors || null, sizes || null,
         (Array.isArray(extra_images) && extra_images.length) ? JSON.stringify(extra_images) : null,
-        seller_name || null
+        seller_name || null, partner_id || null
       ]
     );
     res.json({ id: result.insertId });
@@ -290,7 +453,7 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
     bundle2_price, bundle3_price, bundle4_price,
     features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
     cost_price, stock, rating, rating_count, colors, sizes,
-    extra_images, seller_name
+    extra_images, seller_name, partner_id
   } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
@@ -303,7 +466,7 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
         bundle2_price=?, bundle3_price=?, bundle4_price=?,
         features_ru=?, features_tj=?, delivery_ru=?, delivery_tj=?, warranty_ru=?, warranty_tj=?,
         cost_price=?, stock=?, rating=?, rating_count=?, colors=?, sizes=?,
-        extra_images=?, seller_name=?
+        extra_images=?, seller_name=?, partner_id=?
        WHERE id=?`,
       [
         cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
@@ -313,7 +476,7 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
         cost_price || null, stock == null ? null : stock, rating || null, rating_count || null,
         colors || null, sizes || null,
         (Array.isArray(extra_images) && extra_images.length) ? JSON.stringify(extra_images) : null,
-        seller_name || null,
+        seller_name || null, partner_id || null,
         req.params.id
       ]
     );
@@ -659,6 +822,44 @@ async function ensureColumn(table, column, definitionSql) {
   }
 }
 
+async function ensurePartnerTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS partners (
+      id                  INT AUTO_INCREMENT PRIMARY KEY,
+      name                VARCHAR(255) NOT NULL,
+      phone               VARCHAR(50),
+      telegram            VARCHAR(255),
+      deal_type           ENUM('commission','wholesale') NOT NULL DEFAULT 'commission',
+      commission_percent  DECIMAL(5,2) NOT NULL DEFAULT 0,
+      notes               TEXT,
+      active              TINYINT(1) NOT NULL DEFAULT 1,
+      created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS partner_expenses (
+      id                    INT AUTO_INCREMENT PRIMARY KEY,
+      partner_id            INT NOT NULL,
+      title                 VARCHAR(255) NOT NULL,
+      amount                DECIMAL(10,2) NOT NULL,
+      partner_share_percent DECIMAL(5,2) NOT NULL DEFAULT 100,
+      created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_pe_partner (partner_id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS partner_payouts (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      partner_id  INT NOT NULL,
+      amount      DECIMAL(10,2) NOT NULL,
+      note        VARCHAR(255),
+      created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_pp_partner (partner_id)
+    )
+  `);
+  await ensureColumn('products', 'partner_id', 'INT NULL');
+}
+
 async function ensureCourierTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS couriers (
@@ -776,6 +977,7 @@ async function ensureSchema() {
   await ensureProductColumns();
   await ensureModelMediaTable();
   await ensureCourierTables();
+  await ensurePartnerTables();
 
   // если товаров ещё нет — заполняем стартовым набором, чтобы сайт не был пустым
   const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM products');

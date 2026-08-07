@@ -571,7 +571,7 @@ tbody tr:hover{background:var(--cream)}
       <button class="nav-it soon" id="tabMarketing" onclick="showSection('marketing')"><span class="nav-ic">📣</span> Маркетинг <span class="soon-tag">скоро</span></button>
       <button class="nav-it soon" id="tabFinance" onclick="showSection('finance')"><span class="nav-ic">💰</span> Финансы <span class="soon-tag">скоро</span></button>
       <button class="nav-it soon" id="tabPurchasing" onclick="showSection('purchasing')"><span class="nav-ic">🛒</span> Закупки <span class="soon-tag">скоро</span></button>
-      <button class="nav-it soon" id="tabPartners" onclick="showSection('partners')"><span class="nav-ic">🤝</span> Блогеры и партнёры <span class="soon-tag">скоро</span></button>
+      <button class="nav-it" id="tabPartners" onclick="showSection('partners')"><span class="nav-ic">🤝</span> Партнёры</button>
       <button class="nav-it soon" id="tabActivity" onclick="showSection('activity')"><span class="nav-ic">🕐</span> Активность <span class="soon-tag">скоро</span></button>
       <button class="nav-it" id="tabBanners" onclick="showSection('banners')"><span class="nav-ic">🖼️</span> Баннеры</button>
       <button class="nav-it soon" id="tabFormbuilder" onclick="showSection('formbuilder')"><span class="nav-ic">🧩</span> Конструктор форм <span class="soon-tag">скоро</span></button>
@@ -705,6 +705,73 @@ tbody tr:hover{background:var(--cream)}
     <div class="pm-hint">Добавь курьера вручную — он получит доступ к боту, как только пришлёт свой номер телефона боту (номер должен совпасть с указанным здесь).</div>
     <button class="btn-solid" style="margin-bottom:16px" onclick="openCourierForm()">+ Добавить курьера</button>
     <div class="couriers-list" id="couriersList"></div>
+  </div>
+
+  <div class="wrap hidden" id="partnersPage">
+    <button class="btn-solid" style="margin-bottom:16px" onclick="openPartnerForm()">+ Добавить партнёра</button>
+    <div class="couriers-list" id="partnersList"></div>
+  </div>
+
+  <div class="wrap hidden" id="partnerDetailPage">
+    <button class="btn-outline" style="margin-bottom:16px" onclick="backToPartners()">← Все партнёры</button>
+    <div id="partnerDetailContent"></div>
+  </div>
+
+  <div class="modal-overlay" id="partnerModalOverlay">
+    <div class="order-modal" style="position:relative">
+      <button class="modal-close-x" onclick="closePartnerForm()" aria-label="Закрыть">✕</button>
+      <h3>Новый партнёр</h3>
+      <div class="pm-field"><label>Имя / название *</label><input id="ptName" placeholder="ООО Ромашка"></div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Телефон</label><input id="ptPhone" placeholder="+992 90 000 00 00"></div>
+        <div class="pm-field"><label>Telegram</label><input id="ptTelegram" placeholder="@username"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field">
+          <label>Тип сделки</label>
+          <select id="ptDealType">
+            <option value="commission">Комиссия (товар партнёра, я беру %)</option>
+            <option value="wholesale">Опт (я покупаю по себестоимости, продаю сам)</option>
+          </select>
+        </div>
+        <div class="pm-field"><label>Мой % комиссии</label><input id="ptCommission" type="number" min="0" max="100" placeholder="15"></div>
+      </div>
+      <div class="pm-field"><label>Заметки</label><textarea id="ptNotes" class="cb-textarea" placeholder="Договорённости, условия..."></textarea></div>
+      <div class="pm-error" id="partnerFormError">Укажите имя партнёра.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="savePartner()">Сохранить партнёра</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="expenseModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:420px">
+      <button class="modal-close-x" onclick="closeExpenseForm()" aria-label="Закрыть">✕</button>
+      <h3>Новый расход</h3>
+      <div class="pm-field"><label>Название *</label><input id="exTitle" placeholder="Реклама в Instagram"></div>
+      <div class="pm-field"><label>Сумма (смн) *</label><input id="exAmount" type="number" min="0"></div>
+      <div class="pm-field">
+        <label>Кто платит</label>
+        <select id="exShare" onchange="document.getElementById('exCustomShareWrap').style.display = this.value==='custom' ? 'block':'none'">
+          <option value="100">Партнёр (100%)</option>
+          <option value="0">Я (0% для партнёра)</option>
+          <option value="50">Пополам (50/50)</option>
+          <option value="custom">Другой процент...</option>
+        </select>
+      </div>
+      <div class="pm-field" id="exCustomShareWrap" style="display:none"><label>Доля партнёра, %</label><input id="exCustomShare" type="number" min="0" max="100"></div>
+      <div class="pm-error" id="expenseFormError">Заполните название и сумму.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveExpense()">Добавить расход</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="payoutModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:420px">
+      <button class="modal-close-x" onclick="closePayoutForm()" aria-label="Закрыть">✕</button>
+      <h3>Записать выплату</h3>
+      <div class="pm-field"><label>Сумма (смн) *</label><input id="poAmount" type="number" min="0"></div>
+      <div class="pm-field"><label>Комментарий</label><input id="poNote" placeholder="Например: наличными 05.08"></div>
+      <div class="pm-error" id="payoutFormError">Укажите сумму.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="savePayout()">Сохранить выплату</button>
+    </div>
   </div>
 
   <div class="modal-overlay" id="courierModalOverlay">
@@ -865,15 +932,15 @@ function toggleSidebar(){
 const PAGE_TITLES = {
   dashboard:'Дашборд', orders:'Заказы', products:'Товары', banners:'Баннеры',
   customers:'Клиенты', logistics:'Курьеры', analytics:'Аналитика', marketing:'Маркетинг',
-  finance:'Финансы', purchasing:'Закупки', partners:'Блогеры и партнёры', activity:'Активность',
+  finance:'Финансы', purchasing:'Закупки', partners:'Партнёры', activity:'Активность',
   formbuilder:'Конструктор форм', settings:'Настройка'
 };
-const SOON_SECTIONS = ['customers','analytics','marketing','finance','purchasing','partners','activity','formbuilder','settings'];
+const SOON_SECTIONS = ['customers','analytics','marketing','finance','purchasing','activity','formbuilder','settings'];
 const SOON_EMOJI = {
   customers:'👥', analytics:'📈', marketing:'📣', finance:'💰',
-  purchasing:'🛒', partners:'🤝', activity:'🕐', formbuilder:'🧩', settings:'⚙️'
+  purchasing:'🛒', activity:'🕐', formbuilder:'🧩', settings:'⚙️'
 };
-const REAL_TABS = ['dashboard','orders','products','banners','logistics'];
+const REAL_TABS = ['dashboard','orders','products','banners','logistics','partners'];
 
 function showSection(name){
   REAL_TABS.forEach(t => {
@@ -891,6 +958,8 @@ function showSection(name){
   document.getElementById('productsPage').classList.toggle('hidden', name!=='products');
   document.getElementById('bannersPage').classList.toggle('hidden', name!=='banners');
   document.getElementById('logisticsPage').classList.toggle('hidden', name!=='logistics');
+  document.getElementById('partnersPage').classList.toggle('hidden', name!=='partners');
+  document.getElementById('partnerDetailPage').classList.add('hidden');
   document.getElementById('comingSoonPage').classList.toggle('hidden', !SOON_SECTIONS.includes(name));
 
   if(SOON_SECTIONS.includes(name)){
@@ -900,9 +969,9 @@ function showSection(name){
 
   document.getElementById('pageTitle').textContent = PAGE_TITLES[name] || '';
   document.body.classList.remove('sidebar-open');
-  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics') ? '' : 'none';
+  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics'||name==='partners') ? '' : 'none';
   document.getElementById('refreshBtn').onclick =
-    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : null;
+    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : name==='partners' ? loadPartners : null;
   if(name==='products' && !productsLoadedOnce){
     productsLoadedOnce = true;
     loadProductsAdmin();
@@ -916,6 +985,9 @@ function showSection(name){
   }
   if(name==='logistics'){
     loadCouriers();
+  }
+  if(name==='partners'){
+    loadPartners();
   }
 }
 
@@ -1053,6 +1125,9 @@ async function duplicateProductConfirm(id){
 function esc(s){ return (s||'').toString().replace(/"/g,'&quot;'); }
 
 function openProductModal(id){
+  if(!ALL_PARTNERS.length){
+    apiFetch('/api/partners').then(list => { ALL_PARTNERS = list; openProductModal(id); }).catch(()=>{});
+  }
   editingProductId = id || null;
   const p = id ? ADMIN_PRODUCTS.find(x=>x.id===id) : null;
   pmSelectedEmoji = p ? p.emoji : '🛍️';
@@ -1113,6 +1188,14 @@ function openProductModal(id){
         <div class="pm-field">
           <label>Продавец / партнёр (необязательно)</label>
           <input id="pmSellerName" oninput="updatePmPreview()" value="${p?esc(p.seller_name):''}" placeholder="Оставьте пустым, если продаёте сами">
+        </div>
+        <div class="pm-field">
+          <label>Партнёр для учёта финансов (необязательно)</label>
+          <select id="pmPartnerId">
+            <option value="">— без партнёра —</option>
+            ${ALL_PARTNERS.map(pt => `<option value="${pt.id}" ${p&&p.partner_id===pt.id?'selected':''}>${esc(pt.name)} (${DEAL_TYPE_LABEL[pt.deal_type]})</option>`).join('')}
+          </select>
+          <div class="pm-hint" style="margin-top:6px">Если выбрать партнёра — продажи этого товара будут учитываться в разделе «Партнёры» (комиссия/опт, расходы, выплаты).</div>
         </div>
       </div>
 
@@ -1651,7 +1734,8 @@ async function saveProduct(){
     colors: pmColorsArr.length ? pmColorsArr.join(', ') : null,
     sizes: pmSizesArr.length ? pmSizesArr.join(', ') : null,
     extra_images: pmExtraImages,
-    seller_name: document.getElementById('pmSellerName').value.trim() || null
+    seller_name: document.getElementById('pmSellerName').value.trim() || null,
+    partner_id: document.getElementById('pmPartnerId').value ? Number(document.getElementById('pmPartnerId').value) : null
   };
 
   try{
@@ -1830,6 +1914,224 @@ async function deleteCourier(id){
   }catch(e){
     console.error('Не удалось удалить курьера:', e);
     alert('Не удалось удалить — проверь подключение к серверу.');
+  }
+}
+
+/* ==========================================================================
+   ПАРТНЁРЫ
+   ========================================================================== */
+let ALL_PARTNERS = [];
+let currentPartnerId = null;
+const DEAL_TYPE_LABEL = { commission:'Комиссия', wholesale:'Опт' };
+
+async function loadPartners(){
+  const box = document.getElementById('partnersList');
+  box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
+  try{
+    const partners = await apiFetch('/api/partners');
+    ALL_PARTNERS = partners;
+    if(!partners.length){
+      box.innerHTML = `<div class="pm-hint">Партнёров пока нет — нажми «+ Добавить партнёра».</div>`;
+      return;
+    }
+    box.innerHTML = partners.map(p => `
+      <div class="courier-card" style="cursor:pointer" onclick="openPartnerDetail(${p.id})">
+        <div class="courier-info">
+          <b>${esc(p.name)}</b>
+          <div class="courier-card-details">
+            ${DEAL_TYPE_LABEL[p.deal_type]} · комиссия ${p.commission_percent}%<br>
+            📦 Товаров: ${p.stats.products_count} · продано штук: ${p.stats.units_sold}<br>
+            💰 Должен партнёру: <b>${p.stats.balance_due.toLocaleString('ru-RU')} смн</b>
+          </div>
+        </div>
+        <span class="courier-badge ${p.active?'active':'pending'}">${p.active?'Активен':'Отключён'}</span>
+      </div>
+    `).join('');
+  }catch(e){
+    console.error('Не удалось загрузить партнёров:', e);
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+function openPartnerForm(){
+  document.getElementById('ptName').value = '';
+  document.getElementById('ptPhone').value = '';
+  document.getElementById('ptTelegram').value = '';
+  document.getElementById('ptDealType').value = 'commission';
+  document.getElementById('ptCommission').value = '';
+  document.getElementById('ptNotes').value = '';
+  document.getElementById('partnerFormError').style.display = 'none';
+  document.getElementById('partnerModalOverlay').classList.add('show');
+}
+function closePartnerForm(){ document.getElementById('partnerModalOverlay').classList.remove('show'); }
+
+async function savePartner(){
+  const name = document.getElementById('ptName').value.trim();
+  const errBox = document.getElementById('partnerFormError');
+  if(!name){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  try{
+    await apiFetch('/api/partners', {
+      method:'POST',
+      body: JSON.stringify({
+        name,
+        phone: document.getElementById('ptPhone').value.trim() || null,
+        telegram: document.getElementById('ptTelegram').value.trim() || null,
+        deal_type: document.getElementById('ptDealType').value,
+        commission_percent: Number(document.getElementById('ptCommission').value) || 0,
+        notes: document.getElementById('ptNotes').value.trim() || null,
+      })
+    });
+    closePartnerForm();
+    loadPartners();
+  }catch(e){
+    console.error('Не удалось добавить партнёра:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
+  }
+}
+
+function backToPartners(){
+  document.getElementById('partnerDetailPage').classList.add('hidden');
+  document.getElementById('partnersPage').classList.remove('hidden');
+}
+
+async function openPartnerDetail(id){
+  currentPartnerId = id;
+  document.getElementById('partnersPage').classList.add('hidden');
+  document.getElementById('partnerDetailPage').classList.remove('hidden');
+  const box = document.getElementById('partnerDetailContent');
+  box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
+  try{
+    const p = await apiFetch('/api/partners/' + id);
+    box.innerHTML = `
+      <div class="courier-setup-card">
+        <div class="courier-setup-title">${esc(p.name)}</div>
+        <div class="pm-hint">${DEAL_TYPE_LABEL[p.deal_type]} · комиссия ${p.commission_percent}% ${p.phone?(' · 📞 '+esc(p.phone)):''} ${p.telegram?(' · '+esc(p.telegram)):''}</div>
+        ${p.notes ? `<div class="pm-hint" style="margin-top:6px">${esc(p.notes)}</div>` : ''}
+        <div class="dash-grid" style="margin-top:14px">
+          <div class="dash-card"><div class="l">Товаров партнёра</div><div class="v">${p.stats.products_count}</div></div>
+          <div class="dash-card"><div class="l">Продано, шт</div><div class="v">${p.stats.units_sold}</div></div>
+          <div class="dash-card"><div class="l">Причитается со сделок</div><div class="v">${p.stats.owed_from_sales.toLocaleString('ru-RU')} смн</div></div>
+          <div class="dash-card"><div class="l">Расходы партнёра</div><div class="v">${p.stats.expenses_total.toLocaleString('ru-RU')} смн</div></div>
+          <div class="dash-card"><div class="l">Уже выплачено</div><div class="v green">${p.stats.paid_total.toLocaleString('ru-RU')} смн</div></div>
+          <div class="dash-card"><div class="l">Остаток долга</div><div class="v" style="color:var(--brick)">${p.stats.balance_due.toLocaleString('ru-RU')} смн</div></div>
+        </div>
+      </div>
+
+      <div class="courier-setup-card" style="margin-top:14px">
+        <div class="courier-setup-title">📋 Расходы</div>
+        <button class="btn-outline" onclick="openExpenseForm()">+ Добавить расход</button>
+        <div class="couriers-list" style="margin-top:12px">
+          ${p.expenses.length ? p.expenses.map(e => `
+            <div class="courier-card">
+              <div class="courier-info">
+                <b>${esc(e.title)}</b>
+                <div class="courier-card-details">${Number(e.amount).toLocaleString('ru-RU')} смн · доля партнёра ${e.partner_share_percent}% (${(e.amount*e.partner_share_percent/100).toLocaleString('ru-RU')} смн)</div>
+              </div>
+              <button class="btn-outline" onclick="deleteExpense(${e.id})">Удалить</button>
+            </div>
+          `).join('') : '<div class="pm-hint">Расходов пока нет.</div>'}
+        </div>
+      </div>
+
+      <div class="courier-setup-card" style="margin-top:14px">
+        <div class="courier-setup-title">💵 Выплаты</div>
+        <button class="btn-solid" onclick="openPayoutForm()">+ Записать выплату</button>
+        <div class="couriers-list" style="margin-top:12px">
+          ${p.payouts.length ? p.payouts.map(po => `
+            <div class="courier-card">
+              <div class="courier-info">
+                <b>${Number(po.amount).toLocaleString('ru-RU')} смн</b>
+                <div class="courier-card-details">${po.note?esc(po.note)+' · ':''}${new Date(po.created_at).toLocaleDateString('ru-RU')}</div>
+              </div>
+            </div>
+          `).join('') : '<div class="pm-hint">Выплат пока не было.</div>'}
+        </div>
+      </div>
+
+      <div class="courier-setup-card" style="margin-top:14px">
+        <div class="courier-setup-title">🏷️ Товары партнёра</div>
+        <div class="pm-hint">${p.products.length ? p.products.map(pr=>esc(pr.name_ru)).join(', ') : 'Пока нет привязанных товаров — выбери партнёра в форме товара.'}</div>
+      </div>
+    `;
+  }catch(e){
+    console.error('Не удалось загрузить партнёра:', e);
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+function openExpenseForm(){
+  document.getElementById('exTitle').value = '';
+  document.getElementById('exAmount').value = '';
+  document.getElementById('exShare').value = '100';
+  document.getElementById('exCustomShare').value = '';
+  document.getElementById('exCustomShareWrap').style.display = 'none';
+  document.getElementById('expenseFormError').style.display = 'none';
+  document.getElementById('expenseModalOverlay').classList.add('show');
+}
+function closeExpenseForm(){ document.getElementById('expenseModalOverlay').classList.remove('show'); }
+
+async function saveExpense(){
+  const title = document.getElementById('exTitle').value.trim();
+  const amount = Number(document.getElementById('exAmount').value);
+  const shareSel = document.getElementById('exShare').value;
+  const share = shareSel === 'custom' ? Number(document.getElementById('exCustomShare').value) : Number(shareSel);
+  const errBox = document.getElementById('expenseFormError');
+  if(!title || !amount){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  try{
+    await apiFetch('/api/partners/' + currentPartnerId + '/expenses', {
+      method:'POST',
+      body: JSON.stringify({ title, amount, partner_share_percent: share })
+    });
+    closeExpenseForm();
+    openPartnerDetail(currentPartnerId);
+    loadPartners();
+  }catch(e){
+    console.error('Не удалось добавить расход:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
+  }
+}
+
+async function deleteExpense(id){
+  if(!confirm('Удалить этот расход?')) return;
+  try{
+    await apiFetch('/api/partner-expenses/' + id, { method:'DELETE' });
+    openPartnerDetail(currentPartnerId);
+    loadPartners();
+  }catch(e){
+    console.error('Не удалось удалить расход:', e);
+    alert('Не удалось удалить — проверь подключение к серверу.');
+  }
+}
+
+function openPayoutForm(){
+  document.getElementById('poAmount').value = '';
+  document.getElementById('poNote').value = '';
+  document.getElementById('payoutFormError').style.display = 'none';
+  document.getElementById('payoutModalOverlay').classList.add('show');
+}
+function closePayoutForm(){ document.getElementById('payoutModalOverlay').classList.remove('show'); }
+
+async function savePayout(){
+  const amount = Number(document.getElementById('poAmount').value);
+  const errBox = document.getElementById('payoutFormError');
+  if(!amount){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  try{
+    await apiFetch('/api/partners/' + currentPartnerId + '/payouts', {
+      method:'POST',
+      body: JSON.stringify({ amount, note: document.getElementById('poNote').value.trim() || null })
+    });
+    closePayoutForm();
+    openPartnerDetail(currentPartnerId);
+    loadPartners();
+  }catch(e){
+    console.error('Не удалось сохранить выплату:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
   }
 }
 
