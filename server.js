@@ -174,38 +174,67 @@ app.post('/api/orders/:id/assign-courier', requireAuth, async (req, res) => {
 
 // считает статистику по одному партнёру: продажи, что причитается, расходы, выплаты, остаток долга
 async function computePartnerStats(partnerId, partner, includeOrders) {
-  const [productRows] = await pool.query('SELECT id, name_ru, cost_price FROM products WHERE partner_id = ?', [partnerId]);
+  const [productRows] = await pool.query('SELECT id, name_ru, price, cost_price, stock, image_data, active FROM products WHERE partner_id = ?', [partnerId]);
   const productIds = new Set(productRows.map(p => p.id));
   const costById = {};
   productRows.forEach(p => { costById[p.id] = Number(p.cost_price) || 0; });
 
-  const [orders] = await pool.query("SELECT id, created_at, items FROM orders WHERE status = 'done'");
+  const commissionRate = Number(partner.commission_percent) || 0;
+  const isWholesale = partner.deal_type === 'wholesale';
+
+  const [orders] = await pool.query("SELECT id, created_at, status, customer_name, customer_phone, items FROM orders WHERE status IN ('done','progress')");
   let revenue = 0;   // сумма продаж по розничной цене
   let wholesaleBase = 0; // сумма по оптовой (себестоимость) цене
   let unitsSold = 0;
   let ordersCount = 0;
   const orderList = [];
+  const productStats = {}; // id -> { units, ordersSet, revenue, base }
+  productRows.forEach(p => { productStats[p.id] = { units: 0, orders: new Set(), revenue: 0, base: 0 }; });
+
   for (const o of orders) {
+    if (o.status !== 'done') continue; // в общую статистику считаем только завершённые
     const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
     let orderRevenue = 0;
+    let orderBase = 0;
+    let orderCost = 0;
     const matchedItems = [];
     for (const item of items) {
       if (productIds.has(item.id)) {
-        revenue += (Number(item.price) || 0) * (Number(item.qty) || 0);
-        wholesaleBase += (costById[item.id] || 0) * (Number(item.qty) || 0);
-        unitsSold += Number(item.qty) || 0;
-        orderRevenue += (Number(item.price) || 0) * (Number(item.qty) || 0);
+        const qty = Number(item.qty) || 0;
+        const priceSum = (Number(item.price) || 0) * qty;
+        const costSum = (costById[item.id] || 0) * qty;
+        revenue += priceSum;
+        wholesaleBase += costSum;
+        unitsSold += qty;
+        orderRevenue += priceSum;
+        orderCost += costSum;
+        orderBase += isWholesale ? costSum : priceSum;
         matchedItems.push(item);
+
+        const ps = productStats[item.id];
+        ps.units += qty;
+        ps.orders.add(o.id);
+        ps.revenue += priceSum;
+        ps.base += isWholesale ? costSum : priceSum;
       }
     }
     if (matchedItems.length) {
       ordersCount += 1;
-      if (includeOrders) orderList.push({ id: o.id, date: o.created_at, items: matchedItems, revenue: Math.round(orderRevenue * 100) / 100 });
+      if (includeOrders) {
+        orderList.push({
+          id: o.id, date: o.created_at, status: o.status,
+          customer_name: o.customer_name, customer_phone: o.customer_phone,
+          items: matchedItems,
+          revenue: Math.round(orderRevenue * 100) / 100,
+          cost: Math.round(orderCost * 100) / 100,
+          owed: Math.round(orderBase * (1 - commissionRate / 100) * 100) / 100,
+        });
+      }
     }
   }
 
-  const base = partner.deal_type === 'wholesale' ? wholesaleBase : revenue;
-  const commissionCut = base * (Number(partner.commission_percent) || 0) / 100;
+  const base = isWholesale ? wholesaleBase : revenue;
+  const commissionCut = base * commissionRate / 100;
   const owedFromSales = base - commissionCut;
 
   const [[expenseRow]] = await pool.query(
@@ -220,6 +249,17 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
   const paidTotal = Number(payoutRow.total) || 0;
   const balanceDue = owedFromSales - expensesTotal - paidTotal;
 
+  const productsWithStats = productRows.map(p => {
+    const ps = productStats[p.id];
+    return {
+      id: p.id, name_ru: p.name_ru, price: p.price, cost_price: p.cost_price,
+      stock: p.stock, image_data: p.image_data, active: p.active,
+      units_sold: ps.units, orders_count: ps.orders.size,
+      revenue: Math.round(ps.revenue * 100) / 100,
+      owed: Math.round(ps.base * (1 - commissionRate / 100) * 100) / 100,
+    };
+  });
+
   return {
     products_count: productRows.length,
     orders_count: ordersCount,
@@ -229,6 +269,7 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
     owed_from_sales: Math.round(owedFromSales * 100) / 100,
     expenses_total: Math.round(expensesTotal * 100) / 100,
     paid_total: Math.round(paidTotal * 100) / 100,
+    products_stats: productsWithStats,
     balance_due: Math.round(balanceDue * 100) / 100,
     orders: includeOrders ? orderList : undefined,
   };

@@ -384,6 +384,19 @@ header{
 .pt-overview-grid .v{font-family:'Unbounded',sans-serif;font-weight:800;font-size:19px;color:var(--indigo);margin-top:6px}
 .pt-overview-grid .v.green{color:var(--accent-green-dark)}
 .pt-overview-grid .v.red{color:var(--brick)}
+.pt-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+.pt-table{width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap}
+.pt-table th{
+  text-align:left;padding:10px 12px;background:var(--cream);color:#6b655a;
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;
+  position:sticky;top:0;
+}
+.pt-table td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top;white-space:normal}
+.pt-table tbody tr:hover{background:var(--cream)}
+.pt-muted{color:#8a8478;font-size:11px}
+.pt-prod-cell{display:flex;align-items:center;gap:8px}
+.pt-prod-cell img{width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0}
+.pt-prod-thumb-empty{width:34px;height:34px;border-radius:8px;background:var(--cream);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .pc-partner-tag{font-size:11px;font-weight:700;color:var(--brand-blue-dark);background:#E7EFFE;display:inline-block;padding:3px 9px;border-radius:20px;margin:4px 0}
 .cb-textarea{
   width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
@@ -2128,21 +2141,63 @@ function renderPartnerDetail(){
       ${p.notes ? `<div class="pm-hint" style="margin-top:20px">📝 ${esc(p.notes)}</div>` : ''}
     `;
   } else if(currentPartnerTab === 'orders'){
-    body = (p.stats.orders && p.stats.orders.length) ? p.stats.orders.map(o => `
-      <div class="courier-card">
-        <div class="courier-info">
-          <b>Заказ #${o.id}</b>
-          <div class="courier-card-details">${new Date(o.date).toLocaleDateString('ru-RU')} · ${o.items.map(i=>esc(i.name)+' ×'+i.qty).join(', ')}</div>
-        </div>
-        <b>${o.revenue.toLocaleString('ru-RU')} смн</b>
+    body = (p.stats.orders && p.stats.orders.length) ? `
+      <div class="pt-table-wrap">
+        <table class="pt-table">
+          <thead><tr>
+            <th>ID</th><th>Клиент</th><th>Товар</th><th>Кол-во</th>
+            <th>Продажа</th><th>Закуп</th><th>Партнёру</th><th>Статус</th><th>Дата</th>
+          </tr></thead>
+          <tbody>
+            ${p.stats.orders.map(o => `
+              <tr>
+                <td>#${o.id}</td>
+                <td>${esc(o.customer_name||'')}<br><span class="pt-muted">${esc(o.customer_phone||'')}</span></td>
+                <td>${o.items.map(i=>esc(i.name)+' ×'+i.qty).join('<br>')}</td>
+                <td>${o.items.reduce((s,i)=>s+(Number(i.qty)||0),0)}</td>
+                <td>${o.revenue.toLocaleString('ru-RU')} смн</td>
+                <td>${o.cost.toLocaleString('ru-RU')} смн</td>
+                <td><b>${o.owed.toLocaleString('ru-RU')} смн</b></td>
+                <td><span class="badge-status ${STATUS_CLASS[o.status]}">${STATUS_LABEL[o.status]}</span></td>
+                <td class="pt-muted">${new Date(o.date).toLocaleDateString('ru-RU')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
-    `).join('') : `<div class="pm-hint">Пока нет завершённых заказов с товарами этого партнёра.</div>`;
+    ` : `<div class="pm-hint">Пока нет завершённых заказов с товарами этого партнёра.</div>`;
   } else if(currentPartnerTab === 'products'){
-    body = p.products.length ? p.products.map(pr => `
-      <div class="courier-card">
-        <div class="courier-info"><b>${esc(pr.name_ru)}</b><div class="courier-card-details">Цена: ${pr.price} смн${pr.cost_price?(' · Себестоимость: '+pr.cost_price+' смн'):''}</div></div>
+    body = (p.stats.products_stats && p.stats.products_stats.length) ? `
+      <div class="pt-table-wrap">
+        <table class="pt-table">
+          <thead><tr>
+            <th>ID</th><th>Название</th><th>Цена</th><th>Закуп</th><th>Остаток</th>
+            <th>Продано шт</th><th>Заказов</th><th>Выручка</th><th>Партнёр заработал</th><th>Активен</th>
+          </tr></thead>
+          <tbody>
+            ${p.stats.products_stats.map(pr => `
+              <tr>
+                <td>#${pr.id}</td>
+                <td>
+                  <div class="pt-prod-cell">
+                    ${pr.image_data ? `<img src="${pr.image_data}">` : `<div class="pt-prod-thumb-empty">🛍️</div>`}
+                    <span>${esc(pr.name_ru)}</span>
+                  </div>
+                </td>
+                <td>${pr.price} смн</td>
+                <td>${pr.cost_price ?? '—'} смн</td>
+                <td>${pr.stock ?? '—'}</td>
+                <td>${pr.units_sold}</td>
+                <td>${pr.orders_count}</td>
+                <td>${pr.revenue.toLocaleString('ru-RU')} смн</td>
+                <td><b>${pr.owed.toLocaleString('ru-RU')} смн</b></td>
+                <td>${pr.active ? '✅' : '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
-    `).join('') : `<div class="pm-hint">Пока нет привязанных товаров — выбери этого партнёра в форме товара.</div>`;
+    ` : `<div class="pm-hint">Пока нет привязанных товаров — выбери этого партнёра в форме товара.</div>`;
   } else if(currentPartnerTab === 'expenses'){
     body = `
       <button class="btn-outline" style="margin-bottom:14px" onclick="openExpenseForm()">+ Добавить расход</button>
