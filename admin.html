@@ -505,6 +505,12 @@ tbody tr:hover{background:var(--cream)}
 .om-section{margin-top:18px}
 .om-label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8a8478;font-weight:700;margin-bottom:6px}
 .om-line{font-size:14px;margin-top:2px}
+.om-courier-assign{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.om-courier-assign label{font-size:12px;font-weight:700;color:#6b655a;display:block;margin-bottom:6px}
+.om-courier-assign select{
+  flex:1;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:13px;
+  background:var(--paper);font-family:inherit;
+}
 .om-items{display:flex;flex-direction:column;gap:8px;margin-top:6px}
 .om-item{display:flex;justify-content:space-between;font-size:13px;background:var(--cream);padding:8px 12px;border-radius:10px}
 .om-total{display:flex;justify-content:space-between;font-weight:800;font-size:15px;margin-top:12px;color:var(--indigo)}
@@ -1769,11 +1775,14 @@ async function saveCourier(){
   }
 }
 
+let ALL_COURIERS = []; // кэш для выпадающего списка в заказе
+
 async function loadCouriers(){
   const box = document.getElementById('couriersList');
   box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
   try{
     const couriers = await apiFetch('/api/couriers');
+    ALL_COURIERS = couriers;
     if(!couriers.length){
       box.innerHTML = `<div class="pm-hint">Курьеров пока нет — нажми «+ Добавить курьера».</div>`;
       return;
@@ -1786,7 +1795,8 @@ async function loadCouriers(){
             📞 ${c.phone || '—'}${c.phone2?(' / '+c.phone2):''}<br>
             🚗 ${c.vehicle_type||'—'}${c.vehicle_number?(' · '+c.vehicle_number):''}<br>
             ${c.address ? '📍 '+c.address+'<br>' : ''}
-            ${c.telegram_chat_id ? '✅ Подключён к боту' : '⏳ Ещё не писал боту'}
+            ${c.telegram_chat_id ? '✅ Подключён к боту' : '⏳ Ещё не писал боту'}<br>
+            📦 Доставок выполнено: <b>${c.deliveries_count || 0}</b>
           </div>
         </div>
         <div class="courier-card-actions">
@@ -1986,6 +1996,9 @@ function renderAll(){
 
 /* ---------- order modal ---------- */
 function openOrder(id){
+  if(!ALL_COURIERS.length){
+    apiFetch('/api/couriers').then(list => { ALL_COURIERS = list; openOrder(id); }).catch(()=>{});
+  }
   const o = ORDERS.find(x=>x.id===id);
   if(!o) return;
   const itemsHtml = o.items.map(i=>`
@@ -2023,12 +2036,39 @@ function openOrder(id){
       ${o.delivery_status && o.delivery_status !== 'waiting' ? `
         <div class="om-line" style="margin-top:10px">🚚 Доставка: ${DELIVERY_LABEL[o.delivery_status] || o.delivery_status}${o.courier_name ? ' · курьер: ' + o.courier_name + (o.courier_phone?' ('+o.courier_phone+')':'') : ''}</div>
       ` : ''}
+      <div class="om-courier-assign">
+        <label>Назначить курьера вручную</label>
+        <div style="display:flex;gap:8px">
+          <select id="omCourierSelect">
+            <option value="">— выбрать курьера —</option>
+            ${ALL_COURIERS.map(c => `<option value="${c.id}" ${o.courier_id===c.id?'selected':''}>${[c.first_name,c.last_name].filter(Boolean).join(' ')}${c.telegram_chat_id?'':' (не подключён к боту)'}</option>`).join('')}
+          </select>
+          <button class="btn-outline" onclick="assignCourierToOrder(${o.id})">Назначить</button>
+        </div>
+      </div>
     </div>
 
   `;
   document.getElementById('orderModalOverlay').classList.add('show');
 }
 function closeOrder(){ document.getElementById('orderModalOverlay').classList.remove('show'); }
+async function assignCourierToOrder(orderId){
+  const select = document.getElementById('omCourierSelect');
+  const courierId = Number(select.value);
+  if(!courierId){ alert('Выбери курьера из списка.'); return; }
+  try{
+    await apiFetch('/api/orders/' + orderId + '/assign-courier', {
+      method: 'POST',
+      body: JSON.stringify({ courier_id: courierId })
+    });
+    await loadOrders();
+    openOrder(orderId);
+  }catch(e){
+    console.error('Не удалось назначить курьера:', e);
+    alert('Не удалось назначить курьера — проверь подключение к серверу.');
+  }
+}
+
 async function setOrderStatus(id, status){
   const o = ORDERS.find(x=>x.id===id);
   if(!o) return;

@@ -144,6 +144,30 @@ app.patch('/api/orders/:id', requireAuth, async (req, res) => {
   }
 });
 
+// ручное назначение курьера на заказ (админ выбирает сам, без рассылки всем)
+app.post('/api/orders/:id/assign-courier', requireAuth, async (req, res) => {
+  const { courier_id } = req.body || {};
+  try {
+    const [[courier]] = await pool.query('SELECT * FROM couriers WHERE id = ?', [courier_id]);
+    if (!courier) return res.status(404).json({ error: 'Курьер не найден' });
+
+    await pool.query('UPDATE orders SET courier_id = ?, delivery_status = ? WHERE id = ?', [courier_id, 'in_transit', req.params.id]);
+    res.json({ ok: true });
+
+    if (courier.telegram_chat_id) {
+      const [[order]] = await pool.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+      const text = buildOrderMessage(order, '👤 Ин фармоиш ба шумо аз ҷониби администратор дода шуд.');
+      tgCall('sendMessage', {
+        chat_id: courier.telegram_chat_id, text, parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: '📦 Расонида шуд (доставлено)', callback_data: `delivered_${req.params.id}` }]] },
+      }).catch(e => console.error('Ошибка отправки курьеру:', e));
+    }
+  } catch (e) {
+    console.error('Ошибка назначения курьера:', e);
+    res.status(500).json({ error: 'Не удалось назначить курьера' });
+  }
+});
+
 // ----------------------------------------------------------------------------
 // ТОВАРЫ — публичный список (для сайта) + CRUD только для администратора
 // ----------------------------------------------------------------------------
@@ -538,7 +562,12 @@ app.post('/api/telegram/set-webhook', requireAuth, async (req, res) => {
 // список курьеров (для админки)
 app.get('/api/couriers', requireAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM couriers ORDER BY active DESC, created_at DESC');
+    const [rows] = await pool.query(`
+      SELECT c.*,
+        (SELECT COUNT(*) FROM orders o WHERE o.courier_id = c.id AND o.delivery_status = 'delivered') AS deliveries_count
+      FROM couriers c
+      ORDER BY c.active DESC, c.created_at DESC
+    `);
     res.json(rows);
   } catch (e) {
     console.error('Ошибка получения курьеров:', e);
