@@ -2636,7 +2636,11 @@ function setFinancePeriod(period){
 function setFinanceTab(tab){
   currentFinanceTab = tab;
   document.querySelectorAll('[data-fintab]').forEach(b => b.classList.toggle('active', b.dataset.fintab===tab));
-  renderFinanceTab();
+  if(financeData){
+    renderFinanceTab();
+  }else{
+    loadFinanceSummary();
+  }
 }
 
 async function loadFinancePage(){
@@ -2659,6 +2663,16 @@ async function loadFinanceSummary(){
 function renderFinanceTab(){
   const box = document.getElementById('financeTabContent');
   if(!financeData){ box.innerHTML = `<div class="pm-hint">Загрузка…</div>`; return; }
+  try{
+    renderFinanceTabInner();
+  }catch(e){
+    console.error('Ошибка отрисовки финансов:', e);
+    box.innerHTML = `<div class="pm-hint">Не удалось показать данные — обнови страницу.</div>`;
+  }
+}
+
+function renderFinanceTabInner(){
+  const box = document.getElementById('financeTabContent');
   const p = financeData.pnl, c = financeData.cashflow, d = financeData.details;
 
   if(currentFinanceTab === 'overview'){
