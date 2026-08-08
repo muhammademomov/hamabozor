@@ -54,6 +54,24 @@ CREATE TABLE IF NOT EXISTS product_model_media (
   INDEX idx_pmm_product (product_id)
 );
 
+CREATE TABLE IF NOT EXISTS general_expenses (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  title          VARCHAR(255) NOT NULL,
+  category       VARCHAR(100),
+  amount         DECIMAL(10,2) NOT NULL,
+  expense_date   DATE NOT NULL,
+  note           VARCHAR(255),
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS courier_payouts (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  courier_id  INT NOT NULL,
+  amount      DECIMAL(10,2) NOT NULL,
+  note        VARCHAR(255),
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- в таблицу couriers также добавляется (автоматически): salary_type ENUM('fixed','per_delivery'), salary_rate DECIMAL(10,2)
+
 CREATE TABLE IF NOT EXISTS purchases (
   id             INT AUTO_INCREMENT PRIMARY KEY,
   product_id     INT NOT NULL,

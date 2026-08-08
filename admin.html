@@ -417,6 +417,9 @@ header{
   background:var(--cream);border-radius:10px;padding:8px 10px;font-size:12.5px;
 }
 .pr-purchase-row .btn-outline{padding:5px 9px;font-size:12px}
+.fin-period-row{display:flex;gap:8px;flex-wrap:wrap}
+.fin-period-btn{padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:var(--paper);font-size:13px;font-weight:700;color:#6b655a}
+.fin-period-btn.active{background:var(--brand-blue);border-color:var(--brand-blue);color:#fff}
 .pc-partner-tag{font-size:11px;font-weight:700;color:var(--brand-blue-dark);background:#E7EFFE;display:inline-block;padding:3px 9px;border-radius:20px;margin:4px 0}
 .cb-textarea{
   width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
@@ -631,7 +634,7 @@ tbody tr:hover{background:var(--cream)}
       <div class="sb-nav-group">Инструменты</div>
       <button class="nav-it soon" id="tabAnalytics" onclick="showSection('analytics')"><span class="nav-ic">📈</span> Аналитика <span class="soon-tag">скоро</span></button>
       <button class="nav-it soon" id="tabMarketing" onclick="showSection('marketing')"><span class="nav-ic">📣</span> Маркетинг <span class="soon-tag">скоро</span></button>
-      <button class="nav-it soon" id="tabFinance" onclick="showSection('finance')"><span class="nav-ic">💰</span> Финансы <span class="soon-tag">скоро</span></button>
+      <button class="nav-it" id="tabFinance" onclick="showSection('finance')"><span class="nav-ic">💰</span> Финансы</button>
       <button class="nav-it" id="tabPurchasing" onclick="showSection('purchasing')"><span class="nav-ic">🛒</span> Закупки</button>
       <button class="nav-it" id="tabPartners" onclick="showSection('partners')"><span class="nav-ic">🤝</span> Партнёры</button>
       <button class="nav-it soon" id="tabActivity" onclick="showSection('activity')"><span class="nav-ic">🕐</span> Активность <span class="soon-tag">скоро</span></button>
@@ -787,6 +790,56 @@ tbody tr:hover{background:var(--cream)}
     <div class="pt-grid" id="purchasingGrid"></div>
   </div>
 
+  <div class="wrap hidden" id="financePage">
+    <div class="fin-period-row">
+      <button class="fin-period-btn active" data-period="today" onclick="setFinancePeriod('today')">Сегодня</button>
+      <button class="fin-period-btn" data-period="week" onclick="setFinancePeriod('week')">7 дней</button>
+      <button class="fin-period-btn" data-period="month" onclick="setFinancePeriod('month')">30 дней</button>
+      <button class="fin-period-btn" data-period="all" onclick="setFinancePeriod('all')">Всё время</button>
+    </div>
+
+    <div class="pt-page-head" style="margin-top:18px">
+      <div class="pt-page-title">📊 ОПиУ (прибыли и убытки)</div>
+    </div>
+    <div class="pt-overview-grid" id="finPnlGrid"></div>
+
+    <div class="pt-page-head" style="margin-top:26px">
+      <div class="pt-page-title">💵 ОДДС (движение денег)</div>
+    </div>
+    <div class="pt-overview-grid" id="finCashGrid"></div>
+
+    <div class="pt-page-head" style="margin-top:26px">
+      <div class="pt-page-title">🧾 Общие расходы</div>
+      <button class="btn-solid" onclick="openExpenseGeneralForm()">+ Добавить расход</button>
+    </div>
+    <div class="couriers-list" id="generalExpensesList"></div>
+  </div>
+
+  <div class="modal-overlay" id="genExpenseModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:460px">
+      <button class="modal-close-x" onclick="closeExpenseGeneralForm()" aria-label="Закрыть">✕</button>
+      <h3>+ Общий расход</h3>
+      <div class="pm-field"><label>Название *</label><input id="geTitle" placeholder="Аренда офиса"></div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Сумма (смн) *</label><input id="geAmount" type="number" min="0"></div>
+        <div class="pm-field"><label>Дата *</label><input id="geDate" type="date"></div>
+      </div>
+      <div class="pm-field">
+        <label>Категория</label>
+        <select id="geCategory">
+          <option value="Аренда">Аренда</option>
+          <option value="Реклама">Реклама</option>
+          <option value="Зарплаты">Зарплаты</option>
+          <option value="Коммуналка">Коммуналка</option>
+          <option value="Прочее">Прочее</option>
+        </select>
+      </div>
+      <div class="pm-field"><label>Заметка</label><input id="geNote" placeholder="необязательно"></div>
+      <div class="pm-error" id="genExpenseFormError">Заполните название, сумму и дату.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveGeneralExpense()">Сохранить расход</button>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="purchaseModalOverlay">
     <div class="order-modal" style="position:relative;max-width:460px">
       <button class="modal-close-x" onclick="closePurchaseForm()" aria-label="Закрыть">✕</button>
@@ -873,6 +926,17 @@ tbody tr:hover{background:var(--cream)}
     </div>
   </div>
 
+  <div class="modal-overlay" id="courierPayoutModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:420px">
+      <button class="modal-close-x" onclick="closeCourierPayoutForm()" aria-label="Закрыть">✕</button>
+      <h3>Выплата курьеру</h3>
+      <div class="pm-field"><label>Сумма (смн) *</label><input id="cpoAmount" type="number" min="0"></div>
+      <div class="pm-field"><label>Комментарий</label><input id="cpoNote" placeholder="Например: наличными"></div>
+      <div class="pm-error" id="courierPayoutFormError">Укажите сумму.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveCourierPayout()">Сохранить выплату</button>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="courierModalOverlay">
     <div class="order-modal courier-modal" style="position:relative">
       <button class="modal-close-x" onclick="closeCourierForm()" aria-label="Закрыть">✕</button>
@@ -902,6 +966,16 @@ tbody tr:hover{background:var(--cream)}
         <div class="pm-field"><label>Номер паспорта</label><input id="crPassport"></div>
       </div>
       <div class="pm-field"><label>Адрес</label><input id="crAddress"></div>
+      <div class="pm-grid2">
+        <div class="pm-field">
+          <label>Тип зарплаты</label>
+          <select id="crSalaryType">
+            <option value="per_delivery">За доставку (сколько сделал × ставка)</option>
+            <option value="fixed">Фикс (не зависит от доставок)</option>
+          </select>
+        </div>
+        <div class="pm-field"><label>Ставка (смн)</label><input id="crSalaryRate" type="number" min="0" placeholder="20"></div>
+      </div>
       <div class="pm-field"><label>Telegram username (необязательно)</label><input id="crUsername" placeholder="@username"></div>
       <div class="pm-error" id="courierFormError">Заполните имя и телефон.</div>
       <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveCourier()">Сохранить курьера</button>
@@ -1035,12 +1109,12 @@ const PAGE_TITLES = {
   finance:'Финансы', purchasing:'Закупки', partners:'Партнёры', activity:'Активность',
   formbuilder:'Конструктор форм', settings:'Настройка'
 };
-const SOON_SECTIONS = ['customers','analytics','marketing','finance','activity','formbuilder','settings'];
+const SOON_SECTIONS = ['customers','analytics','marketing','activity','formbuilder','settings'];
 const SOON_EMOJI = {
   customers:'👥', analytics:'📈', marketing:'📣', finance:'💰',
   purchasing:'🛒', activity:'🕐', formbuilder:'🧩', settings:'⚙️'
 };
-const REAL_TABS = ['dashboard','orders','products','banners','logistics','partners','purchasing'];
+const REAL_TABS = ['dashboard','orders','products','banners','logistics','partners','purchasing','finance'];
 
 function showSection(name){
   REAL_TABS.forEach(t => {
@@ -1060,6 +1134,7 @@ function showSection(name){
   document.getElementById('logisticsPage').classList.toggle('hidden', name!=='logistics');
   document.getElementById('partnersPage').classList.toggle('hidden', name!=='partners');
   document.getElementById('purchasingPage').classList.toggle('hidden', name!=='purchasing');
+  document.getElementById('financePage').classList.toggle('hidden', name!=='finance');
   document.getElementById('partnerDetailOverlay').classList.remove('show');
   document.getElementById('comingSoonPage').classList.toggle('hidden', !SOON_SECTIONS.includes(name));
 
@@ -1070,9 +1145,9 @@ function showSection(name){
 
   document.getElementById('pageTitle').textContent = PAGE_TITLES[name] || '';
   document.body.classList.remove('sidebar-open');
-  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics'||name==='partners'||name==='purchasing') ? '' : 'none';
+  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics'||name==='partners'||name==='purchasing'||name==='finance') ? '' : 'none';
   document.getElementById('refreshBtn').onclick =
-    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : name==='partners' ? loadPartners : name==='purchasing' ? loadPurchasingPage : null;
+    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : name==='partners' ? loadPartners : name==='purchasing' ? loadPurchasingPage : name==='finance' ? loadFinancePage : null;
   if(name==='products' && !productsLoadedOnce){
     productsLoadedOnce = true;
     loadProductsAdmin();
@@ -1089,6 +1164,9 @@ function showSection(name){
   }
   if(name==='partners'){
     loadPartners();
+  }
+  if(name==='finance'){
+    loadFinancePage();
   }
   if(name==='purchasing'){
     loadPurchasingPage();
@@ -1947,10 +2025,11 @@ async function sendCourierBroadcast(){
 }
 
 function openCourierForm(){
-  ['crFirstName','crLastName','crPhone','crPhone2','crVehicleNumber','crInn','crPassport','crAddress','crUsername'].forEach(id=>{
+  ['crFirstName','crLastName','crPhone','crPhone2','crVehicleNumber','crInn','crPassport','crAddress','crUsername','crSalaryRate'].forEach(id=>{
     document.getElementById(id).value = '';
   });
   document.getElementById('crVehicleType').value = 'Пешком';
+  document.getElementById('crSalaryType').value = 'per_delivery';
   document.getElementById('courierFormError').style.display = 'none';
   document.getElementById('courierModalOverlay').classList.add('show');
 }
@@ -1976,6 +2055,8 @@ async function saveCourier(){
     passport_number: document.getElementById('crPassport').value.trim() || null,
     address: document.getElementById('crAddress').value.trim() || null,
     username: document.getElementById('crUsername').value.trim() || null,
+    salary_type: document.getElementById('crSalaryType').value,
+    salary_rate: Number(document.getElementById('crSalaryRate').value) || 0,
   };
   try{
     await apiFetch('/api/couriers', { method:'POST', body: JSON.stringify(payload) });
@@ -2009,11 +2090,14 @@ async function loadCouriers(){
             🚗 ${c.vehicle_type||'—'}${c.vehicle_number?(' · '+c.vehicle_number):''}<br>
             ${c.address ? '📍 '+c.address+'<br>' : ''}
             ${c.telegram_chat_id ? '✅ Подключён к боту' : '⏳ Ещё не писал боту'}<br>
-            📦 Доставок выполнено: <b>${c.deliveries_count || 0}</b>
+            📦 Доставок выполнено: <b>${c.deliveries_count || 0}</b><br>
+            💰 ${c.salary_type==='fixed'?'Фикс':'За доставку × '+c.salary_rate+' смн'} · начислено <b>${Number(c.salary_due).toLocaleString('ru-RU')} смн</b><br>
+            К выплате: <b style="color:var(--brick)">${Number(c.balance_due).toLocaleString('ru-RU')} смн</b>
           </div>
         </div>
         <div class="courier-card-actions">
           <span class="courier-badge ${c.active?'active':'pending'}">${c.active?'Активен':'Отключён'}</span>
+          <button class="btn-solid" onclick="openCourierPayoutForm(${c.id})">💵 Выплатить</button>
           <button class="btn-outline" onclick="toggleCourier(${c.id}, ${c.active?0:1})">${c.active?'Отключить':'Включить'}</button>
           <button class="btn-outline" onclick="deleteCourier(${c.id})">Удалить</button>
         </div>
@@ -2043,6 +2127,35 @@ async function deleteCourier(id){
   }catch(e){
     console.error('Не удалось удалить курьера:', e);
     alert('Не удалось удалить — проверь подключение к серверу.');
+  }
+}
+
+let currentCourierPayoutId = null;
+function openCourierPayoutForm(courierId){
+  currentCourierPayoutId = courierId;
+  document.getElementById('cpoAmount').value = '';
+  document.getElementById('cpoNote').value = '';
+  document.getElementById('courierPayoutFormError').style.display = 'none';
+  document.getElementById('courierPayoutModalOverlay').classList.add('show');
+}
+function closeCourierPayoutForm(){ document.getElementById('courierPayoutModalOverlay').classList.remove('show'); }
+
+async function saveCourierPayout(){
+  const amount = Number(document.getElementById('cpoAmount').value);
+  const errBox = document.getElementById('courierPayoutFormError');
+  if(!amount){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  try{
+    await apiFetch('/api/couriers/' + currentCourierPayoutId + '/payouts', {
+      method:'POST',
+      body: JSON.stringify({ amount, note: document.getElementById('cpoNote').value.trim() || null })
+    });
+    closeCourierPayoutForm();
+    loadCouriers();
+  }catch(e){
+    console.error('Не удалось сохранить выплату курьеру:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
   }
 }
 
@@ -2483,6 +2596,127 @@ async function savePurchase(){
     console.error('Не удалось сохранить закупку:', e);
     errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
     errBox.style.display = 'block';
+  }
+}
+
+/* ==========================================================================
+   ФИНАНСЫ
+   ========================================================================== */
+let currentFinancePeriod = 'today';
+const FIN_PERIOD_LABEL = { today:'сегодня', week:'за 7 дней', month:'за 30 дней', all:'за всё время' };
+
+function setFinancePeriod(period){
+  currentFinancePeriod = period;
+  document.querySelectorAll('.fin-period-btn').forEach(b => b.classList.toggle('active', b.dataset.period===period));
+  loadFinanceSummary();
+}
+
+async function loadFinancePage(){
+  loadFinanceSummary();
+  loadGeneralExpenses();
+}
+
+async function loadFinanceSummary(){
+  const pnlBox = document.getElementById('finPnlGrid');
+  const cashBox = document.getElementById('finCashGrid');
+  pnlBox.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
+  cashBox.innerHTML = '';
+  try{
+    const data = await apiFetch('/api/finance/summary?period=' + currentFinancePeriod);
+    const p = data.pnl, c = data.cashflow;
+    pnlBox.innerHTML = `
+      <div><div class="l">Выручка</div><div class="v">${p.revenue.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Себестоимость товаров</div><div class="v red">${p.cogs.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Валовая прибыль</div><div class="v">${p.gross_profit.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Расходы партнёров</div><div class="v red">${p.partner_expenses.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Зарплата курьеров (начислено)</div><div class="v red">${p.courier_salary.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Общие расходы</div><div class="v red">${p.general_expenses.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Чистая прибыль</div><div class="v ${p.net_profit>=0?'green':'red'}">${p.net_profit.toLocaleString('ru-RU')} смн</div></div>
+    `;
+    cashBox.innerHTML = `
+      <div><div class="l">Поступления</div><div class="v green">${c.cash_in.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Потрачено на товар</div><div class="v red">${c.cogs_paid.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Выплачено партнёрам</div><div class="v red">${c.partner_payouts.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Выплачено курьерам</div><div class="v red">${c.courier_payouts.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Общие расходы (оплачено)</div><div class="v red">${c.general_expenses_paid.toLocaleString('ru-RU')} смн</div></div>
+      <div><div class="l">Чистый денежный поток</div><div class="v ${c.net_cash_flow>=0?'green':'red'}">${c.net_cash_flow.toLocaleString('ru-RU')} смн</div></div>
+    `;
+  }catch(e){
+    console.error('Не удалось загрузить финансовую сводку:', e);
+    pnlBox.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+async function loadGeneralExpenses(){
+  const box = document.getElementById('generalExpensesList');
+  box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
+  try{
+    const expenses = await apiFetch('/api/general-expenses');
+    if(!expenses.length){
+      box.innerHTML = `<div class="pm-hint">Общих расходов пока нет.</div>`;
+      return;
+    }
+    box.innerHTML = expenses.map(e => `
+      <div class="courier-card">
+        <div class="courier-info">
+          <b>${esc(e.title)}</b>
+          <div class="courier-card-details">${e.category?esc(e.category)+' · ':''}${Number(e.amount).toLocaleString('ru-RU')} смн · ${new Date(e.expense_date).toLocaleDateString('ru-RU')}${e.note?' · '+esc(e.note):''}</div>
+        </div>
+        <button class="btn-outline" onclick="deleteGeneralExpense(${e.id})">Удалить</button>
+      </div>
+    `).join('');
+  }catch(err){
+    console.error('Не удалось загрузить расходы:', err);
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+function openExpenseGeneralForm(){
+  document.getElementById('geTitle').value = '';
+  document.getElementById('geAmount').value = '';
+  document.getElementById('geDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('geCategory').value = 'Аренда';
+  document.getElementById('geNote').value = '';
+  document.getElementById('genExpenseFormError').style.display = 'none';
+  document.getElementById('genExpenseModalOverlay').classList.add('show');
+}
+function closeExpenseGeneralForm(){ document.getElementById('genExpenseModalOverlay').classList.remove('show'); }
+
+async function saveGeneralExpense(){
+  const title = document.getElementById('geTitle').value.trim();
+  const amount = Number(document.getElementById('geAmount').value);
+  const expense_date = document.getElementById('geDate').value;
+  const errBox = document.getElementById('genExpenseFormError');
+  if(!title || !amount || !expense_date){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  try{
+    await apiFetch('/api/general-expenses', {
+      method:'POST',
+      body: JSON.stringify({
+        title, amount, expense_date,
+        category: document.getElementById('geCategory').value,
+        note: document.getElementById('geNote').value.trim() || null,
+      })
+    });
+    closeExpenseGeneralForm();
+    loadGeneralExpenses();
+    loadFinanceSummary();
+  }catch(e){
+    console.error('Не удалось сохранить расход:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
+  }
+}
+
+async function deleteGeneralExpense(id){
+  if(!confirm('Удалить этот расход?')) return;
+  try{
+    await apiFetch('/api/general-expenses/' + id, { method:'DELETE' });
+    loadGeneralExpenses();
+    loadFinanceSummary();
+  }catch(e){
+    console.error('Не удалось удалить расход:', e);
+    alert('Не удалось удалить — проверь подключение к серверу.');
   }
 }
 

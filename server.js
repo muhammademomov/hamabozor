@@ -444,6 +444,133 @@ app.delete('/api/purchases/:id', requireAuth, async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// ФИНАНСЫ — общие расходы + сводные отчёты (ОПиУ и ОДДС)
+// ----------------------------------------------------------------------------
+app.get('/api/general-expenses', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM general_expenses ORDER BY expense_date DESC, created_at DESC');
+    res.json(rows);
+  } catch (e) {
+    console.error('Ошибка получения расходов:', e);
+    res.status(500).json({ error: 'Не удалось получить расходы' });
+  }
+});
+
+app.post('/api/general-expenses', requireAuth, async (req, res) => {
+  const { title, category, amount, expense_date, note } = req.body || {};
+  if (!title || !amount || !expense_date) return res.status(400).json({ error: 'Заполните название, сумму и дату' });
+  try {
+    await pool.query(
+      'INSERT INTO general_expenses (title, category, amount, expense_date, note) VALUES (?, ?, ?, ?, ?)',
+      [title, category || null, amount, expense_date, note || null]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка добавления расхода:', e);
+    res.status(500).json({ error: 'Не удалось добавить расход' });
+  }
+});
+
+app.delete('/api/general-expenses/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM general_expenses WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления расхода:', e);
+    res.status(500).json({ error: 'Не удалось удалить расход' });
+  }
+});
+
+// сводка по финансам: period = today | week | month | all
+app.get('/api/finance/summary', requireAuth, async (req, res) => {
+  const period = req.query.period || 'all';
+  let dateFilter = '';
+  if (period === 'today') dateFilter = 'AND DATE(created_at) = CURDATE()';
+  else if (period === 'week') dateFilter = 'AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+  else if (period === 'month') dateFilter = 'AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+  let expDateFilter = '';
+  if (period === 'today') expDateFilter = 'AND expense_date = CURDATE()';
+  else if (period === 'week') expDateFilter = 'AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
+  else if (period === 'month') expDateFilter = 'AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
+  let purchDateFilter = '';
+  if (period === 'today') purchDateFilter = 'AND purchase_date = CURDATE()';
+  else if (period === 'week') purchDateFilter = 'AND purchase_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
+  else if (period === 'month') purchDateFilter = 'AND purchase_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
+
+  try {
+    // выручка — по завершённым заказам
+    const [orders] = await pool.query(`SELECT total FROM orders WHERE status = 'done' ${dateFilter}`);
+    const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+    // себестоимость закупленного за период (кассовый расход на товар)
+    const [[purchRow]] = await pool.query(`SELECT COALESCE(SUM(qty * unit_price), 0) AS total FROM purchases WHERE 1=1 ${purchDateFilter}`);
+    const cogs = Number(purchRow.total) || 0;
+
+    // расходы по партнёрам (доля партнёра в расходах) — общие, не по периоду (нет даты фильтрации по периоду в partner_expenses кроме created_at)
+    const [[partnerExpRow]] = await pool.query(`SELECT COALESCE(SUM(amount * partner_share_percent / 100), 0) AS total FROM partner_expenses WHERE 1=1 ${dateFilter}`);
+    const partnerExpenses = Number(partnerExpRow.total) || 0;
+    const [[partnerPayoutRow]] = await pool.query(`SELECT COALESCE(SUM(amount), 0) AS total FROM partner_payouts WHERE 1=1 ${dateFilter}`);
+    const partnerPayouts = Number(partnerPayoutRow.total) || 0;
+
+    // зарплата курьерам — начислено (по факту доставок за период) и выплачено
+    const [couriers] = await pool.query('SELECT id, salary_type, salary_rate FROM couriers');
+    let courierSalaryAccrued = 0;
+    for (const c of couriers) {
+      const [[dRow]] = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' ${dateFilter}`,
+        [c.id]
+      );
+      const deliveries = Number(dRow.cnt) || 0;
+      courierSalaryAccrued += c.salary_type === 'fixed' ? Number(c.salary_rate) || 0 : deliveries * (Number(c.salary_rate) || 0);
+    }
+    const [[courierPayoutRow]] = await pool.query(`SELECT COALESCE(SUM(amount), 0) AS total FROM courier_payouts WHERE 1=1 ${dateFilter}`);
+    const courierPayouts = Number(courierPayoutRow.total) || 0;
+
+    // общие расходы (аренда, реклама и т.п.)
+    const [[genExpRow]] = await pool.query(`SELECT COALESCE(SUM(amount), 0) AS total FROM general_expenses WHERE 1=1 ${expDateFilter}`);
+    const generalExpenses = Number(genExpRow.total) || 0;
+
+    // ОПиУ (начисленным методом): выручка - себестоимость - все расходы
+    const grossProfit = revenue - cogs;
+    const totalOperatingExpenses = partnerExpenses + courierSalaryAccrued + generalExpenses;
+    const netProfit = grossProfit - totalOperatingExpenses;
+
+    // ОДДС (кассовым методом): реально полученные/потраченные деньги
+    const cashIn = revenue; // считаем, что оплата приходит при завершении заказа
+    const cashOut = cogs + partnerPayouts + courierPayouts + generalExpenses;
+    const netCashFlow = cashIn - cashOut;
+
+    res.json({
+      period,
+      pnl: {
+        revenue: round2(revenue),
+        cogs: round2(cogs),
+        gross_profit: round2(grossProfit),
+        partner_expenses: round2(partnerExpenses),
+        courier_salary: round2(courierSalaryAccrued),
+        general_expenses: round2(generalExpenses),
+        total_operating_expenses: round2(totalOperatingExpenses),
+        net_profit: round2(netProfit),
+      },
+      cashflow: {
+        cash_in: round2(cashIn),
+        cogs_paid: round2(cogs),
+        partner_payouts: round2(partnerPayouts),
+        courier_payouts: round2(courierPayouts),
+        general_expenses_paid: round2(generalExpenses),
+        cash_out: round2(cashOut),
+        net_cash_flow: round2(netCashFlow),
+      },
+    });
+  } catch (e) {
+    console.error('Ошибка расчёта финансовой сводки:', e);
+    res.status(500).json({ error: 'Не удалось рассчитать финансы' });
+  }
+});
+
+function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+
+// ----------------------------------------------------------------------------
 // ТОВАРЫ — публичный список (для сайта) + CRUD только для администратора
 // ----------------------------------------------------------------------------
 app.get('/api/products', async (req, res) => {
@@ -839,28 +966,48 @@ app.get('/api/couriers', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT c.*,
-        (SELECT COUNT(*) FROM orders o WHERE o.courier_id = c.id AND o.delivery_status = 'delivered') AS deliveries_count
+        (SELECT COUNT(*) FROM orders o WHERE o.courier_id = c.id AND o.delivery_status = 'delivered') AS deliveries_count,
+        (SELECT COALESCE(SUM(amount), 0) FROM courier_payouts cp WHERE cp.courier_id = c.id) AS paid_total
       FROM couriers c
       ORDER BY c.active DESC, c.created_at DESC
     `);
-    res.json(rows);
+    const withSalary = rows.map(c => {
+      const deliveries = Number(c.deliveries_count) || 0;
+      const salaryDue = c.salary_type === 'fixed' ? Number(c.salary_rate) || 0 : deliveries * (Number(c.salary_rate) || 0);
+      const paidTotal = Number(c.paid_total) || 0;
+      return { ...c, salary_due: Math.round(salaryDue * 100) / 100, balance_due: Math.round((salaryDue - paidTotal) * 100) / 100 };
+    });
+    res.json(withSalary);
   } catch (e) {
     console.error('Ошибка получения курьеров:', e);
     res.status(500).json({ error: 'Не удалось получить курьеров' });
   }
 });
 
+// записать выплату зарплаты курьеру
+app.post('/api/couriers/:id/payouts', requireAuth, async (req, res) => {
+  const { amount, note } = req.body || {};
+  if (!amount) return res.status(400).json({ error: 'Укажите сумму' });
+  try {
+    await pool.query('INSERT INTO courier_payouts (courier_id, amount, note) VALUES (?, ?, ?)', [req.params.id, amount, note || null]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка записи выплаты курьеру:', e);
+    res.status(500).json({ error: 'Не удалось записать выплату' });
+  }
+});
+
 // добавить курьера вручную (админ заполняет все данные заранее)
 app.post('/api/couriers', requireAuth, async (req, res) => {
-  const { first_name, last_name, phone, phone2, vehicle_type, vehicle_number, inn, passport_number, address, username } = req.body || {};
+  const { first_name, last_name, phone, phone2, vehicle_type, vehicle_number, inn, passport_number, address, username, salary_type, salary_rate } = req.body || {};
   if (!first_name || !phone) {
     return res.status(400).json({ error: 'Укажите хотя бы имя и телефон' });
   }
   try {
     const [result] = await pool.query(
-      `INSERT INTO couriers (first_name, last_name, phone, phone2, vehicle_type, vehicle_number, inn, passport_number, address, username, active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [first_name, last_name || null, phone, phone2 || null, vehicle_type || null, vehicle_number || null, inn || null, passport_number || null, address || null, (username || '').replace(/^@/, '') || null]
+      `INSERT INTO couriers (first_name, last_name, phone, phone2, vehicle_type, vehicle_number, inn, passport_number, address, username, salary_type, salary_rate, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [first_name, last_name || null, phone, phone2 || null, vehicle_type || null, vehicle_number || null, inn || null, passport_number || null, address || null, (username || '').replace(/^@/, '') || null, salary_type === 'fixed' ? 'fixed' : 'per_delivery', salary_rate || 0]
     );
     res.json({ id: result.insertId });
   } catch (e) {
@@ -871,7 +1018,7 @@ app.post('/api/couriers', requireAuth, async (req, res) => {
 
 // изменить данные курьера / подтвердить-отключить
 app.patch('/api/couriers/:id', requireAuth, async (req, res) => {
-  const allowed = ['first_name','last_name','phone','phone2','vehicle_type','vehicle_number','inn','passport_number','address','username','active','display_name'];
+  const allowed = ['first_name','last_name','phone','phone2','vehicle_type','vehicle_number','inn','passport_number','address','username','active','display_name','salary_type','salary_rate'];
   const body = req.body || {};
   const sets = [];
   const values = [];
@@ -950,6 +1097,20 @@ async function ensurePurchasesTable() {
   `);
 }
 
+async function ensureFinanceTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS general_expenses (
+      id             INT AUTO_INCREMENT PRIMARY KEY,
+      title          VARCHAR(255) NOT NULL,
+      category       VARCHAR(100),
+      amount         DECIMAL(10,2) NOT NULL,
+      expense_date   DATE NOT NULL,
+      note           VARCHAR(255),
+      created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
 async function ensurePartnerTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS partners (
@@ -1017,7 +1178,20 @@ async function ensureCourierTables() {
   await ensureColumn('couriers', 'inn', 'VARCHAR(50) NULL');
   await ensureColumn('couriers', 'passport_number', 'VARCHAR(50) NULL');
   await ensureColumn('couriers', 'address', 'VARCHAR(255) NULL');
+  await ensureColumn('couriers', 'salary_type', "ENUM('fixed','per_delivery') NOT NULL DEFAULT 'per_delivery'");
+  await ensureColumn('couriers', 'salary_rate', 'DECIMAL(10,2) NOT NULL DEFAULT 0');
   try { await pool.query('ALTER TABLE couriers MODIFY COLUMN telegram_chat_id BIGINT NULL'); } catch (e) { /* уже так */ }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS courier_payouts (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      courier_id  INT NOT NULL,
+      amount      DECIMAL(10,2) NOT NULL,
+      note        VARCHAR(255),
+      created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_cp_courier (courier_id)
+    )
+  `);
 
   await ensureColumn('orders', 'courier_id', 'INT NULL');
   await ensureColumn('orders', 'delivery_status', "ENUM('waiting','accepted','in_transit','delivered') NOT NULL DEFAULT 'waiting'");
@@ -1107,6 +1281,7 @@ async function ensureSchema() {
   await ensureCourierTables();
   await ensurePartnerTables();
   await ensurePurchasesTable();
+  await ensureFinanceTables();
 
   // если товаров ещё нет — заполняем стартовым набором, чтобы сайт не был пустым
   const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM products');
