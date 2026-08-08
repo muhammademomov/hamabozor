@@ -484,10 +484,13 @@ app.delete('/api/general-expenses/:id', requireAuth, async (req, res) => {
 // сводка по финансам: period = today | week | month | all
 app.get('/api/finance/summary', requireAuth, async (req, res) => {
   const period = req.query.period || 'all';
-  let dateFilter = '';
-  if (period === 'today') dateFilter = 'AND DATE(created_at) = CURDATE()';
-  else if (period === 'week') dateFilter = 'AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-  else if (period === 'month') dateFilter = 'AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+  // dateFilter содержит {{TBL}} — подставляем алиас нужной таблицы перед каждым запросом,
+  // чтобы не было ошибки "колонка created_at неоднозначна" при JOIN двух таблиц с одинаковым полем
+  let dateFilterTpl = '';
+  if (period === 'today') dateFilterTpl = 'AND DATE({{TBL}}.created_at) = CURDATE()';
+  else if (period === 'week') dateFilterTpl = 'AND {{TBL}}.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+  else if (period === 'month') dateFilterTpl = 'AND {{TBL}}.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+  const df = (alias) => dateFilterTpl.replace(/{{TBL}}/g, alias);
   let expDateFilter = '';
   if (period === 'today') expDateFilter = 'AND expense_date = CURDATE()';
   else if (period === 'week') expDateFilter = 'AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
@@ -499,7 +502,7 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
 
   try {
     // выручка — по завершённым заказам
-    const [orders] = await pool.query(`SELECT id, customer_name, total, created_at FROM orders WHERE status = 'done' ${dateFilter} ORDER BY created_at DESC`);
+    const [orders] = await pool.query(`SELECT id, customer_name, total, created_at FROM orders WHERE status = 'done' ${df('orders')} ORDER BY created_at DESC`);
     const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
 
     // себестоимость закупленного за период (кассовый расход на товар)
@@ -514,14 +517,14 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     const [partnerExpRows] = await pool.query(
       `SELECT pe.id, pe.title, pe.amount, pe.partner_share_percent, pe.created_at, pt.name AS partner_name
        FROM partner_expenses pe LEFT JOIN partners pt ON pt.id = pe.partner_id
-       WHERE 1=1 ${dateFilter} ORDER BY pe.created_at DESC`
+       WHERE 1=1 ${df('pe')} ORDER BY pe.created_at DESC`
     );
     const partnerExpenses = partnerExpRows.reduce((s, e) => s + (Number(e.amount) || 0) * (Number(e.partner_share_percent) || 0) / 100, 0);
 
     const [partnerPayoutRows] = await pool.query(
       `SELECT pp.id, pp.amount, pp.note, pp.created_at, pt.name AS partner_name
        FROM partner_payouts pp LEFT JOIN partners pt ON pt.id = pp.partner_id
-       WHERE 1=1 ${dateFilter} ORDER BY pp.created_at DESC`
+       WHERE 1=1 ${df('pp')} ORDER BY pp.created_at DESC`
     );
     const partnerPayouts = partnerPayoutRows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
@@ -531,7 +534,7 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     const courierSalaryRows = [];
     for (const c of couriers) {
       const [[dRow]] = await pool.query(
-        `SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' ${dateFilter}`,
+        `SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' ${df('orders')}`,
         [c.id]
       );
       const deliveries = Number(dRow.cnt) || 0;
@@ -547,7 +550,7 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     const [courierPayoutRows] = await pool.query(
       `SELECT cp.id, cp.amount, cp.note, cp.created_at, c.first_name, c.last_name
        FROM courier_payouts cp LEFT JOIN couriers c ON c.id = cp.courier_id
-       WHERE 1=1 ${dateFilter} ORDER BY cp.created_at DESC`
+       WHERE 1=1 ${df('cp')} ORDER BY cp.created_at DESC`
     );
     const courierPayouts = courierPayoutRows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
