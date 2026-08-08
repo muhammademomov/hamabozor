@@ -357,7 +357,10 @@ header{
 .courier-badge.active{background:var(--accent-green-bg,#E7F6EC);color:var(--accent-green-dark)}
 .courier-badge.pending{background:#FDEDD3;color:#a76a10}
 .pt-summary-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}
-.pt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;width:100%}
+.pt-grid{display:flex !important;flex-wrap:wrap;gap:14px;width:100%}
+.pt-grid > *{flex:1 1 280px;min-width:280px;max-width:calc(33.333% - 10px)}
+@media(max-width:900px){.pt-grid > *{max-width:calc(50% - 7px)}}
+@media(max-width:600px){.pt-grid > *{max-width:100%}}
 .pt-card{
   background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;
   box-shadow:var(--shadow);cursor:pointer;transition:transform .1s,box-shadow .15s;
