@@ -415,6 +415,24 @@ app.post('/api/purchases', requireAuth, async (req, res) => {
   }
 });
 
+app.patch('/api/purchases/:id', requireAuth, async (req, res) => {
+  const allowed = ['product_id','qty','unit_price','purchase_date','supplier','note'];
+  const body = req.body || {};
+  const sets = []; const values = [];
+  for (const key of allowed) {
+    if (body[key] !== undefined) { sets.push(`${key} = ?`); values.push(body[key]); }
+  }
+  if (!sets.length) return res.json({ ok: true });
+  values.push(req.params.id);
+  try {
+    await pool.query(`UPDATE purchases SET ${sets.join(', ')} WHERE id = ?`, values);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка изменения закупки:', e);
+    res.status(500).json({ error: 'Не удалось изменить закупку' });
+  }
+});
+
 app.delete('/api/purchases/:id', requireAuth, async (req, res) => {
   try {
     await pool.query('DELETE FROM purchases WHERE id = ?', [req.params.id]);

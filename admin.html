@@ -411,6 +411,12 @@ header{
 .pr-metric .v.blue{color:var(--brand-blue-dark)}
 .pr-metric .v.green{color:var(--accent-green-dark)}
 .pr-history{font-size:12px;color:#8a8478;padding-top:10px;border-top:1px solid var(--line)}
+.pr-purchase-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.pr-purchase-row{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:var(--cream);border-radius:10px;padding:8px 10px;font-size:12.5px;
+}
+.pr-purchase-row .btn-outline{padding:5px 9px;font-size:12px}
 .pc-partner-tag{font-size:11px;font-weight:700;color:var(--brand-blue-dark);background:#E7EFFE;display:inline-block;padding:3px 9px;border-radius:20px;margin:4px 0}
 .cb-textarea{
   width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
@@ -2389,7 +2395,24 @@ async function loadPurchasingPage(){
           <div class="pr-metric"><div class="l">Продано</div><div class="v">${sold} шт</div></div>
           <div class="pr-metric"><div class="l">Прибыль</div><div class="v green">${profit.toLocaleString('ru-RU')} смн</div></div>
         </div>
-        ${purchasesForProduct.length ? `<div class="pr-history">${purchasesForProduct.length} закупок · ${purchasesForProduct.reduce((s,pr)=>s+pr.qty,0)} шт куплено · ${purchasesForProduct.reduce((s,pr)=>s+pr.qty*Number(pr.unit_price),0).toLocaleString('ru-RU')} смн потрачено</div>` : ''}
+        ${purchasesForProduct.length ? `
+          <div class="pr-history">${purchasesForProduct.length} закупок · ${purchasesForProduct.reduce((s,pr)=>s+pr.qty,0)} шт куплено · ${purchasesForProduct.reduce((s,pr)=>s+pr.qty*Number(pr.unit_price),0).toLocaleString('ru-RU')} смн потрачено</div>
+          <button class="btn-outline" style="margin-top:10px;width:100%" onclick="togglePurchaseHistory(${p.id})">📋 Показать закупки</button>
+          <div class="pr-purchase-list hidden" id="prHistory${p.id}">
+            ${purchasesForProduct.map(pr => `
+              <div class="pr-purchase-row">
+                <div>
+                  <b>${pr.qty} шт × ${pr.unit_price} смн</b>
+                  <div class="pt-muted">${new Date(pr.purchase_date).toLocaleDateString('ru-RU')}${pr.supplier?' · '+esc(pr.supplier):''}${pr.note?' · '+esc(pr.note):''}</div>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <button class="btn-outline" onclick="openPurchaseForm(${JSON.stringify(pr).replace(/"/g,'&quot;')})">✏️</button>
+                  <button class="btn-outline" onclick="deletePurchase(${pr.id})">🗑️</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
       </div>
     `;}).join('');
   }catch(e){
@@ -2404,16 +2427,36 @@ function populatePurchaseProductSelect(){
     ADMIN_PRODUCTS.map(p => `<option value="${p.id}">${esc(p.name_ru)}</option>`).join('');
 }
 
-function openPurchaseForm(){
-  document.getElementById('prQty').value = '';
-  document.getElementById('prUnitPrice').value = '';
-  document.getElementById('prDate').value = new Date().toISOString().slice(0,10);
-  document.getElementById('prSupplier').value = '';
-  document.getElementById('prNote').value = '';
+let editingPurchaseId = null;
+
+function openPurchaseForm(existing){
+  editingPurchaseId = existing ? existing.id : null;
+  document.getElementById('prProductId').value = existing ? existing.product_id : '';
+  document.getElementById('prQty').value = existing ? existing.qty : '';
+  document.getElementById('prUnitPrice').value = existing ? existing.unit_price : '';
+  document.getElementById('prDate').value = existing ? existing.purchase_date.slice(0,10) : new Date().toISOString().slice(0,10);
+  document.getElementById('prSupplier').value = existing ? (existing.supplier||'') : '';
+  document.getElementById('prNote').value = existing ? (existing.note||'') : '';
+  document.querySelector('#purchaseModalOverlay h3').textContent = existing ? 'Изменить закупку' : '+ Добавить закупку';
   document.getElementById('purchaseFormError').style.display = 'none';
   document.getElementById('purchaseModalOverlay').classList.add('show');
 }
 function closePurchaseForm(){ document.getElementById('purchaseModalOverlay').classList.remove('show'); }
+
+function togglePurchaseHistory(productId){
+  document.getElementById('prHistory' + productId).classList.toggle('hidden');
+}
+
+async function deletePurchase(id){
+  if(!confirm('Удалить эту закупку?')) return;
+  try{
+    await apiFetch('/api/purchases/' + id, { method:'DELETE' });
+    loadPurchasingPage();
+  }catch(e){
+    console.error('Не удалось удалить закупку:', e);
+    alert('Не удалось удалить — проверь подключение к серверу.');
+  }
+}
 
 async function savePurchase(){
   const product_id = Number(document.getElementById('prProductId').value);
@@ -2423,15 +2466,17 @@ async function savePurchase(){
   const errBox = document.getElementById('purchaseFormError');
   if(!product_id || !qty || !unit_price || !purchase_date){ errBox.style.display = 'block'; return; }
   errBox.style.display = 'none';
+  const payload = {
+    product_id, qty, unit_price, purchase_date,
+    supplier: document.getElementById('prSupplier').value.trim() || null,
+    note: document.getElementById('prNote').value.trim() || null,
+  };
   try{
-    await apiFetch('/api/purchases', {
-      method:'POST',
-      body: JSON.stringify({
-        product_id, qty, unit_price, purchase_date,
-        supplier: document.getElementById('prSupplier').value.trim() || null,
-        note: document.getElementById('prNote').value.trim() || null,
-      })
-    });
+    if(editingPurchaseId){
+      await apiFetch('/api/purchases/' + editingPurchaseId, { method:'PATCH', body: JSON.stringify(payload) });
+    }else{
+      await apiFetch('/api/purchases', { method:'POST', body: JSON.stringify(payload) });
+    }
     closePurchaseForm();
     loadPurchasingPage();
   }catch(e){
