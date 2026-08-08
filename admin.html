@@ -429,6 +429,17 @@ header{
 .fin-period-row{display:flex;gap:8px;flex-wrap:wrap}
 .fin-period-btn{padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:var(--paper);font-size:13px;font-weight:700;color:#6b655a}
 .fin-period-btn.active{background:var(--brand-blue);border-color:var(--brand-blue);color:#fff}
+.fin-feed{display:flex;flex-direction:column;gap:8px}
+.fin-feed-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;
+}
+.fin-detail-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--cream);border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:6px;
+}
+.pt-overview-grid > * > .l{transition:color .15s}
+.pt-overview-grid > *[onclick]:hover .l{color:var(--brand-blue-dark)}
 .pc-partner-tag{font-size:11px;font-weight:700;color:var(--brand-blue-dark);background:#E7EFFE;display:inline-block;padding:3px 9px;border-radius:20px;margin:4px 0}
 .cb-textarea{
   width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
@@ -809,15 +820,13 @@ tbody tr:hover{background:var(--cream)}
       <button class="fin-period-btn" data-period="all" onclick="setFinancePeriod('all')">Всё время</button>
     </div>
 
-    <div class="pt-page-head" style="margin-top:18px">
-      <div class="pt-page-title">📊 ОПиУ (прибыли и убытки)</div>
+    <div class="pt-tabs" style="margin-top:18px">
+      <button class="pt-tab active" data-fintab="overview" onclick="setFinanceTab('overview')">📋 Обзор</button>
+      <button class="pt-tab" data-fintab="pnl" onclick="setFinanceTab('pnl')">📊 ОПиУ</button>
+      <button class="pt-tab" data-fintab="cashflow" onclick="setFinanceTab('cashflow')">💵 ОДДС</button>
     </div>
-    <div class="pt-overview-grid" id="finPnlGrid"></div>
 
-    <div class="pt-page-head" style="margin-top:26px">
-      <div class="pt-page-title">💵 ОДДС (движение денег)</div>
-    </div>
-    <div class="pt-overview-grid" id="finCashGrid"></div>
+    <div id="financeTabContent"></div>
 
     <div class="pt-page-head" style="margin-top:26px">
       <div class="pt-page-title">🧾 Общие расходы</div>
@@ -2614,6 +2623,8 @@ async function savePurchase(){
    ФИНАНСЫ
    ========================================================================== */
 let currentFinancePeriod = 'today';
+let currentFinanceTab = 'overview';
+let financeData = null;
 const FIN_PERIOD_LABEL = { today:'сегодня', week:'за 7 дней', month:'за 30 дней', all:'за всё время' };
 
 function setFinancePeriod(period){
@@ -2622,40 +2633,133 @@ function setFinancePeriod(period){
   loadFinanceSummary();
 }
 
+function setFinanceTab(tab){
+  currentFinanceTab = tab;
+  document.querySelectorAll('[data-fintab]').forEach(b => b.classList.toggle('active', b.dataset.fintab===tab));
+  renderFinanceTab();
+}
+
 async function loadFinancePage(){
   loadFinanceSummary();
   loadGeneralExpenses();
 }
 
 async function loadFinanceSummary(){
-  const pnlBox = document.getElementById('finPnlGrid');
-  const cashBox = document.getElementById('finCashGrid');
-  pnlBox.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
-  cashBox.innerHTML = '';
+  const box = document.getElementById('financeTabContent');
+  box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
   try{
-    const data = await apiFetch('/api/finance/summary?period=' + currentFinancePeriod);
-    const p = data.pnl, c = data.cashflow;
-    pnlBox.innerHTML = `
-      <div><div class="l">Выручка</div><div class="v">${p.revenue.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Себестоимость товаров</div><div class="v red">${p.cogs.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Валовая прибыль</div><div class="v">${p.gross_profit.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Расходы партнёров</div><div class="v red">${p.partner_expenses.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Зарплата курьеров (начислено)</div><div class="v red">${p.courier_salary.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Общие расходы</div><div class="v red">${p.general_expenses.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Чистая прибыль</div><div class="v ${p.net_profit>=0?'green':'red'}">${p.net_profit.toLocaleString('ru-RU')} смн</div></div>
-    `;
-    cashBox.innerHTML = `
-      <div><div class="l">Поступления</div><div class="v green">${c.cash_in.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Потрачено на товар</div><div class="v red">${c.cogs_paid.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Выплачено партнёрам</div><div class="v red">${c.partner_payouts.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Выплачено курьерам</div><div class="v red">${c.courier_payouts.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Общие расходы (оплачено)</div><div class="v red">${c.general_expenses_paid.toLocaleString('ru-RU')} смн</div></div>
-      <div><div class="l">Чистый денежный поток</div><div class="v ${c.net_cash_flow>=0?'green':'red'}">${c.net_cash_flow.toLocaleString('ru-RU')} смн</div></div>
-    `;
+    financeData = await apiFetch('/api/finance/summary?period=' + currentFinancePeriod);
+    renderFinanceTab();
   }catch(e){
     console.error('Не удалось загрузить финансовую сводку:', e);
-    pnlBox.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
   }
+}
+
+function renderFinanceTab(){
+  const box = document.getElementById('financeTabContent');
+  if(!financeData){ box.innerHTML = `<div class="pm-hint">Загрузка…</div>`; return; }
+  const p = financeData.pnl, c = financeData.cashflow, d = financeData.details;
+
+  if(currentFinanceTab === 'overview'){
+    // единая лента: приходы (заказы) + расходы (закупки, выплаты, общие)
+    const feed = [];
+    d.orders.forEach(o => feed.push({ date:o.created_at, type:'in', label:'Заказ #'+o.id+' · '+(o.customer_name||''), amount:Number(o.total) }));
+    d.purchases.forEach(x => feed.push({ date:x.purchase_date, type:'out', label:'Закупка: '+(x.name_ru||'товар')+' ×'+x.qty, amount:x.qty*x.unit_price }));
+    d.partner_payouts.forEach(x => feed.push({ date:x.created_at, type:'out', label:'Выплата партнёру: '+(x.partner_name||'—'), amount:Number(x.amount) }));
+    d.courier_payouts.forEach(x => feed.push({ date:x.created_at, type:'out', label:'Выплата курьеру: '+[x.first_name,x.last_name].filter(Boolean).join(' '), amount:Number(x.amount) }));
+    d.general_expenses.forEach(x => feed.push({ date:x.expense_date, type:'out', label:(x.category?x.category+': ':'')+x.title, amount:Number(x.amount) }));
+    feed.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+    box.innerHTML = feed.length ? `
+      <div class="fin-feed">
+        ${feed.map(f => `
+          <div class="fin-feed-row">
+            <div>
+              <b>${f.type==='in'?'⬆️':'⬇️'} ${esc(f.label)}</b>
+              <div class="pt-muted">${new Date(f.date).toLocaleString('ru-RU')}</div>
+            </div>
+            <b style="color:${f.type==='in'?'var(--accent-green-dark)':'var(--brick)'}">${f.type==='in'?'+':'-'}${f.amount.toLocaleString('ru-RU')} смн</b>
+          </div>
+        `).join('')}
+      </div>
+    ` : `<div class="pm-hint">За этот период операций не было.</div>`;
+    return;
+  }
+
+  if(currentFinanceTab === 'pnl'){
+    box.innerHTML = `
+      <div class="pt-overview-grid" style="margin-top:14px">
+        ${finStat('Выручка', p.revenue, '', 'orders')}
+        ${finStat('Себестоимость товаров', p.cogs, 'red', 'purchases')}
+        ${finStat('Валовая прибыль', p.gross_profit, '', null)}
+        ${finStat('Расходы партнёров', p.partner_expenses, 'red', 'partner_expenses')}
+        ${finStat('Зарплата курьеров (начислено)', p.courier_salary, 'red', 'courier_salary')}
+        ${finStat('Общие расходы', p.general_expenses, 'red', 'general_expenses')}
+        ${finStat('Чистая прибыль', p.net_profit, p.net_profit>=0?'green':'red', null)}
+      </div>
+      <div id="finDetailBox"></div>
+    `;
+    return;
+  }
+
+  if(currentFinanceTab === 'cashflow'){
+    box.innerHTML = `
+      <div class="pt-overview-grid" style="margin-top:14px">
+        ${finStat('Поступления', c.cash_in, 'green', 'orders')}
+        ${finStat('Потрачено на товар', c.cogs_paid, 'red', 'purchases')}
+        ${finStat('Выплачено партнёрам', c.partner_payouts, 'red', 'partner_payouts')}
+        ${finStat('Выплачено курьерам', c.courier_payouts, 'red', 'courier_payouts')}
+        ${finStat('Общие расходы (оплачено)', c.general_expenses_paid, 'red', 'general_expenses')}
+        ${finStat('Чистый денежный поток', c.net_cash_flow, c.net_cash_flow>=0?'green':'red', null)}
+      </div>
+      <div id="finDetailBox"></div>
+    `;
+    return;
+  }
+}
+
+function finStat(label, value, colorClass, detailKey){
+  const clickable = detailKey ? `onclick="showFinDetail('${detailKey}')" style="cursor:pointer"` : '';
+  return `<div ${clickable}><div class="l">${label}${detailKey?' 🔎':''}</div><div class="v ${colorClass}">${value.toLocaleString('ru-RU')} смн</div></div>`;
+}
+
+function showFinDetail(key){
+  const d = financeData.details;
+  const box = document.getElementById('finDetailBox');
+  if(!box) return;
+  let rows = '';
+  let title = '';
+
+  if(key === 'orders'){
+    title = 'Заказы, из которых сложилась выручка';
+    rows = d.orders.map(o => `<div class="fin-detail-row"><span>#${o.id} · ${esc(o.customer_name||'')} · ${new Date(o.created_at).toLocaleDateString('ru-RU')}</span><b>${Number(o.total).toLocaleString('ru-RU')} смн</b></div>`).join('');
+  } else if(key === 'purchases'){
+    title = 'Закупки товара';
+    rows = d.purchases.map(x => `<div class="fin-detail-row"><span>${esc(x.name_ru||'товар')} ×${x.qty} · ${new Date(x.purchase_date).toLocaleDateString('ru-RU')}${x.supplier?' · '+esc(x.supplier):''}</span><b>${(x.qty*x.unit_price).toLocaleString('ru-RU')} смн</b></div>`).join('');
+  } else if(key === 'partner_expenses'){
+    title = 'Расходы, отнесённые на партнёров';
+    rows = d.partner_expenses.map(x => `<div class="fin-detail-row"><span>${esc(x.partner_name||'—')}: ${esc(x.title)} (доля ${x.partner_share_percent}%)</span><b>${(x.amount*x.partner_share_percent/100).toLocaleString('ru-RU')} смн</b></div>`).join('');
+  } else if(key === 'partner_payouts'){
+    title = 'Выплаты партнёрам';
+    rows = d.partner_payouts.map(x => `<div class="fin-detail-row"><span>${esc(x.partner_name||'—')}${x.note?' · '+esc(x.note):''} · ${new Date(x.created_at).toLocaleDateString('ru-RU')}</span><b>${Number(x.amount).toLocaleString('ru-RU')} смн</b></div>`).join('');
+  } else if(key === 'courier_salary'){
+    title = 'Начисленная зарплата курьерам';
+    rows = d.courier_salary.map(x => `<div class="fin-detail-row"><span>${esc(x.courier_name)} · ${x.salary_type==='fixed'?'фикс':x.deliveries+' дост. × '+x.salary_rate+' смн'}</span><b>${x.accrued.toLocaleString('ru-RU')} смн</b></div>`).join('');
+  } else if(key === 'courier_payouts'){
+    title = 'Выплаты курьерам';
+    rows = d.courier_payouts.map(x => `<div class="fin-detail-row"><span>${[x.first_name,x.last_name].filter(Boolean).join(' ')}${x.note?' · '+esc(x.note):''} · ${new Date(x.created_at).toLocaleDateString('ru-RU')}</span><b>${Number(x.amount).toLocaleString('ru-RU')} смн</b></div>`).join('');
+  } else if(key === 'general_expenses'){
+    title = 'Общие расходы';
+    rows = d.general_expenses.map(x => `<div class="fin-detail-row"><span>${x.category?esc(x.category)+': ':''}${esc(x.title)} · ${new Date(x.expense_date).toLocaleDateString('ru-RU')}</span><b>${Number(x.amount).toLocaleString('ru-RU')} смн</b></div>`).join('');
+  }
+
+  box.innerHTML = `
+    <div class="courier-setup-card" style="margin-top:16px">
+      <div class="courier-setup-title">${title}</div>
+      <div class="fin-feed" style="margin-top:10px">${rows || '<div class="pm-hint">Пусто за этот период.</div>'}</div>
+    </div>
+  `;
 }
 
 async function loadGeneralExpenses(){

@@ -499,36 +499,61 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
 
   try {
     // выручка — по завершённым заказам
-    const [orders] = await pool.query(`SELECT total FROM orders WHERE status = 'done' ${dateFilter}`);
+    const [orders] = await pool.query(`SELECT id, customer_name, total, created_at FROM orders WHERE status = 'done' ${dateFilter} ORDER BY created_at DESC`);
     const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
 
     // себестоимость закупленного за период (кассовый расход на товар)
-    const [[purchRow]] = await pool.query(`SELECT COALESCE(SUM(qty * unit_price), 0) AS total FROM purchases WHERE 1=1 ${purchDateFilter}`);
-    const cogs = Number(purchRow.total) || 0;
+    const [purchaseRows] = await pool.query(
+      `SELECT p.id, p.qty, p.unit_price, p.purchase_date, p.supplier, pr.name_ru
+       FROM purchases p LEFT JOIN products pr ON pr.id = p.product_id
+       WHERE 1=1 ${purchDateFilter} ORDER BY p.purchase_date DESC`
+    );
+    const cogs = purchaseRows.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unit_price) || 0), 0);
 
-    // расходы по партнёрам (доля партнёра в расходах) — общие, не по периоду (нет даты фильтрации по периоду в partner_expenses кроме created_at)
-    const [[partnerExpRow]] = await pool.query(`SELECT COALESCE(SUM(amount * partner_share_percent / 100), 0) AS total FROM partner_expenses WHERE 1=1 ${dateFilter}`);
-    const partnerExpenses = Number(partnerExpRow.total) || 0;
-    const [[partnerPayoutRow]] = await pool.query(`SELECT COALESCE(SUM(amount), 0) AS total FROM partner_payouts WHERE 1=1 ${dateFilter}`);
-    const partnerPayouts = Number(partnerPayoutRow.total) || 0;
+    // расходы по партнёрам (доля партнёра в расходах)
+    const [partnerExpRows] = await pool.query(
+      `SELECT pe.id, pe.title, pe.amount, pe.partner_share_percent, pe.created_at, pt.name AS partner_name
+       FROM partner_expenses pe LEFT JOIN partners pt ON pt.id = pe.partner_id
+       WHERE 1=1 ${dateFilter} ORDER BY pe.created_at DESC`
+    );
+    const partnerExpenses = partnerExpRows.reduce((s, e) => s + (Number(e.amount) || 0) * (Number(e.partner_share_percent) || 0) / 100, 0);
+
+    const [partnerPayoutRows] = await pool.query(
+      `SELECT pp.id, pp.amount, pp.note, pp.created_at, pt.name AS partner_name
+       FROM partner_payouts pp LEFT JOIN partners pt ON pt.id = pp.partner_id
+       WHERE 1=1 ${dateFilter} ORDER BY pp.created_at DESC`
+    );
+    const partnerPayouts = partnerPayoutRows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
     // зарплата курьерам — начислено (по факту доставок за период) и выплачено
-    const [couriers] = await pool.query('SELECT id, salary_type, salary_rate FROM couriers');
+    const [couriers] = await pool.query('SELECT id, first_name, last_name, salary_type, salary_rate FROM couriers');
     let courierSalaryAccrued = 0;
+    const courierSalaryRows = [];
     for (const c of couriers) {
       const [[dRow]] = await pool.query(
         `SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' ${dateFilter}`,
         [c.id]
       );
       const deliveries = Number(dRow.cnt) || 0;
-      courierSalaryAccrued += c.salary_type === 'fixed' ? Number(c.salary_rate) || 0 : deliveries * (Number(c.salary_rate) || 0);
+      const accrued = c.salary_type === 'fixed' ? Number(c.salary_rate) || 0 : deliveries * (Number(c.salary_rate) || 0);
+      if (accrued > 0) {
+        courierSalaryRows.push({
+          courier_name: [c.first_name, c.last_name].filter(Boolean).join(' '),
+          deliveries, salary_type: c.salary_type, salary_rate: c.salary_rate, accrued: round2(accrued),
+        });
+      }
+      courierSalaryAccrued += accrued;
     }
-    const [[courierPayoutRow]] = await pool.query(`SELECT COALESCE(SUM(amount), 0) AS total FROM courier_payouts WHERE 1=1 ${dateFilter}`);
-    const courierPayouts = Number(courierPayoutRow.total) || 0;
+    const [courierPayoutRows] = await pool.query(
+      `SELECT cp.id, cp.amount, cp.note, cp.created_at, c.first_name, c.last_name
+       FROM courier_payouts cp LEFT JOIN couriers c ON c.id = cp.courier_id
+       WHERE 1=1 ${dateFilter} ORDER BY cp.created_at DESC`
+    );
+    const courierPayouts = courierPayoutRows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
     // общие расходы (аренда, реклама и т.п.)
-    const [[genExpRow]] = await pool.query(`SELECT COALESCE(SUM(amount), 0) AS total FROM general_expenses WHERE 1=1 ${expDateFilter}`);
-    const generalExpenses = Number(genExpRow.total) || 0;
+    const [genExpRows] = await pool.query(`SELECT * FROM general_expenses WHERE 1=1 ${expDateFilter} ORDER BY expense_date DESC`);
+    const generalExpenses = genExpRows.reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
     // ОПиУ (начисленным методом): выручка - себестоимость - все расходы
     const grossProfit = revenue - cogs;
@@ -560,6 +585,15 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
         general_expenses_paid: round2(generalExpenses),
         cash_out: round2(cashOut),
         net_cash_flow: round2(netCashFlow),
+      },
+      details: {
+        orders,
+        purchases: purchaseRows,
+        partner_expenses: partnerExpRows,
+        partner_payouts: partnerPayoutRows,
+        courier_salary: courierSalaryRows,
+        courier_payouts: courierPayoutRows,
+        general_expenses: genExpRows,
       },
     });
   } catch (e) {
