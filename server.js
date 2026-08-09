@@ -611,7 +611,7 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     const grossProfit = revenue - cogs;
     const totalOperatingExpenses = partnerExpenses + courierSalaryAccrued + generalExpenses;
     const netProfit = grossProfit - totalOperatingExpenses;
-    const avgCheck = ordersCount ? revenue / ordersCount : 0;
+    const avgCheck = orders.length ? revenue / orders.length : 0;
     const marketingPct = revenue ? (adExpenses / revenue * 100) : 0;
 
     // ОДДС (кассовым методом): реально полученные/потраченные деньги
