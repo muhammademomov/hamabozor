@@ -429,6 +429,22 @@ header{
 .fin-period-row{display:flex;gap:8px;flex-wrap:wrap}
 .fin-period-btn{padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:var(--paper);font-size:13px;font-weight:700;color:#6b655a}
 .fin-period-btn.active{background:var(--brand-blue);border-color:var(--brand-blue);color:#fff}
+.fin-card{
+  background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;
+  box-shadow:var(--shadow);border-top:3px solid transparent;transition:transform .1s;
+}
+.fin-card[onclick]:hover{transform:translateY(-2px)}
+.fin-card-blue{border-top-color:var(--brand-blue)}
+.fin-card-red{border-top-color:var(--brick)}
+.fin-card-green{border-top-color:var(--accent-green)}
+.fin-card-orange{border-top-color:var(--marigold)}
+.fin-card-purple{border-top-color:#8B5CF6}
+.fin-card-teal{border-top-color:#14B8A6}
+.fin-card-ink{border-top-color:var(--indigo)}
+.fin-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.fin-card-label{font-size:12px;font-weight:700;color:#8a8478;text-transform:uppercase;letter-spacing:.02em}
+.fin-card-icon{font-size:16px;background:var(--cream);border-radius:8px;padding:6px;line-height:1}
+.fin-card-value{font-family:'Unbounded',sans-serif;font-weight:800;font-size:20px;color:var(--indigo)}
 .fin-feed{display:flex;flex-direction:column;gap:8px}
 .fin-feed-row{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -2743,14 +2759,19 @@ function renderFinanceTabInner(){
 
   if(currentFinanceTab === 'pnl'){
     box.innerHTML = `
-      <div class="pt-overview-grid" style="margin-top:14px">
-        ${finStat('Выручка', p.revenue, '', 'orders')}
-        ${finStat('Себестоимость товаров', p.cogs, 'red', 'purchases')}
-        ${finStat('Валовая прибыль', p.gross_profit, '', null)}
-        ${finStat('Расходы партнёров', p.partner_expenses, 'red', 'partner_expenses')}
-        ${finStat('Зарплата курьеров (начислено)', p.courier_salary, 'red', 'courier_salary')}
-        ${finStat('Общие расходы', p.general_expenses, 'red', 'general_expenses')}
-        ${finStat('Чистая прибыль', p.net_profit, p.net_profit>=0?'green':'red', null)}
+      <div class="pt-grid" style="margin-top:14px">
+        ${finCard('📷','blue','Выручка', p.revenue+' смн', 'orders')}
+        ${finCard('📉','red','Расходы всего', p.total_operating_expenses+' смн', null)}
+        ${finCard('🏛️','ink','Валовая прибыль', p.gross_profit+' смн', null)}
+        ${finCard('📊','orange','Маржа', p.margin_pct+'%', null)}
+        ${finCard('📣','blue','Реклама', p.ad_expenses+' смн', 'general_expenses')}
+        ${finCard('🧾','teal','Прочие расходы', (p.general_expenses-p.ad_expenses)+' смн', 'general_expenses')}
+        ${finCard('📦','orange','Себестоимость', p.cogs+' смн', 'purchases')}
+        ${finCard('🛒','purple','Средний чек', p.avg_check+' смн/заказ', null)}
+        ${finCard('🤝','ink','Расходы партнёров', p.partner_expenses+' смн', 'partner_expenses')}
+        ${finCard('🚚','ink','Зарплата курьеров', p.courier_salary+' смн', 'courier_salary')}
+        ${finCard('📈','green','Маркетинг / Выручка', p.marketing_pct+'%', null)}
+        ${finCard('💰',p.net_profit>=0?'green':'red','Чистая прибыль', p.net_profit+' смн', null)}
       </div>
       <div id="finDetailBox"></div>
     `;
@@ -2814,6 +2835,19 @@ async function loadBalanceSheet(){
     console.error('Не удалось загрузить баланс:', e);
     box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
   }
+}
+
+function finCard(icon, color, label, value, detailKey){
+  const clickable = detailKey ? `onclick="showFinDetail('${detailKey}')" style="cursor:pointer"` : '';
+  return `
+    <div class="fin-card fin-card-${color}" ${clickable}>
+      <div class="fin-card-top">
+        <span class="fin-card-label">${label}${detailKey?' 🔎':''}</span>
+        <span class="fin-card-icon">${icon}</span>
+      </div>
+      <div class="fin-card-value">${value}</div>
+    </div>
+  `;
 }
 
 function finStat(label, value, colorClass, detailKey){

@@ -605,11 +605,14 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     // общие расходы (аренда, реклама и т.п.)
     const [genExpRows] = await pool.query(`SELECT * FROM general_expenses WHERE 1=1 ${expDateFilter} ORDER BY expense_date DESC`);
     const generalExpenses = genExpRows.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const adExpenses = genExpRows.filter(e => e.category === 'Реклама').reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
     // ОПиУ (начисленным методом): выручка - себестоимость - все расходы
     const grossProfit = revenue - cogs;
     const totalOperatingExpenses = partnerExpenses + courierSalaryAccrued + generalExpenses;
     const netProfit = grossProfit - totalOperatingExpenses;
+    const avgCheck = ordersCount ? revenue / ordersCount : 0;
+    const marketingPct = revenue ? (adExpenses / revenue * 100) : 0;
 
     // ОДДС (кассовым методом): реально полученные/потраченные деньги
     const cashIn = revenue; // считаем, что оплата приходит при завершении заказа
@@ -625,6 +628,10 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
         partner_expenses: round2(partnerExpenses),
         courier_salary: round2(courierSalaryAccrued),
         general_expenses: round2(generalExpenses),
+        ad_expenses: round2(adExpenses),
+        avg_check: round2(avgCheck),
+        marketing_pct: round2(marketingPct),
+        margin_pct: revenue ? round2(netProfit / revenue * 100) : 0,
         total_operating_expenses: round2(totalOperatingExpenses),
         net_profit: round2(netProfit),
       },
