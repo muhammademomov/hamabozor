@@ -54,6 +54,16 @@ CREATE TABLE IF NOT EXISTS product_model_media (
   INDEX idx_pmm_product (product_id)
 );
 
+CREATE TABLE IF NOT EXISTS owner_transactions (
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  type              ENUM('contribution','withdrawal') NOT NULL,
+  amount            DECIMAL(10,2) NOT NULL,
+  transaction_date  DATE NOT NULL,
+  note              VARCHAR(255),
+  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- в таблицу partners также добавляется: wholesale_payment_timing ENUM('immediate','on_sale')
+
 CREATE TABLE IF NOT EXISTS general_expenses (
   id             INT AUTO_INCREMENT PRIMARY KEY,
   title          VARCHAR(255) NOT NULL,

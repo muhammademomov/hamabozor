@@ -181,10 +181,11 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
 
   const commissionRate = Number(partner.commission_percent) || 0;
   const isWholesale = partner.deal_type === 'wholesale';
+  const payImmediate = isWholesale && partner.wholesale_payment_timing === 'immediate';
 
   const [orders] = await pool.query("SELECT id, created_at, status, customer_name, customer_phone, items FROM orders WHERE status IN ('done','progress')");
   let revenue = 0;   // сумма продаж по розничной цене
-  let wholesaleBase = 0; // сумма по оптовой (себестоимость) цене
+  let wholesaleBase = 0; // сумма по оптовой (себестоимость) цене — по факту ПРОДАЖ
   let unitsSold = 0;
   let ordersCount = 0;
   const orderList = [];
@@ -227,13 +228,23 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
           items: matchedItems,
           revenue: Math.round(orderRevenue * 100) / 100,
           cost: Math.round(orderCost * 100) / 100,
-          owed: Math.round(orderBase * (1 - commissionRate / 100) * 100) / 100,
+          // при "оплате сразу" деньги партнёру уже ушли на этапе закупки, а не тут
+          owed: payImmediate ? 0 : Math.round(orderBase * (1 - commissionRate / 100) * 100) / 100,
         });
       }
     }
   }
 
-  const base = isWholesale ? wholesaleBase : revenue;
+  // при опте "оплата сразу" — база для расчёта берётся из закупок (сколько реально взяли товара), а не из продаж
+  let purchaseBase = 0;
+  if (payImmediate && productIds.size) {
+    const [purchRows] = await pool.query(
+      `SELECT qty, unit_price FROM purchases WHERE product_id IN (${[...productIds].join(',')})`
+    );
+    purchaseBase = purchRows.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unit_price) || 0), 0);
+  }
+
+  const base = payImmediate ? purchaseBase : (isWholesale ? wholesaleBase : revenue);
   const commissionCut = base * commissionRate / 100;
   const owedFromSales = base - commissionCut;
 
@@ -302,13 +313,13 @@ app.get('/api/partners/:id', requireAuth, async (req, res) => {
 });
 
 app.post('/api/partners', requireAuth, async (req, res) => {
-  const { name, phone, telegram, deal_type, commission_percent, notes } = req.body || {};
+  const { name, phone, telegram, deal_type, commission_percent, notes, wholesale_payment_timing } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Укажите имя партнёра' });
   try {
     const [result] = await pool.query(
-      `INSERT INTO partners (name, phone, telegram, deal_type, commission_percent, notes, active)
-       VALUES (?, ?, ?, ?, ?, ?, 1)`,
-      [name, phone || null, telegram || null, deal_type === 'wholesale' ? 'wholesale' : 'commission', commission_percent || 0, notes || null]
+      `INSERT INTO partners (name, phone, telegram, deal_type, commission_percent, notes, wholesale_payment_timing, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+      [name, phone || null, telegram || null, deal_type === 'wholesale' ? 'wholesale' : 'commission', commission_percent || 0, notes || null, wholesale_payment_timing === 'immediate' ? 'immediate' : 'on_sale']
     );
     res.json({ id: result.insertId });
   } catch (e) {
@@ -318,7 +329,7 @@ app.post('/api/partners', requireAuth, async (req, res) => {
 });
 
 app.patch('/api/partners/:id', requireAuth, async (req, res) => {
-  const allowed = ['name','phone','telegram','deal_type','commission_percent','notes','active'];
+  const allowed = ['name','phone','telegram','deal_type','commission_percent','notes','active','wholesale_payment_timing'];
   const body = req.body || {};
   const sets = []; const values = [];
   for (const key of allowed) {
@@ -482,6 +493,43 @@ app.delete('/api/general-expenses/:id', requireAuth, async (req, res) => {
 });
 
 // сводка по финансам: period = today | week | month | all
+app.get('/api/owner-transactions', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM owner_transactions ORDER BY transaction_date DESC, created_at DESC');
+    res.json(rows);
+  } catch (e) {
+    console.error('Ошибка получения взносов/изъятий:', e);
+    res.status(500).json({ error: 'Не удалось получить данные' });
+  }
+});
+
+app.post('/api/owner-transactions', requireAuth, async (req, res) => {
+  const { type, amount, transaction_date, note } = req.body || {};
+  if (!['contribution','withdrawal'].includes(type) || !amount || !transaction_date) {
+    return res.status(400).json({ error: 'Заполните тип, сумму и дату' });
+  }
+  try {
+    await pool.query(
+      'INSERT INTO owner_transactions (type, amount, transaction_date, note) VALUES (?, ?, ?, ?)',
+      [type, amount, transaction_date, note || null]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка добавления записи:', e);
+    res.status(500).json({ error: 'Не удалось сохранить' });
+  }
+});
+
+app.delete('/api/owner-transactions/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM owner_transactions WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления записи:', e);
+    res.status(500).json({ error: 'Не удалось удалить' });
+  }
+});
+
 app.get('/api/finance/summary', requireAuth, async (req, res) => {
   const period = req.query.period || 'all';
   // dateFilter содержит {{TBL}} — подставляем алиас нужной таблицы перед каждым запросом,
@@ -606,6 +654,102 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
 });
 
 function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+
+// баланс — снимок на сегодня (не за период, как ОПиУ/ОДДС, а состояние прямо сейчас)
+app.get('/api/finance/balance', requireAuth, async (req, res) => {
+  try {
+    // --- касса: весь денежный поток с самого начала ---
+    const [[doneOrdersRow]] = await pool.query("SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE status = 'done'");
+    const revenueAll = Number(doneOrdersRow.total) || 0;
+
+    const [[purchAllRow]] = await pool.query('SELECT COALESCE(SUM(qty * unit_price), 0) AS total FROM purchases');
+    const cogsAll = Number(purchAllRow.total) || 0;
+
+    const [[partnerPayoutAllRow]] = await pool.query('SELECT COALESCE(SUM(amount), 0) AS total FROM partner_payouts');
+    const partnerPayoutsAll = Number(partnerPayoutAllRow.total) || 0;
+
+    const [[courierPayoutAllRow]] = await pool.query('SELECT COALESCE(SUM(amount), 0) AS total FROM courier_payouts');
+    const courierPayoutsAll = Number(courierPayoutAllRow.total) || 0;
+
+    const [[genExpAllRow]] = await pool.query('SELECT COALESCE(SUM(amount), 0) AS total FROM general_expenses');
+    const generalExpensesAll = Number(genExpAllRow.total) || 0;
+
+    const [[contribRow]] = await pool.query("SELECT COALESCE(SUM(amount), 0) AS total FROM owner_transactions WHERE type = 'contribution'");
+    const [[withdrawRow]] = await pool.query("SELECT COALESCE(SUM(amount), 0) AS total FROM owner_transactions WHERE type = 'withdrawal'");
+    const ownerContributions = Number(contribRow.total) || 0;
+    const ownerWithdrawals = Number(withdrawRow.total) || 0;
+
+    const cash = revenueAll - cogsAll - partnerPayoutsAll - courierPayoutsAll - generalExpensesAll + ownerContributions - ownerWithdrawals;
+
+    // --- товар на складе (по себестоимости) ---
+    const [products] = await pool.query('SELECT stock, cost_price FROM products WHERE stock IS NOT NULL AND cost_price IS NOT NULL');
+    const inventoryValue = products.reduce((s, p) => s + (Number(p.stock) || 0) * (Number(p.cost_price) || 0), 0);
+
+    // --- дебиторка: заказы уже в пути (товар отдан курьеру), но ещё не подтверждены как доставленные ---
+    const [[receivableRow]] = await pool.query(
+      "SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE status = 'progress' AND delivery_status = 'in_transit'"
+    );
+    const receivables = Number(receivableRow.total) || 0;
+
+    // --- обязательства: сколько должны партнёрам и курьерам прямо сейчас (только положительный остаток) ---
+    const [partners] = await pool.query('SELECT * FROM partners');
+    let payableToPartners = 0;
+    for (const p of partners) {
+      const stats = await computePartnerStats(p.id, p, false);
+      if (stats.balance_due > 0) payableToPartners += stats.balance_due;
+    }
+
+    const [couriers] = await pool.query('SELECT * FROM couriers');
+    let payableToCouriers = 0;
+    for (const c of couriers) {
+      const [[dRow]] = await pool.query("SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered'", [c.id]);
+      const deliveries = Number(dRow.cnt) || 0;
+      const accrued = c.salary_type === 'fixed' ? Number(c.salary_rate) || 0 : deliveries * (Number(c.salary_rate) || 0);
+      const [[paidRow]] = await pool.query('SELECT COALESCE(SUM(amount), 0) AS total FROM courier_payouts WHERE courier_id = ?', [c.id]);
+      const balanceDue = accrued - (Number(paidRow.total) || 0);
+      if (balanceDue > 0) payableToCouriers += balanceDue;
+    }
+
+    const assets = cash + inventoryValue + receivables;
+    const liabilities = payableToPartners + payableToCouriers;
+
+    // накопленная прибыль с начала — считаем упрощённо как выручка минус все расходы за всё время
+    // (расходы партнёров начисленным методом, зарплата курьеров начисленным методом)
+    const [[partnerExpAllRow]] = await pool.query('SELECT COALESCE(SUM(amount * partner_share_percent / 100), 0) AS total FROM partner_expenses');
+    const partnerExpensesAll = Number(partnerExpAllRow.total) || 0;
+    let courierSalaryAll = 0;
+    for (const c of couriers) {
+      const [[dRow]] = await pool.query("SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered'", [c.id]);
+      const deliveries = Number(dRow.cnt) || 0;
+      courierSalaryAll += c.salary_type === 'fixed' ? Number(c.salary_rate) || 0 : deliveries * (Number(c.salary_rate) || 0);
+    }
+    const retainedEarnings = revenueAll - cogsAll - partnerExpensesAll - courierSalaryAll - generalExpensesAll;
+    const equity = (ownerContributions - ownerWithdrawals) + retainedEarnings;
+
+    res.json({
+      assets: {
+        cash: round2(cash),
+        inventory_value: round2(inventoryValue),
+        receivables: round2(receivables),
+        total: round2(assets),
+      },
+      liabilities: {
+        payable_to_partners: round2(payableToPartners),
+        payable_to_couriers: round2(payableToCouriers),
+        total: round2(liabilities),
+      },
+      equity: {
+        owner_net: round2(ownerContributions - ownerWithdrawals),
+        retained_earnings: round2(retainedEarnings),
+        total: round2(equity),
+      },
+      check_diff: round2(assets - (liabilities + equity)),
+    });
+  } catch (e) {
+    console.error('Ошибка расчёта баланса:', e);
+    res.status(500).json({ error: 'Не удалось рассчитать баланс' });
+  }
+});
 
 // ----------------------------------------------------------------------------
 // ТОВАРЫ — публичный список (для сайта) + CRUD только для администратора
@@ -1146,6 +1290,16 @@ async function ensureFinanceTables() {
       created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS owner_transactions (
+      id                INT AUTO_INCREMENT PRIMARY KEY,
+      type              ENUM('contribution','withdrawal') NOT NULL,
+      amount            DECIMAL(10,2) NOT NULL,
+      transaction_date  DATE NOT NULL,
+      note              VARCHAR(255),
+      created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 }
 
 async function ensurePartnerTables() {
@@ -1184,6 +1338,7 @@ async function ensurePartnerTables() {
     )
   `);
   await ensureColumn('products', 'partner_id', 'INT NULL');
+  await ensureColumn('partners', 'wholesale_payment_timing', "ENUM('immediate','on_sale') NOT NULL DEFAULT 'on_sale'");
 }
 
 async function ensureCourierTables() {

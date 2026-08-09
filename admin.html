@@ -824,6 +824,7 @@ tbody tr:hover{background:var(--cream)}
       <button class="pt-tab active" data-fintab="overview" onclick="setFinanceTab('overview')">📋 Обзор</button>
       <button class="pt-tab" data-fintab="pnl" onclick="setFinanceTab('pnl')">📊 ОПиУ</button>
       <button class="pt-tab" data-fintab="cashflow" onclick="setFinanceTab('cashflow')">💵 ОДДС</button>
+      <button class="pt-tab" data-fintab="balance" onclick="setFinanceTab('balance')">⚖️ Баланс</button>
     </div>
 
     <div id="financeTabContent"></div>
@@ -833,6 +834,27 @@ tbody tr:hover{background:var(--cream)}
       <button class="btn-solid" onclick="openExpenseGeneralForm()">+ Добавить расход</button>
     </div>
     <div class="couriers-list" id="generalExpensesList"></div>
+
+    <div class="pt-page-head" style="margin-top:26px">
+      <div class="pt-page-title">🏦 Взносы и изъятия (мои личные деньги в бизнесе)</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-outline" onclick="openOwnerTxForm('withdrawal')">− Забрал из бизнеса</button>
+        <button class="btn-solid" onclick="openOwnerTxForm('contribution')">+ Внёс в бизнес</button>
+      </div>
+    </div>
+    <div class="couriers-list" id="ownerTxList"></div>
+  </div>
+
+  <div class="modal-overlay" id="ownerTxModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:420px">
+      <button class="modal-close-x" onclick="closeOwnerTxForm()" aria-label="Закрыть">✕</button>
+      <h3 id="ownerTxTitle">Внёс в бизнес</h3>
+      <div class="pm-field"><label>Сумма (смн) *</label><input id="otAmount" type="number" min="0"></div>
+      <div class="pm-field"><label>Дата *</label><input id="otDate" type="date"></div>
+      <div class="pm-field"><label>Комментарий</label><input id="otNote" placeholder="необязательно"></div>
+      <div class="pm-error" id="ownerTxFormError">Укажите сумму и дату.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveOwnerTx()">Сохранить</button>
+    </div>
   </div>
 
   <div class="modal-overlay" id="genExpenseModalOverlay">
@@ -907,6 +929,13 @@ tbody tr:hover{background:var(--cream)}
           </select>
         </div>
         <div class="pm-field"><label>Мой % комиссии</label><input id="ptCommission" type="number" min="0" max="100" placeholder="15"></div>
+      </div>
+      <div class="pm-field" id="ptWholesaleTimingWrap">
+        <label>Когда плачу за опт</label>
+        <select id="ptWholesaleTiming">
+          <option value="on_sale">После того как товар продан</option>
+          <option value="immediate">Сразу, как только взял товар (закупка)</option>
+        </select>
       </div>
       <div class="pm-field"><label>Заметки</label><textarea id="ptNotes" class="cb-textarea" placeholder="Договорённости, условия..."></textarea></div>
       <div class="pm-error" id="partnerFormError">Укажите имя партнёра.</div>
@@ -2242,6 +2271,7 @@ function openPartnerForm(){
   document.getElementById('ptTelegram').value = '';
   document.getElementById('ptDealType').value = 'commission';
   document.getElementById('ptCommission').value = '';
+  document.getElementById('ptWholesaleTiming').value = 'on_sale';
   document.getElementById('ptNotes').value = '';
   document.getElementById('partnerFormError').style.display = 'none';
   document.getElementById('partnerModalOverlay').classList.add('show');
@@ -2262,6 +2292,7 @@ async function savePartner(){
         telegram: document.getElementById('ptTelegram').value.trim() || null,
         deal_type: document.getElementById('ptDealType').value,
         commission_percent: Number(document.getElementById('ptCommission').value) || 0,
+        wholesale_payment_timing: document.getElementById('ptWholesaleTiming').value,
         notes: document.getElementById('ptNotes').value.trim() || null,
       })
     });
@@ -2427,6 +2458,13 @@ function renderPartnerDetail(){
         </div>
         <div class="pm-field"><label>Мой % комиссии</label><input id="ptEditCommission" type="number" value="${p.commission_percent}"></div>
       </div>
+      <div class="pm-field">
+        <label>Когда плачу за опт</label>
+        <select id="ptEditWholesaleTiming">
+          <option value="on_sale" ${p.wholesale_payment_timing!=='immediate'?'selected':''}>После того как товар продан</option>
+          <option value="immediate" ${p.wholesale_payment_timing==='immediate'?'selected':''}>Сразу, как только взял товар (закупка)</option>
+        </select>
+      </div>
       <div class="pm-field"><label>Заметки</label><textarea id="ptEditNotes" class="cb-textarea">${esc(p.notes||'')}</textarea></div>
       <button class="btn-solid" onclick="updatePartnerSettings()">Сохранить изменения</button>
       <button class="btn-outline" style="margin-top:10px" onclick="toggleActivePartner()">${p.active?'Отключить партнёра':'Включить партнёра'}</button>
@@ -2454,6 +2492,7 @@ async function updatePartnerSettings(){
         telegram: document.getElementById('ptEditTelegram').value.trim() || null,
         deal_type: document.getElementById('ptEditDealType').value,
         commission_percent: Number(document.getElementById('ptEditCommission').value) || 0,
+        wholesale_payment_timing: document.getElementById('ptEditWholesaleTiming').value,
         notes: document.getElementById('ptEditNotes').value.trim() || null,
       })
     });
@@ -2646,6 +2685,7 @@ function setFinanceTab(tab){
 async function loadFinancePage(){
   loadFinanceSummary();
   loadGeneralExpenses();
+  loadOwnerTransactions();
 }
 
 async function loadFinanceSummary(){
@@ -2730,6 +2770,49 @@ function renderFinanceTabInner(){
       <div id="finDetailBox"></div>
     `;
     return;
+  }
+
+  if(currentFinanceTab === 'balance'){
+    box.innerHTML = `<div class="pm-hint" style="margin-top:14px">Загрузка баланса…</div>`;
+    loadBalanceSheet();
+    return;
+  }
+}
+
+async function loadBalanceSheet(){
+  const box = document.getElementById('financeTabContent');
+  try{
+    const b = await apiFetch('/api/finance/balance');
+    box.innerHTML = `
+      <div class="pm-hint" style="margin-top:10px">Баланс — это снимок «на сейчас» (не за период, как остальные вкладки). Показывает: чем владеет бизнес, кому должен, и сколько твоих личных денег в нём.</div>
+
+      <div class="pt-page-head" style="margin-top:20px"><div class="pt-page-title">📦 Активы (чем владеет бизнес)</div></div>
+      <div class="pt-overview-grid">
+        <div><div class="l">Касса (деньги)</div><div class="v">${b.assets.cash.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l">Товар на складе</div><div class="v">${b.assets.inventory_value.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l">Дебиторка (в пути, не подтверждено)</div><div class="v">${b.assets.receivables.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l"><b>Итого активы</b></div><div class="v">${b.assets.total.toLocaleString('ru-RU')} смн</div></div>
+      </div>
+
+      <div class="pt-page-head" style="margin-top:20px"><div class="pt-page-title">📋 Обязательства (кому должен бизнес)</div></div>
+      <div class="pt-overview-grid">
+        <div><div class="l">Партнёрам</div><div class="v red">${b.liabilities.payable_to_partners.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l">Курьерам</div><div class="v red">${b.liabilities.payable_to_couriers.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l"><b>Итого обязательства</b></div><div class="v red">${b.liabilities.total.toLocaleString('ru-RU')} смн</div></div>
+      </div>
+
+      <div class="pt-page-head" style="margin-top:20px"><div class="pt-page-title">👤 Капитал (твоя доля)</div></div>
+      <div class="pt-overview-grid">
+        <div><div class="l">Твои вложения минус изъятия</div><div class="v">${b.equity.owner_net.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l">Накопленная прибыль</div><div class="v ${b.equity.retained_earnings>=0?'green':'red'}">${b.equity.retained_earnings.toLocaleString('ru-RU')} смн</div></div>
+        <div><div class="l"><b>Итого капитал</b></div><div class="v ${b.equity.total>=0?'green':'red'}">${b.equity.total.toLocaleString('ru-RU')} смн</div></div>
+      </div>
+
+      <div class="pm-hint" style="margin-top:20px">Проверка: Активы = Обязательства + Капитал. Разница сейчас: <b>${b.check_diff.toLocaleString('ru-RU')} смн</b> ${Math.abs(b.check_diff)<1?'✅ сходится':'(небольшое расхождение — упрощённый расчёт, не аудиторский)'}</div>
+    `;
+  }catch(e){
+    console.error('Не удалось загрузить баланс:', e);
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
   }
 }
 
@@ -2845,6 +2928,74 @@ async function deleteGeneralExpense(id){
     loadFinanceSummary();
   }catch(e){
     console.error('Не удалось удалить расход:', e);
+    alert('Не удалось удалить — проверь подключение к серверу.');
+  }
+}
+
+let currentOwnerTxType = 'contribution';
+
+async function loadOwnerTransactions(){
+  const box = document.getElementById('ownerTxList');
+  box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
+  try{
+    const txs = await apiFetch('/api/owner-transactions');
+    if(!txs.length){
+      box.innerHTML = `<div class="pm-hint">Пока ничего не записано.</div>`;
+      return;
+    }
+    box.innerHTML = txs.map(t => `
+      <div class="courier-card">
+        <div class="courier-info">
+          <b>${t.type==='contribution'?'⬆️ Внёс':'⬇️ Забрал'}: ${Number(t.amount).toLocaleString('ru-RU')} смн</b>
+          <div class="courier-card-details">${new Date(t.transaction_date).toLocaleDateString('ru-RU')}${t.note?' · '+esc(t.note):''}</div>
+        </div>
+        <button class="btn-outline" onclick="deleteOwnerTx(${t.id})">Удалить</button>
+      </div>
+    `).join('');
+  }catch(e){
+    console.error('Не удалось загрузить взносы/изъятия:', e);
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+function openOwnerTxForm(type){
+  currentOwnerTxType = type;
+  document.getElementById('ownerTxTitle').textContent = type==='contribution' ? 'Внёс в бизнес' : 'Забрал из бизнеса';
+  document.getElementById('otAmount').value = '';
+  document.getElementById('otDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('otNote').value = '';
+  document.getElementById('ownerTxFormError').style.display = 'none';
+  document.getElementById('ownerTxModalOverlay').classList.add('show');
+}
+function closeOwnerTxForm(){ document.getElementById('ownerTxModalOverlay').classList.remove('show'); }
+
+async function saveOwnerTx(){
+  const amount = Number(document.getElementById('otAmount').value);
+  const transaction_date = document.getElementById('otDate').value;
+  const errBox = document.getElementById('ownerTxFormError');
+  if(!amount || !transaction_date){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  try{
+    await apiFetch('/api/owner-transactions', {
+      method:'POST',
+      body: JSON.stringify({ type: currentOwnerTxType, amount, transaction_date, note: document.getElementById('otNote').value.trim() || null })
+    });
+    closeOwnerTxForm();
+    loadOwnerTransactions();
+  }catch(e){
+    console.error('Не удалось сохранить:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
+  }
+}
+
+async function deleteOwnerTx(id){
+  if(!confirm('Удалить эту запись?')) return;
+  try{
+    await apiFetch('/api/owner-transactions/' + id, { method:'DELETE' });
+    loadOwnerTransactions();
+  }catch(e){
+    console.error('Не удалось удалить:', e);
     alert('Не удалось удалить — проверь подключение к серверу.');
   }
 }
