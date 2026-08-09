@@ -54,6 +54,42 @@ CREATE TABLE IF NOT EXISTS product_model_media (
   INDEX idx_pmm_product (product_id)
 );
 
+CREATE TABLE IF NOT EXISTS promo_codes (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  code            VARCHAR(50) NOT NULL UNIQUE,
+  discount_type   ENUM('percent','fixed') NOT NULL DEFAULT 'percent',
+  discount_value  DECIMAL(10,2) NOT NULL,
+  usage_limit     INT NULL,
+  expires_at      DATE NULL,
+  active          TINYINT(1) NOT NULL DEFAULT 1,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS marketing_campaigns (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  name            VARCHAR(255) NOT NULL,
+  platform        VARCHAR(100),
+  budget          DECIMAL(10,2) NOT NULL DEFAULT 0,
+  start_date      DATE,
+  end_date        DATE NULL,
+  promo_code_id   INT NULL,
+  note            VARCHAR(255),
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS bloggers (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  name            VARCHAR(255) NOT NULL,
+  platform        VARCHAR(100),
+  phone           VARCHAR(50),
+  telegram        VARCHAR(255),
+  deal_type       ENUM('fixed','percent') NOT NULL DEFAULT 'fixed',
+  fee_amount      DECIMAL(10,2) NOT NULL DEFAULT 0,
+  promo_code_id   INT NULL,
+  notes           TEXT,
+  active          TINYINT(1) NOT NULL DEFAULT 1,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- в таблицу orders также добавляется: promo_code VARCHAR(50) NULL, discount_amount DECIMAL(10,2) NULL
+
 CREATE TABLE IF NOT EXISTS owner_transactions (
   id                INT AUTO_INCREMENT PRIMARY KEY,
   type              ENUM('contribution','withdrawal') NOT NULL,

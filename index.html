@@ -315,6 +315,7 @@ section.products{padding:48px 20px}
 }
 .field textarea{resize:vertical;min-height:60px}
 .field input:focus,.field textarea:focus{border-color:var(--indigo)}
+.btn-promo-apply{background:var(--brand-blue,var(--indigo));color:#fff;padding:0 18px;border-radius:10px;font-weight:700;font-size:13px}
 .modal-actions{display:flex;flex-direction:column;gap:10px;margin-top:18px}
 .btn-wa{background:#25D366;color:#fff}
 .btn-tg{background:#2AABEE;color:#fff}
@@ -579,6 +580,14 @@ footer p{margin-top:8px;font-size:14px}
       <div class="field">
         <label data-i18n="form_comment">Шарҳ (ихтиёрӣ)</label>
         <textarea id="custComment"></textarea>
+      </div>
+      <div class="field">
+        <label>Промокод (ихтиёрӣ)</label>
+        <div style="display:flex;gap:8px">
+          <input id="custPromo" placeholder="HAMA10" style="text-transform:uppercase;flex:1">
+          <button type="button" class="btn-promo-apply" onclick="applyPromoCode()">OK</button>
+        </div>
+        <div id="promoResult" style="font-size:12px;margin-top:6px"></div>
       </div>
       <div class="field-error" id="formError" data-i18n="form_error">Лутфан ном ва телефонро пур кунед</div>
       <div class="modal-actions">
@@ -1434,6 +1443,33 @@ function buildOrderText(name, phone, address, comment){
   ].filter(Boolean).join('\n');
 }
 
+async function applyPromoCode(){
+  const input = document.getElementById('custPromo');
+  const resultBox = document.getElementById('promoResult');
+  const code = input.value.trim();
+  if(!code){ resultBox.textContent = ''; return; }
+  resultBox.style.color = '#8a8478';
+  resultBox.textContent = lang==='tj' ? 'Санҷиш...' : 'Проверяю...';
+  try{
+    const res = await fetch('/api/promo-codes/validate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ code, subtotal: cartTotal() })
+    });
+    const data = await res.json();
+    if(!res.ok){
+      resultBox.style.color = 'var(--brick)';
+      resultBox.textContent = data.error || (lang==='tj' ? 'Промокод нодуруст' : 'Промокод недействителен');
+      return;
+    }
+    resultBox.style.color = 'var(--accent-green-dark)';
+    resultBox.textContent = (lang==='tj' ? '✅ Тахфиф: ' : '✅ Скидка: ') + data.discount_amount + ' смн';
+  }catch(e){
+    console.error('Ошибка проверки промокода:', e);
+    resultBox.style.color = 'var(--brick)';
+    resultBox.textContent = lang==='tj' ? 'Хатогӣ' : 'Ошибка проверки';
+  }
+}
+
 async function saveOrderToDatabase(channel, name, phone, address, comment){
   const items = Object.entries(cart).map(([id,qty])=>{
     const p = PRODUCTS.find(x=>x.id===Number(id));
@@ -1441,6 +1477,8 @@ async function saveOrderToDatabase(channel, name, phone, address, comment){
     if(cartVariantNote[id]) item.variant = cartVariantNote[id];
     return item;
   });
+  const promoInput = document.getElementById('custPromo');
+  const promo_code = promoInput && promoInput.value.trim() ? promoInput.value.trim().toUpperCase() : null;
   try{
     const res = await fetch('/api/orders', {
       method: 'POST',
@@ -1452,7 +1490,8 @@ async function saveOrderToDatabase(channel, name, phone, address, comment){
         comment: comment || null,
         items,
         total: cartTotal(),
-        channel
+        channel,
+        promo_code
       })
     });
     if(!res.ok) throw new Error('save order failed: ' + res.status);

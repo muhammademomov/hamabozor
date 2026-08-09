@@ -54,24 +54,50 @@ function requireAuth(req, res, next) {
 // публичный эндпоинт: создать заказ (вызывается из index.html)
 // ----------------------------------------------------------------------------
 app.post('/api/orders', async (req, res) => {
-  const { customer_name, customer_phone, customer_address, comment, items, total, channel } = req.body || {};
+  const { customer_name, customer_phone, customer_address, comment, items, total, channel, promo_code } = req.body || {};
 
   if (!customer_name || !customer_phone || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Не хватает обязательных полей заказа' });
   }
 
   try {
+    let finalTotal = Number(total) || 0;
+    let discountAmount = null;
+    let usedCode = null;
+
+    if (promo_code) {
+      const [[promo]] = await pool.query('SELECT * FROM promo_codes WHERE code = ? AND active = 1', [promo_code.trim().toUpperCase()]);
+      if (promo && (!promo.expires_at || new Date(promo.expires_at) >= new Date())) {
+        if (promo.usage_limit == null || await promoUsageCount(promo.id) < promo.usage_limit) {
+          discountAmount = promo.discount_type === 'percent'
+            ? round2(finalTotal * Number(promo.discount_value) / 100)
+            : round2(Number(promo.discount_value));
+          discountAmount = Math.min(discountAmount, finalTotal);
+          finalTotal = round2(finalTotal - discountAmount);
+          usedCode = promo.code;
+        }
+      }
+    }
+
     const [result] = await pool.query(
-      `INSERT INTO orders (customer_name, customer_phone, customer_address, comment, items, total, status, channel)
-       VALUES (?, ?, ?, ?, ?, ?, 'new', ?)`,
-      [customer_name, customer_phone, customer_address || null, comment || null, JSON.stringify(items), total || 0, channel || null]
+      `INSERT INTO orders (customer_name, customer_phone, customer_address, comment, items, total, status, channel, promo_code, discount_amount)
+       VALUES (?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)`,
+      [customer_name, customer_phone, customer_address || null, comment || null, JSON.stringify(items), finalTotal, channel || null, usedCode, discountAmount]
     );
-    res.json({ id: result.insertId });
+    res.json({ id: result.insertId, total: finalTotal, discount_amount: discountAmount });
   } catch (e) {
     console.error('Ошибка создания заказа:', e);
     res.status(500).json({ error: 'Не удалось сохранить заказ' });
   }
 });
+
+async function promoUsageCount(promoId) {
+  const [[row]] = await pool.query(
+    'SELECT COUNT(*) AS cnt FROM orders WHERE promo_code = (SELECT code FROM promo_codes WHERE id = ?)',
+    [promoId]
+  );
+  return Number(row.cnt) || 0;
+}
 
 // ----------------------------------------------------------------------------
 // вход администратора — email + пароль → JWT-токен на 7 дней
@@ -165,6 +191,226 @@ app.post('/api/orders/:id/assign-courier', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Ошибка назначения курьера:', e);
     res.status(500).json({ error: 'Не удалось назначить курьера' });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// МАРКЕТИНГ — промокоды, рекламные кампании, блогеры, аудитория
+// ----------------------------------------------------------------------------
+
+// проверить промокод (публично — вызывается с сайта при оформлении заказа)
+app.post('/api/promo-codes/validate', async (req, res) => {
+  const { code, subtotal } = req.body || {};
+  if (!code) return res.status(400).json({ error: 'Укажите промокод' });
+  try {
+    const [[promo]] = await pool.query('SELECT * FROM promo_codes WHERE code = ? AND active = 1', [code.trim().toUpperCase()]);
+    if (!promo) return res.status(404).json({ error: 'Промокод не найден или отключён' });
+    if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'Срок действия промокода истёк' });
+    }
+    if (promo.usage_limit != null) {
+      const used = await promoUsageCount(promo.id);
+      if (used >= promo.usage_limit) return res.status(400).json({ error: 'Лимит использований промокода исчерпан' });
+    }
+    const base = Number(subtotal) || 0;
+    let discount = promo.discount_type === 'percent' ? round2(base * Number(promo.discount_value) / 100) : round2(Number(promo.discount_value));
+    discount = Math.min(discount, base);
+    res.json({ ok: true, code: promo.code, discount_type: promo.discount_type, discount_value: Number(promo.discount_value), discount_amount: discount });
+  } catch (e) {
+    console.error('Ошибка проверки промокода:', e);
+    res.status(500).json({ error: 'Не удалось проверить промокод' });
+  }
+});
+
+app.get('/api/promo-codes', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM promo_codes ORDER BY created_at DESC');
+    const withUsage = await Promise.all(rows.map(async p => {
+      const used = await promoUsageCount(p.id);
+      const [[revRow]] = await pool.query("SELECT COALESCE(SUM(total),0) AS total FROM orders WHERE promo_code = ? AND status = 'done'", [p.code]);
+      return { ...p, used_count: used, revenue: round2(Number(revRow.total) || 0) };
+    }));
+    res.json(withUsage);
+  } catch (e) {
+    console.error('Ошибка получения промокодов:', e);
+    res.status(500).json({ error: 'Не удалось получить промокоды' });
+  }
+});
+
+app.post('/api/promo-codes', requireAuth, async (req, res) => {
+  const { code, discount_type, discount_value, usage_limit, expires_at } = req.body || {};
+  if (!code || !discount_value) return res.status(400).json({ error: 'Укажите код и размер скидки' });
+  try {
+    await pool.query(
+      'INSERT INTO promo_codes (code, discount_type, discount_value, usage_limit, expires_at, active) VALUES (?, ?, ?, ?, ?, 1)',
+      [code.trim().toUpperCase(), discount_type === 'fixed' ? 'fixed' : 'percent', discount_value, usage_limit || null, expires_at || null]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка добавления промокода:', e);
+    res.status(500).json({ error: 'Не удалось добавить (возможно, такой код уже есть)' });
+  }
+});
+
+app.patch('/api/promo-codes/:id', requireAuth, async (req, res) => {
+  const allowed = ['discount_type','discount_value','usage_limit','expires_at','active'];
+  const body = req.body || {};
+  const sets = []; const values = [];
+  for (const key of allowed) {
+    if (body[key] !== undefined) { sets.push(`${key} = ?`); values.push(key === 'active' ? (body[key]?1:0) : body[key]); }
+  }
+  if (!sets.length) return res.json({ ok: true });
+  values.push(req.params.id);
+  try {
+    await pool.query(`UPDATE promo_codes SET ${sets.join(', ')} WHERE id = ?`, values);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка изменения промокода:', e);
+    res.status(500).json({ error: 'Не удалось изменить промокод' });
+  }
+});
+
+app.delete('/api/promo-codes/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM promo_codes WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления промокода:', e);
+    res.status(500).json({ error: 'Не удалось удалить промокод' });
+  }
+});
+
+// вычисляет для промокода: сколько заказов и выручки он принёс
+async function computePromoStats(code) {
+  const [[row]] = await pool.query(
+    "SELECT COUNT(*) AS orders_count, COALESCE(SUM(total),0) AS revenue FROM orders WHERE promo_code = ? AND status = 'done'",
+    [code]
+  );
+  return { orders_count: Number(row.orders_count) || 0, revenue: round2(Number(row.revenue) || 0) };
+}
+
+app.get('/api/marketing/campaigns', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.*, p.code AS promo_code FROM marketing_campaigns c LEFT JOIN promo_codes p ON p.id = c.promo_code_id ORDER BY c.created_at DESC`
+    );
+    const withStats = await Promise.all(rows.map(async c => {
+      const stats = c.promo_code ? await computePromoStats(c.promo_code) : { orders_count: 0, revenue: 0 };
+      const roas = Number(c.budget) > 0 ? round2(stats.revenue / Number(c.budget)) : null;
+      return { ...c, stats: { ...stats, roas } };
+    }));
+    res.json(withStats);
+  } catch (e) {
+    console.error('Ошибка получения кампаний:', e);
+    res.status(500).json({ error: 'Не удалось получить кампании' });
+  }
+});
+
+app.post('/api/marketing/campaigns', requireAuth, async (req, res) => {
+  const { name, platform, budget, start_date, end_date, promo_code_id, note } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Укажите название кампании' });
+  try {
+    await pool.query(
+      `INSERT INTO marketing_campaigns (name, platform, budget, start_date, end_date, promo_code_id, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name, platform || null, budget || 0, start_date || null, end_date || null, promo_code_id || null, note || null]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка добавления кампании:', e);
+    res.status(500).json({ error: 'Не удалось добавить кампанию' });
+  }
+});
+
+app.delete('/api/marketing/campaigns/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM marketing_campaigns WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления кампании:', e);
+    res.status(500).json({ error: 'Не удалось удалить кампанию' });
+  }
+});
+
+app.get('/api/marketing/bloggers', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT b.*, p.code AS promo_code FROM bloggers b LEFT JOIN promo_codes p ON p.id = b.promo_code_id ORDER BY b.created_at DESC`
+    );
+    const withStats = await Promise.all(rows.map(async b => {
+      const stats = b.promo_code ? await computePromoStats(b.promo_code) : { orders_count: 0, revenue: 0 };
+      const owed = b.deal_type === 'fixed' ? Number(b.fee_amount) || 0 : round2(stats.revenue * (Number(b.fee_amount) || 0) / 100);
+      return { ...b, stats: { ...stats, owed } };
+    }));
+    res.json(withStats);
+  } catch (e) {
+    console.error('Ошибка получения блогеров:', e);
+    res.status(500).json({ error: 'Не удалось получить блогеров' });
+  }
+});
+
+app.post('/api/marketing/bloggers', requireAuth, async (req, res) => {
+  const { name, platform, phone, telegram, deal_type, fee_amount, promo_code_id, notes } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Укажите имя блогера' });
+  try {
+    await pool.query(
+      `INSERT INTO bloggers (name, platform, phone, telegram, deal_type, fee_amount, promo_code_id, notes, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [name, platform || null, phone || null, telegram || null, deal_type === 'percent' ? 'percent' : 'fixed', fee_amount || 0, promo_code_id || null, notes || null]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка добавления блогера:', e);
+    res.status(500).json({ error: 'Не удалось добавить блогера' });
+  }
+});
+
+app.delete('/api/marketing/bloggers/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM bloggers WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления блогера:', e);
+    res.status(500).json({ error: 'Не удалось удалить блогера' });
+  }
+});
+
+// аудитория — считаем только из своих же заказов, без внешних сервисов
+app.get('/api/marketing/audience', requireAuth, async (req, res) => {
+  try {
+    const [orders] = await pool.query("SELECT customer_phone, total, created_at FROM orders WHERE status = 'done'");
+    const byPhone = {};
+    const byHour = Array(24).fill(0);
+    const byWeekday = Array(7).fill(0);
+    for (const o of orders) {
+      const phone = (o.customer_phone || '').replace(/\D/g, '');
+      if (phone) {
+        byPhone[phone] = (byPhone[phone] || 0) + 1;
+      }
+      const d = new Date(o.created_at);
+      byHour[d.getHours()] += 1;
+      byWeekday[d.getDay()] += 1;
+    }
+    const totalCustomers = Object.keys(byPhone).length;
+    const repeatCustomers = Object.values(byPhone).filter(c => c > 1).length;
+    const customers3plus = Object.values(byPhone).filter(c => c >= 3).length;
+    const newCustomers = totalCustomers - repeatCustomers;
+    const avgOrdersPerCustomer = totalCustomers ? round2(orders.length / totalCustomers) : 0;
+
+    res.json({
+      total_customers: totalCustomers,
+      new_customers: newCustomers,
+      repeat_customers: repeatCustomers,
+      repeat_rate: totalCustomers ? round2(repeatCustomers / totalCustomers * 100) : 0,
+      avg_orders_per_customer: avgOrdersPerCustomer,
+      customers_2plus: repeatCustomers,
+      customers_3plus: customers3plus,
+      by_hour: byHour,
+      by_weekday: byWeekday,
+    });
+  } catch (e) {
+    console.error('Ошибка расчёта аудитории:', e);
+    res.status(500).json({ error: 'Не удалось рассчитать аудиторию' });
   }
 });
 
@@ -1285,6 +1531,51 @@ async function ensurePurchasesTable() {
   `);
 }
 
+async function ensureMarketingTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS promo_codes (
+      id              INT AUTO_INCREMENT PRIMARY KEY,
+      code            VARCHAR(50) NOT NULL UNIQUE,
+      discount_type   ENUM('percent','fixed') NOT NULL DEFAULT 'percent',
+      discount_value  DECIMAL(10,2) NOT NULL,
+      usage_limit     INT NULL,
+      expires_at      DATE NULL,
+      active          TINYINT(1) NOT NULL DEFAULT 1,
+      created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS marketing_campaigns (
+      id              INT AUTO_INCREMENT PRIMARY KEY,
+      name            VARCHAR(255) NOT NULL,
+      platform        VARCHAR(100),
+      budget          DECIMAL(10,2) NOT NULL DEFAULT 0,
+      start_date      DATE,
+      end_date        DATE NULL,
+      promo_code_id   INT NULL,
+      note            VARCHAR(255),
+      created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS bloggers (
+      id              INT AUTO_INCREMENT PRIMARY KEY,
+      name            VARCHAR(255) NOT NULL,
+      platform        VARCHAR(100),
+      phone           VARCHAR(50),
+      telegram        VARCHAR(255),
+      deal_type       ENUM('fixed','percent') NOT NULL DEFAULT 'fixed',
+      fee_amount      DECIMAL(10,2) NOT NULL DEFAULT 0,
+      promo_code_id   INT NULL,
+      notes           TEXT,
+      active          TINYINT(1) NOT NULL DEFAULT 1,
+      created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await ensureColumn('orders', 'promo_code', 'VARCHAR(50) NULL');
+  await ensureColumn('orders', 'discount_amount', 'DECIMAL(10,2) NULL');
+}
+
 async function ensureFinanceTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS general_expenses (
@@ -1481,6 +1772,7 @@ async function ensureSchema() {
   await ensurePartnerTables();
   await ensurePurchasesTable();
   await ensureFinanceTables();
+  await ensureMarketingTables();
 
   // если товаров ещё нет — заполняем стартовым набором, чтобы сайт не был пустым
   const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM products');

@@ -408,6 +408,10 @@ header{
 .pt-prod-cell{display:flex;align-items:center;gap:8px}
 .pt-prod-cell img{width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0}
 .pt-prod-thumb-empty{width:34px;height:34px;border-radius:8px;background:var(--cream);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fin-bar-chart{display:flex;align-items:flex-end;gap:3px;height:90px;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px}
+.fin-bar{flex:1;background:var(--brand-blue);border-radius:3px 3px 0 0;min-width:4px}
+.fin-bar-labels{display:flex;gap:3px;margin-top:4px}
+.fin-bar-labels span{flex:1;text-align:center;font-size:9px;color:#8a8478}
 .pt-page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .pt-page-title{font-family:'Unbounded',sans-serif;font-weight:800;font-size:16px;color:var(--indigo)}
 .pr-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
@@ -671,7 +675,7 @@ tbody tr:hover{background:var(--cream)}
 
       <div class="sb-nav-group">Инструменты</div>
       <button class="nav-it soon" id="tabAnalytics" onclick="showSection('analytics')"><span class="nav-ic">📈</span> Аналитика <span class="soon-tag">скоро</span></button>
-      <button class="nav-it soon" id="tabMarketing" onclick="showSection('marketing')"><span class="nav-ic">📣</span> Маркетинг <span class="soon-tag">скоро</span></button>
+      <button class="nav-it" id="tabMarketing" onclick="showSection('marketing')"><span class="nav-ic">📣</span> Маркетинг</button>
       <button class="nav-it" id="tabFinance" onclick="showSection('finance')"><span class="nav-ic">💰</span> Финансы</button>
       <button class="nav-it" id="tabPurchasing" onclick="showSection('purchasing')"><span class="nav-ic">🛒</span> Закупки</button>
       <button class="nav-it" id="tabPartners" onclick="showSection('partners')"><span class="nav-ic">🤝</span> Партнёры</button>
@@ -859,6 +863,92 @@ tbody tr:hover{background:var(--cream)}
       </div>
     </div>
     <div class="couriers-list" id="ownerTxList"></div>
+  </div>
+
+  <div class="wrap hidden" id="marketingPage">
+    <div class="pt-tabs">
+      <button class="pt-tab active" data-mktab="promo" onclick="setMarketingTab('promo')">🏷️ Промокоды</button>
+      <button class="pt-tab" data-mktab="campaigns" onclick="setMarketingTab('campaigns')">📢 Кампании</button>
+      <button class="pt-tab" data-mktab="bloggers" onclick="setMarketingTab('bloggers')">🎤 Блогеры</button>
+      <button class="pt-tab" data-mktab="audience" onclick="setMarketingTab('audience')">👥 Аудитория</button>
+    </div>
+    <div id="marketingTabContent"></div>
+  </div>
+
+  <div class="modal-overlay" id="promoModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:440px">
+      <button class="modal-close-x" onclick="closePromoForm()" aria-label="Закрыть">✕</button>
+      <h3>Новый промокод</h3>
+      <div class="pm-field"><label>Код *</label><input id="pcCode" placeholder="HAMA10" style="text-transform:uppercase"></div>
+      <div class="pm-grid2">
+        <div class="pm-field">
+          <label>Тип скидки</label>
+          <select id="pcType">
+            <option value="percent">Процент (%)</option>
+            <option value="fixed">Фикс. сумма (смн)</option>
+          </select>
+        </div>
+        <div class="pm-field"><label>Размер *</label><input id="pcValue" type="number" min="0" placeholder="10"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Лимит использований</label><input id="pcLimit" type="number" min="1" placeholder="не ограничено"></div>
+        <div class="pm-field"><label>Истекает</label><input id="pcExpires" type="date"></div>
+      </div>
+      <div class="pm-error" id="promoFormError">Укажите код и размер скидки.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="savePromo()">Сохранить промокод</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="campaignModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:460px">
+      <button class="modal-close-x" onclick="closeCampaignForm()" aria-label="Закрыть">✕</button>
+      <h3>Новая кампания</h3>
+      <div class="pm-field"><label>Название *</label><input id="cmName" placeholder="Instagram — сентябрь"></div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Платформа</label><input id="cmPlatform" placeholder="Instagram, TikTok..."></div>
+        <div class="pm-field"><label>Бюджет (смн)</label><input id="cmBudget" type="number" min="0"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Начало</label><input id="cmStart" type="date"></div>
+        <div class="pm-field"><label>Конец</label><input id="cmEnd" type="date"></div>
+      </div>
+      <div class="pm-field">
+        <label>Привязанный промокод (для отслеживания продаж)</label>
+        <select id="cmPromoId"><option value="">— без промокода —</option></select>
+      </div>
+      <div class="pm-field"><label>Заметка</label><input id="cmNote" placeholder="необязательно"></div>
+      <div class="pm-error" id="campaignFormError">Укажите название.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveCampaign()">Сохранить кампанию</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="bloggerModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:460px">
+      <button class="modal-close-x" onclick="closeBloggerForm()" aria-label="Закрыть">✕</button>
+      <h3>Новый блогер</h3>
+      <div class="pm-field"><label>Имя *</label><input id="blName" placeholder="Имя блогера"></div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Соцсеть</label><input id="blPlatform" placeholder="Instagram, TikTok..."></div>
+        <div class="pm-field"><label>Телефон / Telegram</label><input id="blContact" placeholder="+992... или @username"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field">
+          <label>Договорённость</label>
+          <select id="blDealType">
+            <option value="fixed">Фикс. сумма</option>
+            <option value="percent">% от продаж по его коду</option>
+          </select>
+        </div>
+        <div class="pm-field"><label>Сумма / %</label><input id="blFee" type="number" min="0"></div>
+      </div>
+      <div class="pm-field">
+        <label>Его промокод</label>
+        <select id="blPromoId"><option value="">— без промокода —</option></select>
+      </div>
+      <div class="pm-field"><label>Заметки</label><input id="blNotes" placeholder="необязательно"></div>
+      <div class="pm-error" id="bloggerFormError">Укажите имя.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveBlogger()">Сохранить блогера</button>
+    </div>
   </div>
 
   <div class="modal-overlay" id="ownerTxModalOverlay">
@@ -1174,12 +1264,12 @@ const PAGE_TITLES = {
   finance:'Финансы', purchasing:'Закупки', partners:'Партнёры', activity:'Активность',
   formbuilder:'Конструктор форм', settings:'Настройка'
 };
-const SOON_SECTIONS = ['customers','analytics','marketing','activity','formbuilder','settings'];
+const SOON_SECTIONS = ['customers','analytics','activity','formbuilder','settings'];
 const SOON_EMOJI = {
   customers:'👥', analytics:'📈', marketing:'📣', finance:'💰',
   purchasing:'🛒', activity:'🕐', formbuilder:'🧩', settings:'⚙️'
 };
-const REAL_TABS = ['dashboard','orders','products','banners','logistics','partners','purchasing','finance'];
+const REAL_TABS = ['dashboard','orders','products','banners','logistics','partners','purchasing','finance','marketing'];
 
 function showSection(name){
   REAL_TABS.forEach(t => {
@@ -1200,6 +1290,7 @@ function showSection(name){
   document.getElementById('partnersPage').classList.toggle('hidden', name!=='partners');
   document.getElementById('purchasingPage').classList.toggle('hidden', name!=='purchasing');
   document.getElementById('financePage').classList.toggle('hidden', name!=='finance');
+  document.getElementById('marketingPage').classList.toggle('hidden', name!=='marketing');
   document.getElementById('partnerDetailOverlay').classList.remove('show');
   document.getElementById('comingSoonPage').classList.toggle('hidden', !SOON_SECTIONS.includes(name));
 
@@ -1210,9 +1301,9 @@ function showSection(name){
 
   document.getElementById('pageTitle').textContent = PAGE_TITLES[name] || '';
   document.body.classList.remove('sidebar-open');
-  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics'||name==='partners'||name==='purchasing'||name==='finance') ? '' : 'none';
+  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics'||name==='partners'||name==='purchasing'||name==='finance'||name==='marketing') ? '' : 'none';
   document.getElementById('refreshBtn').onclick =
-    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : name==='partners' ? loadPartners : name==='purchasing' ? loadPurchasingPage : name==='finance' ? loadFinancePage : null;
+    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : name==='partners' ? loadPartners : name==='purchasing' ? loadPurchasingPage : name==='finance' ? loadFinancePage : name==='marketing' ? loadMarketingPage : null;
   if(name==='products' && !productsLoadedOnce){
     productsLoadedOnce = true;
     loadProductsAdmin();
@@ -1232,6 +1323,9 @@ function showSection(name){
   }
   if(name==='finance'){
     loadFinancePage();
+  }
+  if(name==='marketing'){
+    loadMarketingPage();
   }
   if(name==='purchasing'){
     loadPurchasingPage();
@@ -3032,6 +3126,302 @@ async function deleteOwnerTx(id){
     console.error('Не удалось удалить:', e);
     alert('Не удалось удалить — проверь подключение к серверу.');
   }
+}
+
+/* ==========================================================================
+   МАРКЕТИНГ
+   ========================================================================== */
+let currentMarketingTab = 'promo';
+let ALL_PROMO_CODES = [];
+
+function setMarketingTab(tab){
+  currentMarketingTab = tab;
+  document.querySelectorAll('[data-mktab]').forEach(b => b.classList.toggle('active', b.dataset.mktab===tab));
+  renderMarketingTab();
+}
+
+async function loadMarketingPage(){
+  renderMarketingTab();
+}
+
+async function renderMarketingTab(){
+  const box = document.getElementById('marketingTabContent');
+  box.innerHTML = `<div class="pm-hint" style="margin-top:14px">Загрузка…</div>`;
+  try{
+    if(currentMarketingTab === 'promo') return await renderPromoTab(box);
+    if(currentMarketingTab === 'campaigns') return await renderCampaignsTab(box);
+    if(currentMarketingTab === 'bloggers') return await renderBloggersTab(box);
+    if(currentMarketingTab === 'audience') return await renderAudienceTab(box);
+  }catch(e){
+    console.error('Ошибка загрузки маркетинга:', e);
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+async function renderPromoTab(box){
+  const promos = await apiFetch('/api/promo-codes');
+  ALL_PROMO_CODES = promos;
+  box.innerHTML = `
+    <div class="pt-page-head" style="margin-top:18px">
+      <div class="pt-page-title">Промокоды</div>
+      <button class="btn-solid" onclick="openPromoForm()">+ Добавить промокод</button>
+    </div>
+    <div class="pt-table-wrap" style="margin-top:12px">
+      <table class="pt-table">
+        <thead><tr><th>Код</th><th>Скидка</th><th>Использован</th><th>Продал на</th><th>Лимит</th><th>Истекает</th><th>Статус</th><th></th></tr></thead>
+        <tbody>
+          ${promos.length ? promos.map(p => `
+            <tr>
+              <td><b>${esc(p.code)}</b></td>
+              <td>${p.discount_type==='percent'?p.discount_value+'%':p.discount_value+' смн'}</td>
+              <td>${p.used_count}${p.usage_limit?'/'+p.usage_limit:''}</td>
+              <td>${Number(p.revenue).toLocaleString('ru-RU')} смн</td>
+              <td>${p.usage_limit ?? '—'}</td>
+              <td>${p.expires_at ? new Date(p.expires_at).toLocaleDateString('ru-RU') : '—'}</td>
+              <td><span class="courier-badge ${p.active?'active':'pending'}">${p.active?'Активен':'Отключён'}</span></td>
+              <td>
+                <button class="btn-outline" onclick="togglePromo(${p.id}, ${p.active?0:1})">${p.active?'Откл.':'Вкл.'}</button>
+                <button class="btn-outline" onclick="deletePromo(${p.id})">Удалить</button>
+              </td>
+            </tr>
+          `).join('') : `<tr><td colspan="8" class="pt-muted">Промокодов пока нет.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function openPromoForm(){
+  document.getElementById('pcCode').value = '';
+  document.getElementById('pcType').value = 'percent';
+  document.getElementById('pcValue').value = '';
+  document.getElementById('pcLimit').value = '';
+  document.getElementById('pcExpires').value = '';
+  document.getElementById('promoFormError').style.display = 'none';
+  document.getElementById('promoModalOverlay').classList.add('show');
+}
+function closePromoForm(){ document.getElementById('promoModalOverlay').classList.remove('show'); }
+
+async function savePromo(){
+  const code = document.getElementById('pcCode').value.trim();
+  const discount_value = Number(document.getElementById('pcValue').value);
+  const errBox = document.getElementById('promoFormError');
+  if(!code || !discount_value){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  try{
+    await apiFetch('/api/promo-codes', {
+      method:'POST',
+      body: JSON.stringify({
+        code, discount_type: document.getElementById('pcType').value, discount_value,
+        usage_limit: Number(document.getElementById('pcLimit').value) || null,
+        expires_at: document.getElementById('pcExpires').value || null,
+      })
+    });
+    closePromoForm();
+    renderMarketingTab();
+  }catch(e){
+    console.error('Не удалось сохранить промокод:', e);
+    errBox.textContent = 'Не удалось сохранить (возможно, такой код уже есть).';
+    errBox.style.display = 'block';
+  }
+}
+
+async function togglePromo(id, active){
+  try{ await apiFetch('/api/promo-codes/' + id, { method:'PATCH', body: JSON.stringify({ active }) }); renderMarketingTab(); }
+  catch(e){ console.error(e); alert('Не удалось сохранить.'); }
+}
+async function deletePromo(id){
+  if(!confirm('Удалить промокод?')) return;
+  try{ await apiFetch('/api/promo-codes/' + id, { method:'DELETE' }); renderMarketingTab(); }
+  catch(e){ console.error(e); alert('Не удалось удалить.'); }
+}
+
+async function ensurePromoOptions(selectId){
+  if(!ALL_PROMO_CODES.length){
+    try{ ALL_PROMO_CODES = await apiFetch('/api/promo-codes'); }catch(e){}
+  }
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = '<option value="">— без промокода —</option>' +
+    ALL_PROMO_CODES.map(p => `<option value="${p.id}">${esc(p.code)}</option>`).join('');
+}
+
+async function renderCampaignsTab(box){
+  const campaigns = await apiFetch('/api/marketing/campaigns');
+  box.innerHTML = `
+    <div class="pt-page-head" style="margin-top:18px">
+      <div class="pt-page-title">Рекламные кампании</div>
+      <button class="btn-solid" onclick="openCampaignForm()">+ Добавить кампанию</button>
+    </div>
+    <div class="pt-table-wrap" style="margin-top:12px">
+      <table class="pt-table">
+        <thead><tr><th>Название</th><th>Платформа</th><th>Бюджет</th><th>Промокод</th><th>Заказов</th><th>Выручка</th><th>ROAS</th><th></th></tr></thead>
+        <tbody>
+          ${campaigns.length ? campaigns.map(c => `
+            <tr>
+              <td><b>${esc(c.name)}</b><div class="pt-muted">${c.start_date?new Date(c.start_date).toLocaleDateString('ru-RU'):''}${c.end_date?' – '+new Date(c.end_date).toLocaleDateString('ru-RU'):''}</div></td>
+              <td>${esc(c.platform||'—')}</td>
+              <td>${Number(c.budget).toLocaleString('ru-RU')} смн</td>
+              <td>${c.promo_code?esc(c.promo_code):'—'}</td>
+              <td>${c.stats.orders_count}</td>
+              <td>${c.stats.revenue.toLocaleString('ru-RU')} смн</td>
+              <td>${c.stats.roas!=null ? `<b style="color:${c.stats.roas>=1?'var(--accent-green-dark)':'var(--brick)'}">${c.stats.roas}x</b>` : '—'}</td>
+              <td><button class="btn-outline" onclick="deleteCampaign(${c.id})">Удалить</button></td>
+            </tr>
+          `).join('') : `<tr><td colspan="8" class="pt-muted">Кампаний пока нет.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function openCampaignForm(){
+  document.getElementById('cmName').value = '';
+  document.getElementById('cmPlatform').value = '';
+  document.getElementById('cmBudget').value = '';
+  document.getElementById('cmStart').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cmEnd').value = '';
+  document.getElementById('cmNote').value = '';
+  document.getElementById('campaignFormError').style.display = 'none';
+  await ensurePromoOptions('cmPromoId');
+  document.getElementById('campaignModalOverlay').classList.add('show');
+}
+function closeCampaignForm(){ document.getElementById('campaignModalOverlay').classList.remove('show'); }
+
+async function saveCampaign(){
+  const name = document.getElementById('cmName').value.trim();
+  const errBox = document.getElementById('campaignFormError');
+  if(!name){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  try{
+    await apiFetch('/api/marketing/campaigns', {
+      method:'POST',
+      body: JSON.stringify({
+        name, platform: document.getElementById('cmPlatform').value.trim() || null,
+        budget: Number(document.getElementById('cmBudget').value) || 0,
+        start_date: document.getElementById('cmStart').value || null,
+        end_date: document.getElementById('cmEnd').value || null,
+        promo_code_id: Number(document.getElementById('cmPromoId').value) || null,
+        note: document.getElementById('cmNote').value.trim() || null,
+      })
+    });
+    closeCampaignForm();
+    renderMarketingTab();
+  }catch(e){
+    console.error('Не удалось сохранить кампанию:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
+  }
+}
+
+async function deleteCampaign(id){
+  if(!confirm('Удалить кампанию?')) return;
+  try{ await apiFetch('/api/marketing/campaigns/' + id, { method:'DELETE' }); renderMarketingTab(); }
+  catch(e){ console.error(e); alert('Не удалось удалить.'); }
+}
+
+async function renderBloggersTab(box){
+  const bloggers = await apiFetch('/api/marketing/bloggers');
+  box.innerHTML = `
+    <div class="pt-page-head" style="margin-top:18px">
+      <div class="pt-page-title">Блогеры</div>
+      <button class="btn-solid" onclick="openBloggerForm()">+ Добавить блогера</button>
+    </div>
+    <div class="pt-table-wrap" style="margin-top:12px">
+      <table class="pt-table">
+        <thead><tr><th>Имя</th><th>Соцсеть</th><th>Договорённость</th><th>Промокод</th><th>Заказов</th><th>Выручка</th><th>К оплате</th><th></th></tr></thead>
+        <tbody>
+          ${bloggers.length ? bloggers.map(b => `
+            <tr>
+              <td><b>${esc(b.name)}</b></td>
+              <td>${esc(b.platform||'—')}</td>
+              <td>${b.deal_type==='fixed'?b.fee_amount+' смн фикс':b.fee_amount+'% с продаж'}</td>
+              <td>${b.promo_code?esc(b.promo_code):'—'}</td>
+              <td>${b.stats.orders_count}</td>
+              <td>${b.stats.revenue.toLocaleString('ru-RU')} смн</td>
+              <td><b>${b.stats.owed.toLocaleString('ru-RU')} смн</b></td>
+              <td><button class="btn-outline" onclick="deleteBlogger(${b.id})">Удалить</button></td>
+            </tr>
+          `).join('') : `<tr><td colspan="8" class="pt-muted">Блогеров пока нет.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function openBloggerForm(){
+  document.getElementById('blName').value = '';
+  document.getElementById('blPlatform').value = '';
+  document.getElementById('blContact').value = '';
+  document.getElementById('blDealType').value = 'fixed';
+  document.getElementById('blFee').value = '';
+  document.getElementById('blNotes').value = '';
+  document.getElementById('bloggerFormError').style.display = 'none';
+  await ensurePromoOptions('blPromoId');
+  document.getElementById('bloggerModalOverlay').classList.add('show');
+}
+function closeBloggerForm(){ document.getElementById('bloggerModalOverlay').classList.remove('show'); }
+
+async function saveBlogger(){
+  const name = document.getElementById('blName').value.trim();
+  const errBox = document.getElementById('bloggerFormError');
+  if(!name){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  const contact = document.getElementById('blContact').value.trim();
+  try{
+    await apiFetch('/api/marketing/bloggers', {
+      method:'POST',
+      body: JSON.stringify({
+        name, platform: document.getElementById('blPlatform').value.trim() || null,
+        phone: contact.startsWith('@') ? null : (contact || null),
+        telegram: contact.startsWith('@') ? contact : null,
+        deal_type: document.getElementById('blDealType').value,
+        fee_amount: Number(document.getElementById('blFee').value) || 0,
+        promo_code_id: Number(document.getElementById('blPromoId').value) || null,
+        notes: document.getElementById('blNotes').value.trim() || null,
+      })
+    });
+    closeBloggerForm();
+    renderMarketingTab();
+  }catch(e){
+    console.error('Не удалось сохранить блогера:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
+  }
+}
+
+async function deleteBlogger(id){
+  if(!confirm('Удалить блогера?')) return;
+  try{ await apiFetch('/api/marketing/bloggers/' + id, { method:'DELETE' }); renderMarketingTab(); }
+  catch(e){ console.error(e); alert('Не удалось удалить.'); }
+}
+
+async function renderAudienceTab(box){
+  const a = await apiFetch('/api/marketing/audience');
+  const weekdays = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const maxHour = Math.max(...a.by_hour, 1);
+  const maxDay = Math.max(...a.by_weekday, 1);
+  box.innerHTML = `
+    <div class="pt-overview-grid" style="margin-top:18px">
+      <div><div class="l">Всего клиентов</div><div class="v">${a.total_customers}</div></div>
+      <div><div class="l">Новых</div><div class="v">${a.new_customers}</div></div>
+      <div><div class="l">Повторных</div><div class="v green">${a.repeat_customers}</div></div>
+      <div><div class="l">Частота повторов</div><div class="v">${a.repeat_rate}%</div></div>
+      <div><div class="l">Средн. заказов/клиент</div><div class="v">${a.avg_orders_per_customer}</div></div>
+      <div><div class="l">Клиентов с 3+ заказами</div><div class="v">${a.customers_3plus}</div></div>
+    </div>
+
+    <div class="pt-page-head" style="margin-top:24px"><div class="pt-page-title">По часам (заказов)</div></div>
+    <div class="fin-bar-chart">
+      ${a.by_hour.map((v,h) => `<div class="fin-bar" style="height:${v?Math.max(6,v/maxHour*80):2}px" title="${h}:00 — ${v}"></div>`).join('')}
+    </div>
+    <div class="fin-bar-labels">${a.by_hour.map((_,h)=>h%3===0?`<span>${h}</span>`:'<span></span>').join('')}</div>
+
+    <div class="pt-page-head" style="margin-top:24px"><div class="pt-page-title">По дням недели</div></div>
+    <div class="fin-bar-chart">
+      ${a.by_weekday.map((v,d) => `<div class="fin-bar" style="height:${v?Math.max(6,v/maxDay*80):2}px" title="${weekdays[d]} — ${v}"></div>`).join('')}
+    </div>
+    <div class="fin-bar-labels">${weekdays.map(w=>`<span>${w}</span>`).join('')}</div>
+  `;
 }
 
 function openExpenseForm(){
