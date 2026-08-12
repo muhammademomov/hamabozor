@@ -1607,6 +1607,12 @@ setupWaLinks();
 handleRoute();
 loadProducts();
 loadBanners();
+
+// один раз за сессию отмечаем посещение сайта — для дашборда (трафик/конверсия)
+if(!sessionStorage.getItem('hb_visit_tracked')){
+  sessionStorage.setItem('hb_visit_tracked', '1');
+  fetch('/api/track-visit', { method:'POST' }).catch(()=>{});
+}
 </script>
 </body>
 </html>

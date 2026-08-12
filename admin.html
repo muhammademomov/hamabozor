@@ -417,6 +417,17 @@ header{
 .fin-bar{flex:1;background:var(--brand-blue);border-radius:3px 3px 0 0;min-width:4px}
 .fin-bar-labels{display:flex;gap:3px;margin-top:4px}
 .fin-bar-labels span{flex:1;text-align:center;font-size:9px;color:#8a8478}
+.dash-two-col{display:flex !important;gap:16px;flex-wrap:wrap}
+.dash-two-col > *{flex:1 1 380px;min-width:320px}
+.dash-chart-wrap{display:flex;align-items:flex-end;gap:4px;height:160px;margin-top:14px;overflow-x:auto;padding-bottom:4px}
+.dash-chart-col{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:24px}
+.dash-chart-bar{width:18px;background:var(--brand-blue);border-radius:4px 4px 0 0}
+.dash-chart-bar.forecast{background:repeating-linear-gradient(45deg,var(--marigold),var(--marigold) 3px,transparent 3px,transparent 6px);opacity:.7}
+.dash-chart-col span{font-size:9px;color:#8a8478;white-space:nowrap}
+.dash-rank{
+  display:inline-flex;width:18px;height:18px;border-radius:50%;background:var(--brand-blue);color:#fff;
+  font-size:10px;align-items:center;justify-content:center;margin-right:4px;
+}
 .pt-page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .pt-page-title{font-family:'Unbounded',sans-serif;font-weight:800;font-size:16px;color:var(--indigo)}
 .pr-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
@@ -716,7 +727,25 @@ tbody tr:hover{background:var(--cream)}
     </header>
 
   <div class="wrap hidden" id="dashboardPage">
-    <div class="dash-grid" id="dashGrid"></div>
+    <div class="fin-period-row">
+      <button class="fin-period-btn active" data-dperiod="today" onclick="setDashboardPeriod('today')">Сегодня</button>
+      <button class="fin-period-btn" data-dperiod="week" onclick="setDashboardPeriod('week')">7 дней</button>
+      <button class="fin-period-btn" data-dperiod="month" onclick="setDashboardPeriod('month')">Месяц</button>
+      <button class="fin-period-btn" data-dperiod="custom" onclick="openDashboardCustomRange()">Свой диапазон</button>
+    </div>
+    <div id="dashContent"></div>
+  </div>
+
+  <div class="modal-overlay" id="dashRangeModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:380px">
+      <button class="modal-close-x" onclick="document.getElementById('dashRangeModalOverlay').classList.remove('show')" aria-label="Закрыть">✕</button>
+      <h3>Свой диапазон</h3>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>С</label><input id="dashRangeFrom" type="date"></div>
+        <div class="pm-field"><label>По</label><input id="dashRangeTo" type="date"></div>
+      </div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="applyDashboardCustomRange()">Показать</button>
+    </div>
   </div>
 
   <div class="wrap" id="ordersPage">
@@ -1337,29 +1366,129 @@ function showSection(name){
   }
 }
 
+let currentDashPeriod = 'today';
+let currentDashFrom = null, currentDashTo = null;
+
+function setDashboardPeriod(period){
+  currentDashPeriod = period;
+  currentDashFrom = null; currentDashTo = null;
+  document.querySelectorAll('[data-dperiod]').forEach(b => b.classList.toggle('active', b.dataset.dperiod===period));
+  loadDashboard();
+}
+
+function openDashboardCustomRange(){
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('dashRangeFrom').value = currentDashFrom || today;
+  document.getElementById('dashRangeTo').value = currentDashTo || today;
+  document.getElementById('dashRangeModalOverlay').classList.add('show');
+}
+function applyDashboardCustomRange(){
+  currentDashFrom = document.getElementById('dashRangeFrom').value;
+  currentDashTo = document.getElementById('dashRangeTo').value;
+  currentDashPeriod = 'custom';
+  document.querySelectorAll('[data-dperiod]').forEach(b => b.classList.toggle('active', b.dataset.dperiod==='custom'));
+  document.getElementById('dashRangeModalOverlay').classList.remove('show');
+  loadDashboard();
+}
+
+const ORDER_SOURCE_LABEL = { direct:'Сайт', whatsapp:'WhatsApp', telegram:'Telegram' };
+
 async function loadDashboard(){
-  const grid = document.getElementById('dashGrid');
-  grid.innerHTML = `<div class="dash-card"><div class="l">Загрузка…</div></div>`;
+  const box = document.getElementById('dashContent');
+  box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
   try{
-    const [ordersRes, productsRes] = await Promise.all([
-      fetch('/api/orders', { headers:{ 'Authorization':'Bearer '+getToken() } }),
-      fetch('/api/products?all=1')
-    ]);
-    const orders = ordersRes.ok ? await ordersRes.json() : [];
-    const products = productsRes.ok ? await productsRes.json() : [];
-    const activeOrders = Array.isArray(orders) ? orders : (orders.orders || []);
-    const notCancelled = activeOrders.filter(o => o.status !== 'cancel');
-    const revenue = notCancelled.reduce((sum,o) => sum + (Number(o.total)||0), 0);
-    const newOrders = activeOrders.filter(o => o.status === 'new').length;
-    grid.innerHTML = `
-      <div class="dash-card"><div class="l">Всего заказов</div><div class="v">${activeOrders.length}</div></div>
-      <div class="dash-card"><div class="l">Новые заказы</div><div class="v green">${newOrders}</div></div>
-      <div class="dash-card"><div class="l">Выручка (без отменённых)</div><div class="v">${revenue.toLocaleString('ru-RU')} смн</div></div>
-      <div class="dash-card"><div class="l">Товаров в каталоге</div><div class="v">${Array.isArray(products)?products.length:0}</div></div>
+    let url = '/api/dashboard/summary?period=' + currentDashPeriod;
+    if(currentDashPeriod==='custom' && currentDashFrom && currentDashTo) url += '&from='+currentDashFrom+'&to='+currentDashTo;
+    const d = await apiFetch(url);
+
+    const maxChart = Math.max(1, ...d.chart.by_day.map(x=>x.sales), ...d.chart.forecast.map(x=>x.sales));
+    const chartPoints = [...d.chart.by_day.map(x=>({...x,isForecast:false})), ...d.chart.forecast.map(x=>({...x,isForecast:true}))];
+
+    box.innerHTML = `
+      <div class="pt-grid" style="margin-top:18px">
+        ${finCard('📷','blue','Общая выручка', d.revenue.toLocaleString('ru-RU')+' смн', null)}
+        ${finCard('🛒','blue','Всего заказов', d.orders_count, null)}
+        ${finCard('👥','purple','Общий трафик', d.traffic+' посещений', null)}
+        ${finCard('📈','orange','Конверсия', d.conversion+'%', null)}
+        ${finCard('💳','teal','Средний чек', d.avg_check.toLocaleString('ru-RU')+' смн', null)}
+      </div>
+
+      <div class="dash-two-col" style="margin-top:22px">
+        <div class="courier-setup-card">
+          <div class="courier-setup-title">📊 Продажи по дням + Прогноз ${d.chart.forecast_pct>=0?'▲':'▼'} ${d.chart.forecast_pct}%</div>
+          <div class="dash-chart-wrap">
+            ${chartPoints.map(p => `
+              <div class="dash-chart-col">
+                <div class="dash-chart-bar ${p.isForecast?'forecast':''}" style="height:${Math.max(4,p.sales/maxChart*140)}px" title="${p.date}: ${p.sales} смн"></div>
+                <span>${p.date.slice(5)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="courier-setup-card">
+          <div class="courier-setup-title">👥 Клиенты</div>
+          <div class="pt-overview-grid" style="margin-top:10px">
+            <div><div class="l">Повторные покупки</div><div class="v">${d.customers.repeat_rate}%</div></div>
+            <div><div class="l">Новые клиенты</div><div class="v">${d.customers.new_rate}%</div></div>
+            <div><div class="l">Средний LTV</div><div class="v orange">${d.customers.avg_ltv.toLocaleString('ru-RU')} смн</div></div>
+            <div><div class="l">VIP клиентов</div><div class="v">👑 ${d.customers.vip_customers}</div></div>
+          </div>
+          <div class="pt-page-head" style="margin-top:16px"><div class="pt-page-title" style="font-size:12px">Топ покупателей</div></div>
+          ${d.customers.top_customers.map((c,i) => `
+            <div class="fin-detail-row">
+              <span><b class="dash-rank">${i+1}</b> ${esc(c.name||'—')}<br><span class="pt-muted">${c.orders} заказ(ов)</span></span>
+              <b>${c.total.toLocaleString('ru-RU')} смн</b>
+            </div>
+          `).join('') || '<div class="pm-hint">Пока нет данных.</div>'}
+        </div>
+      </div>
+
+      <div class="dash-two-col" style="margin-top:16px">
+        <div class="courier-setup-card">
+          <div class="courier-setup-title">🔥 Топ продаваемых товаров</div>
+          ${d.products.top_selling.map(p => `
+            <div class="fin-detail-row"><span><b>${esc(p.name)}</b><br><span class="pt-muted">${p.qty} шт · 👁 ${p.views}</span></span><b>${p.revenue.toLocaleString('ru-RU')} смн</b></div>
+          `).join('') || '<div class="pm-hint">Пока нет продаж за период.</div>'}
+        </div>
+        <div class="courier-setup-card">
+          <div class="courier-setup-title">📉 Товары с низкими продажами</div>
+          ${d.products.worst_selling.map(p => `
+            <div class="fin-detail-row" style="color:var(--brick)"><span><b>${esc(p.name)}</b><br><span class="pt-muted">${p.qty} продаж · склад ${p.stock??'—'} · 👁 ${p.views}</span></span></div>
+          `).join('') || '<div class="pm-hint">—</div>'}
+        </div>
+      </div>
+
+      <div class="pt-grid" style="margin-top:16px">
+        <div class="courier-setup-card">
+          <div class="courier-setup-title">📦 Все товары</div>
+          <div class="fin-card-value" style="margin-top:8px">${d.products.total_count} товаров</div>
+          <div class="pt-muted" style="margin-top:4px">${d.products.total_units_sold} шт продано всего · ${d.products.total_revenue_all.toLocaleString('ru-RU')} смн</div>
+        </div>
+        <div class="courier-setup-card">
+          <div class="courier-setup-title">🏬 Стоимость склада</div>
+          <div class="fin-card-value" style="margin-top:8px">${d.products.inventory_value.toLocaleString('ru-RU')} смн</div>
+          <div class="pt-muted" style="margin-top:4px">маржа при полной продаже +${d.products.inventory_margin_pct}%</div>
+        </div>
+        <div class="courier-setup-card">
+          <div class="courier-setup-title">📱 Источники заказов</div>
+          ${d.order_sources.length ? d.order_sources.map(s => `
+            <div class="fin-detail-row"><span>${ORDER_SOURCE_LABEL[s.channel]||s.channel}</span><b>${s.count}</b></div>
+          `).join('') : '<div class="pm-hint">Нет данных за период.</div>'}
+        </div>
+        <div class="courier-setup-card">
+          <div class="courier-setup-title">📣 Маркетинг</div>
+          <div class="pt-overview-grid" style="margin-top:8px">
+            <div><div class="l">Бюджет</div><div class="v">${d.marketing.budget.toLocaleString('ru-RU')} смн</div></div>
+            <div><div class="l">Доход по промокодам</div><div class="v green">${d.marketing.revenue.toLocaleString('ru-RU')} смн</div></div>
+          </div>
+          <div class="pt-muted" style="margin-top:8px">ROI: <b style="color:${d.marketing.roi_pct>=0?'var(--accent-green-dark)':'var(--brick)'}">${d.marketing.roi_pct>=0?'+':''}${d.marketing.roi_pct}%</b></div>
+        </div>
+      </div>
     `;
   }catch(e){
     console.error('Не удалось загрузить дашборд:', e);
-    grid.innerHTML = `<div class="dash-card"><div class="l">Не удалось загрузить данные</div></div>`;
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить данные — проверь подключение к серверу.</div>`;
   }
 }
 

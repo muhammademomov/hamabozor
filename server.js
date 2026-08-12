@@ -53,6 +53,16 @@ function requireAuth(req, res, next) {
 // ----------------------------------------------------------------------------
 // публичный эндпоинт: создать заказ (вызывается из index.html)
 // ----------------------------------------------------------------------------
+// учёт посещения сайта (вызывается с главной страницы один раз за сессию)
+app.post('/api/track-visit', async (req, res) => {
+  try {
+    await pool.query('INSERT INTO site_visits (created_at) VALUES (NOW())');
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false }); // не мешаем сайту работать, если это не удалось
+  }
+});
+
 app.post('/api/orders', async (req, res) => {
   const { customer_name, customer_phone, customer_address, comment, items, total, channel, promo_code } = req.body || {};
 
@@ -191,6 +201,168 @@ app.post('/api/orders/:id/assign-courier', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Ошибка назначения курьера:', e);
     res.status(500).json({ error: 'Не удалось назначить курьера' });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// ДАШБОРД — большая сводка: выручка, трафик, график, клиенты, товары
+// ----------------------------------------------------------------------------
+function resolveDateRange(period, from, to) {
+  const now = new Date();
+  if (period === 'custom' && from && to) return { from, to };
+  if (period === 'week') { const d = new Date(now); d.setDate(d.getDate() - 6); return { from: d.toISOString().slice(0,10), to: now.toISOString().slice(0,10) }; }
+  if (period === 'month') { const d = new Date(now); d.setDate(d.getDate() - 29); return { from: d.toISOString().slice(0,10), to: now.toISOString().slice(0,10) }; }
+  // today
+  const t = now.toISOString().slice(0,10);
+  return { from: t, to: t };
+}
+
+app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
+  const period = req.query.period || 'today';
+  const { from, to } = resolveDateRange(period, req.query.from, req.query.to);
+
+  try {
+    // --- выручка / заказы / средний чек за период ---
+    const [ordersInRange] = await pool.query(
+      "SELECT * FROM orders WHERE status = 'done' AND DATE(created_at) BETWEEN ? AND ? ORDER BY created_at ASC",
+      [from, to]
+    );
+    const revenue = ordersInRange.reduce((s,o) => s + (Number(o.total)||0), 0);
+    const ordersCount = ordersInRange.length;
+    const avgCheck = ordersCount ? round2(revenue / ordersCount) : 0;
+
+    // --- трафик и конверсия ---
+    const [[visitRow]] = await pool.query('SELECT COUNT(*) AS cnt FROM site_visits WHERE DATE(created_at) BETWEEN ? AND ?', [from, to]);
+    const traffic = Number(visitRow.cnt) || 0;
+    const conversion = traffic ? round2(ordersCount / traffic * 100) : 0;
+    const [[visitYestRow]] = await pool.query(
+      'SELECT COUNT(*) AS cnt FROM site_visits WHERE DATE(created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)'
+    );
+    const [[visitTodayRow]] = await pool.query('SELECT COUNT(*) AS cnt FROM site_visits WHERE DATE(created_at) = CURDATE()');
+    const trafficYesterday = Number(visitYestRow.cnt) || 0;
+    const trafficToday = Number(visitTodayRow.cnt) || 0;
+    const trafficDiff = trafficToday - trafficYesterday;
+    const trafficDiffPct = trafficYesterday ? round2(trafficDiff / trafficYesterday * 100) : 0;
+
+    // --- график продажи/расходы/прибыль по дням за период + 3 дня прогноза ---
+    const [genExpAll] = await pool.query('SELECT expense_date, amount FROM general_expenses WHERE expense_date BETWEEN ? AND ?', [from, to]);
+    const [purchAll] = await pool.query('SELECT purchase_date, qty, unit_price FROM purchases WHERE purchase_date BETWEEN ? AND ?', [from, to]);
+    const dayMap = {};
+    const addDay = (dateStr) => { if(!dayMap[dateStr]) dayMap[dateStr] = { sales:0, expenses:0 }; return dayMap[dateStr]; };
+    for (const o of ordersInRange) {
+      const key = new Date(o.created_at).toISOString().slice(0,10);
+      addDay(key).sales += Number(o.total) || 0;
+    }
+    for (const e of genExpAll) {
+      const key = new Date(e.expense_date).toISOString().slice(0,10);
+      addDay(key).expenses += Number(e.amount) || 0;
+    }
+    for (const p of purchAll) {
+      const key = new Date(p.purchase_date).toISOString().slice(0,10);
+      addDay(key).expenses += (Number(p.qty)||0) * (Number(p.unit_price)||0);
+    }
+    const dayKeys = Object.keys(dayMap).sort();
+    const salesByDay = dayKeys.map(d => ({
+      date: d, sales: round2(dayMap[d].sales), expenses: round2(dayMap[d].expenses),
+      profit: round2(dayMap[d].sales - dayMap[d].expenses),
+    }));
+    // простой прогноз: среднее последних 3 дней, плоской линией на 3 дня вперёд (не ИИ, просто тренд)
+    const last3 = salesByDay.slice(-3);
+    const avgLast3 = last3.length ? last3.reduce((s,d)=>s+d.sales,0) / last3.length : 0;
+    const prevAvg = salesByDay.length > 3 ? salesByDay.slice(-6,-3).reduce((s,d)=>s+d.sales,0) / Math.max(1, salesByDay.slice(-6,-3).length) : avgLast3;
+    const forecastPct = prevAvg ? round2((avgLast3 - prevAvg) / prevAvg * 100) : 0;
+    const forecast = [];
+    if (dayKeys.length) {
+      const lastDate = new Date(dayKeys[dayKeys.length-1]);
+      for (let i=1;i<=3;i++){
+        const d = new Date(lastDate); d.setDate(d.getDate()+i);
+        forecast.push({ date: d.toISOString().slice(0,10), sales: round2(avgLast3) });
+      }
+    }
+
+    // --- клиенты: за всё время (LTV, повторные, VIP, топ) ---
+    const [allDoneOrders] = await pool.query("SELECT customer_name, customer_phone, total FROM orders WHERE status = 'done'");
+    const custMap = {};
+    for (const o of allDoneOrders) {
+      const phone = (o.customer_phone||'').replace(/\D/g,'');
+      if(!phone) continue;
+      if(!custMap[phone]) custMap[phone] = { name: o.customer_name, phone, orders: 0, total: 0 };
+      custMap[phone].orders += 1;
+      custMap[phone].total += Number(o.total) || 0;
+    }
+    const custList = Object.values(custMap);
+    const totalCustomers = custList.length;
+    const repeatCustomers = custList.filter(c => c.orders > 1).length;
+    const repeatRate = totalCustomers ? round2(repeatCustomers / totalCustomers * 100) : 0;
+    const newRate = totalCustomers ? round2(100 - repeatRate) : 0;
+    const totalRevenueAll = custList.reduce((s,c)=>s+c.total,0);
+    const avgLtv = totalCustomers ? round2(totalRevenueAll / totalCustomers) : 0;
+    const vipThreshold = avgLtv * 3;
+    const vipCustomers = custList.filter(c => c.total >= vipThreshold && vipThreshold > 0).length;
+    const topCustomers = [...custList].sort((a,b)=>b.total-a.total).slice(0,5).map(c => ({ name:c.name, orders:c.orders, total: round2(c.total) }));
+
+    // --- товары: топ продаж / низкие продажи / всего / стоимость склада ---
+    const [allProducts] = await pool.query('SELECT id, name_ru, price, cost_price, stock, sales, views, active FROM products');
+    const productStatsMap = {};
+    allProducts.forEach(p => { productStatsMap[p.id] = { qty:0, revenue:0 }; });
+    for (const o of ordersInRange) {
+      const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items||[]);
+      for (const it of items) {
+        if (productStatsMap[it.id]) {
+          productStatsMap[it.id].qty += Number(it.qty)||0;
+          productStatsMap[it.id].revenue += (Number(it.price)||0) * (Number(it.qty)||0);
+        }
+      }
+    }
+    const productsRanked = allProducts.map(p => ({
+      id:p.id, name: p.name_ru, qty: productStatsMap[p.id].qty, revenue: round2(productStatsMap[p.id].revenue),
+      stock: p.stock, views: p.views || 0,
+    }));
+    const topSelling = [...productsRanked].sort((a,b)=>b.qty-a.qty).filter(p=>p.qty>0).slice(0,5);
+    const worstSelling = [...productsRanked].sort((a,b)=>a.qty-b.qty).slice(0,5);
+    const totalUnitsSoldAll = allProducts.reduce((s,p)=>s+(Number(p.sales)||0),0);
+    const totalRevenueFromSalesField = allProducts.reduce((s,p)=>s+(Number(p.sales)||0)*(Number(p.price)||0),0);
+    const inventoryValue = allProducts.reduce((s,p)=> s + (Number(p.stock)||0) * (Number(p.cost_price)||0), 0);
+    const inventoryRetailValue = allProducts.reduce((s,p)=> s + (Number(p.stock)||0) * (Number(p.price)||0), 0);
+    const inventoryMarginPct = inventoryValue ? round2((inventoryRetailValue - inventoryValue) / inventoryValue * 100) : 0;
+    const topViewed = [...productsRanked].sort((a,b)=>b.views-a.views).slice(0,5);
+
+    // --- источники заказов ---
+    const [chRows] = await pool.query("SELECT channel, COUNT(*) AS cnt FROM orders WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY channel", [from, to]);
+    const orderSources = chRows.map(r => ({ channel: r.channel || 'direct', count: Number(r.cnt) }));
+
+    // --- маркетинг: бюджет всех кампаний vs выручка по промокодам ---
+    const [campaigns] = await pool.query('SELECT c.*, p.code AS promo_code FROM marketing_campaigns c LEFT JOIN promo_codes p ON p.id = c.promo_code_id');
+    const totalBudget = campaigns.reduce((s,c)=>s+(Number(c.budget)||0),0);
+    let marketingRevenue = 0;
+    for (const c of campaigns) {
+      if (c.promo_code) {
+        const stats = await computePromoStats(c.promo_code);
+        marketingRevenue += stats.revenue;
+      }
+    }
+    const roiPct = totalBudget ? round2((marketingRevenue - totalBudget) / totalBudget * 100) : 0;
+
+    res.json({
+      period, from, to,
+      revenue: round2(revenue), orders_count: ordersCount, avg_check: avgCheck,
+      traffic, conversion, traffic_diff: trafficDiff, traffic_diff_pct: trafficDiffPct,
+      chart: { by_day: salesByDay, forecast, forecast_pct: forecastPct },
+      customers: {
+        repeat_rate: repeatRate, new_rate: newRate, avg_ltv: avgLtv, vip_customers: vipCustomers,
+        top_customers: topCustomers,
+      },
+      products: {
+        top_selling: topSelling, worst_selling: worstSelling, top_viewed: topViewed,
+        total_count: allProducts.length, total_units_sold: totalUnitsSoldAll, total_revenue_all: round2(totalRevenueFromSalesField),
+        inventory_value: round2(inventoryValue), inventory_margin_pct: inventoryMarginPct,
+      },
+      order_sources: orderSources,
+      marketing: { budget: round2(totalBudget), revenue: round2(marketingRevenue), roi_pct: roiPct },
+    });
+  } catch (e) {
+    console.error('Ошибка расчёта дашборда:', e);
+    res.status(500).json({ error: 'Не удалось рассчитать дашборд' });
   }
 });
 
@@ -1531,6 +1703,16 @@ async function ensurePurchasesTable() {
   `);
 }
 
+async function ensureVisitsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS site_visits (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_visits_date (created_at)
+    )
+  `);
+}
+
 async function ensureMarketingTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS promo_codes (
@@ -1773,6 +1955,7 @@ async function ensureSchema() {
   await ensurePurchasesTable();
   await ensureFinanceTables();
   await ensureMarketingTables();
+  await ensureVisitsTable();
 
   // если товаров ещё нет — заполняем стартовым набором, чтобы сайт не был пустым
   const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM products');
