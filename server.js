@@ -302,7 +302,15 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
     const topCustomers = [...custList].sort((a,b)=>b.total-a.total).slice(0,5).map(c => ({ name:c.name, orders:c.orders, total: round2(c.total) }));
 
     // --- товары: топ продаж / низкие продажи / всего / стоимость склада ---
-    const [allProducts] = await pool.query('SELECT id, name_ru, price, cost_price, stock, sales, views, active FROM products');
+    const [allProducts] = await pool.query('SELECT id, name_ru, price, cost_price, stock, views, active FROM products');
+    const [allDoneOrdersForSales] = await pool.query("SELECT items FROM orders WHERE status = 'done'");
+    const allTimeSalesById = {};
+    for (const o of allDoneOrdersForSales) {
+      const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items||[]);
+      for (const it of items) {
+        allTimeSalesById[it.id] = (allTimeSalesById[it.id] || 0) + (Number(it.qty) || 0);
+      }
+    }
     const productStatsMap = {};
     allProducts.forEach(p => { productStatsMap[p.id] = { qty:0, revenue:0 }; });
     for (const o of ordersInRange) {
@@ -320,8 +328,8 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
     }));
     const topSelling = [...productsRanked].sort((a,b)=>b.qty-a.qty).filter(p=>p.qty>0).slice(0,5);
     const worstSelling = [...productsRanked].sort((a,b)=>a.qty-b.qty).slice(0,5);
-    const totalUnitsSoldAll = allProducts.reduce((s,p)=>s+(Number(p.sales)||0),0);
-    const totalRevenueFromSalesField = allProducts.reduce((s,p)=>s+(Number(p.sales)||0)*(Number(p.price)||0),0);
+    const totalUnitsSoldAll = allProducts.reduce((s,p)=>s+(allTimeSalesById[p.id]||0),0);
+    const totalRevenueFromSalesField = allProducts.reduce((s,p)=>s+(allTimeSalesById[p.id]||0)*(Number(p.price)||0),0);
     const inventoryValue = allProducts.reduce((s,p)=> s + (Number(p.stock)||0) * (Number(p.cost_price)||0), 0);
     const inventoryRetailValue = allProducts.reduce((s,p)=> s + (Number(p.stock)||0) * (Number(p.price)||0), 0);
     const inventoryMarginPct = inventoryValue ? round2((inventoryRetailValue - inventoryValue) / inventoryValue * 100) : 0;
