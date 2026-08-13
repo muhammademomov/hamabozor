@@ -169,6 +169,44 @@ CREATE TABLE IF NOT EXISTS couriers (
 -- в таблицу orders также добавляются (автоматически при старте сервера):
 --   courier_id INT NULL, delivery_status ENUM('waiting','accepted','in_transit','delivered'), telegram_broadcast JSON
 
+CREATE TABLE IF NOT EXISTS employees (
+  id                      INT AUTO_INCREMENT PRIMARY KEY,
+  first_name              VARCHAR(255) NOT NULL,
+  last_name               VARCHAR(255),
+  middle_name             VARCHAR(255),
+  photo                   LONGTEXT,
+  position                VARCHAR(255),
+  department              VARCHAR(255),
+  birth_date              DATE NULL,
+  email                   VARCHAR(255),
+  phone                   VARCHAR(50),
+  passport_series         VARCHAR(50),
+  social_insurance_number VARCHAR(50),
+  inn                     VARCHAR(50),
+  hire_date               DATE NULL,
+  active                  TINYINT(1) NOT NULL DEFAULT 1,
+  notes                   TEXT,
+  created_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS employee_contacts (
+  id INT AUTO_INCREMENT PRIMARY KEY, employee_id INT NOT NULL, label VARCHAR(100), phone VARCHAR(50)
+);
+CREATE TABLE IF NOT EXISTS employee_lateness (
+  id INT AUTO_INCREMENT PRIMARY KEY, employee_id INT NOT NULL, date DATE NOT NULL, minutes INT NOT NULL DEFAULT 0, note VARCHAR(255), created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS employee_contracts (
+  id INT AUTO_INCREMENT PRIMARY KEY, employee_id INT NOT NULL, title VARCHAR(255) NOT NULL, start_date DATE, end_date DATE NULL, note VARCHAR(255), created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS employee_vacations (
+  id INT AUTO_INCREMENT PRIMARY KEY, employee_id INT NOT NULL, start_date DATE NOT NULL, end_date DATE NOT NULL, type VARCHAR(50) DEFAULT 'Оплачиваемый', note VARCHAR(255), created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS employee_advances (
+  id INT AUTO_INCREMENT PRIMARY KEY, employee_id INT NOT NULL, date DATE NOT NULL, amount DECIMAL(10,2) NOT NULL, note VARCHAR(255), created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS employee_assets (
+  id INT AUTO_INCREMENT PRIMARY KEY, employee_id INT NOT NULL, item_name VARCHAR(255) NOT NULL, serial_number VARCHAR(255), issue_date DATE, return_date DATE NULL, note VARCHAR(255), created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS banners (
   id          INT AUTO_INCREMENT PRIMARY KEY,
   image_data  MEDIUMTEXT NOT NULL,         -- фото баннера (base64)

@@ -430,6 +430,23 @@ header{
 }
 .pt-page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .pt-page-title{font-family:'Unbounded',sans-serif;font-weight:800;font-size:16px;color:var(--indigo)}
+.emp-photo-upload{
+  width:72px;height:72px;border-radius:50%;background:var(--cream);border:2px dashed var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:#8a8478;cursor:pointer;
+  overflow:hidden;background-size:cover;background-position:center;
+}
+.emp-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s}
+.emp-card:hover{transform:translateY(-2px)}
+.emp-card-head{display:flex;align-items:center;gap:12px}
+.emp-avatar{width:52px;height:52px;border-radius:50%;background:var(--brand-blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex-shrink:0;background-size:cover;background-position:center}
+.emp-name{font-weight:700;font-size:14px;color:var(--indigo)}
+.emp-role{font-size:12px;color:#8a8478;margin-top:2px}
+.emp-hero{
+  height:90px;border-radius:14px 14px 0 0;margin:-28px -28px 0;
+  background:linear-gradient(120deg,var(--brand-blue),var(--accent-purple,#7C5CFC));
+}
+.emp-detail-head{display:flex;align-items:flex-end;gap:16px;margin-top:-40px;padding:0 6px}
+.emp-detail-avatar{width:88px;height:88px;border-radius:50%;background:var(--brand-blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:28px;border:4px solid var(--paper);background-size:cover;background-position:center;flex-shrink:0}
 .pr-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
 .pr-card-title{font-weight:700;font-size:14px;color:var(--indigo);margin-bottom:12px}
 .pr-metrics{display:flex !important;flex-wrap:wrap;gap:10px;margin-bottom:12px}
@@ -687,6 +704,7 @@ tbody tr:hover{background:var(--cream)}
       <button class="nav-it active" id="tabOrders" onclick="showSection('orders')"><span class="nav-ic">📦</span> Заказы</button>
       <button class="nav-it" id="tabProducts" onclick="showSection('products')"><span class="nav-ic">🏷️</span> Товары</button>
       <button class="nav-it soon" id="tabCustomers" onclick="showSection('customers')"><span class="nav-ic">👥</span> Клиенты <span class="soon-tag">скоро</span></button>
+      <button class="nav-it" id="tabHr" onclick="showSection('hr')"><span class="nav-ic">🧑‍💼</span> Кадры</button>
       <button class="nav-it" id="tabLogistics" onclick="showSection('logistics')"><span class="nav-ic">🚚</span> Курьеры</button>
 
       <div class="sb-nav-group">Инструменты</div>
@@ -907,6 +925,137 @@ tbody tr:hover{background:var(--cream)}
       <button class="pt-tab" data-mktab="audience" onclick="setMarketingTab('audience')">👥 Аудитория</button>
     </div>
     <div id="marketingTabContent"></div>
+  </div>
+
+  <div class="wrap hidden" id="hrPage">
+    <button class="btn-solid" style="margin-bottom:16px" onclick="openEmployeeForm()">+ Добавить сотрудника</button>
+    <div class="pt-grid" id="employeesList"></div>
+  </div>
+
+  <div class="modal-overlay" id="employeeDetailOverlay">
+    <div class="order-modal pt-detail-modal" style="position:relative">
+      <button class="modal-close-x" onclick="closeEmployeeDetail()" aria-label="Закрыть">✕</button>
+      <div id="employeeDetailContent"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="employeeModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:520px">
+      <button class="modal-close-x" onclick="closeEmployeeForm()" aria-label="Закрыть">✕</button>
+      <h3>Новый сотрудник</h3>
+      <div class="pm-field">
+        <label>Фото</label>
+        <div class="emp-photo-upload" id="empPhotoPreview" onclick="document.getElementById('empPhotoInput').click()">+ Фото</div>
+        <input type="file" id="empPhotoInput" accept="image/*" style="display:none" onchange="handleEmpPhoto(this)">
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Имя *</label><input id="empFirstName"></div>
+        <div class="pm-field"><label>Фамилия</label><input id="empLastName"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Отчество</label><input id="empMiddleName"></div>
+        <div class="pm-field"><label>Дата рождения</label><input id="empBirthDate" type="date"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Должность</label><input id="empPosition"></div>
+        <div class="pm-field"><label>Отдел</label><input id="empDepartment"></div>
+      </div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Телефон</label><input id="empPhone"></div>
+        <div class="pm-field"><label>Email</label><input id="empEmail" type="email"></div>
+      </div>
+      <div class="pm-field"><label>Дата приёма на работу</label><input id="empHireDate" type="date"></div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Серия паспорта</label><input id="empPassport"></div>
+        <div class="pm-field"><label>Номер соц. страхования</label><input id="empSocial"></div>
+      </div>
+      <div class="pm-field"><label>ИНН</label><input id="empInn"></div>
+      <div class="pm-field"><label>Заметки</label><textarea id="empNotes" class="cb-textarea"></textarea></div>
+      <div class="pm-error" id="employeeFormError">Укажите имя.</div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveEmployee()">Сохранить сотрудника</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="empContactModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:380px">
+      <button class="modal-close-x" onclick="closeEmpSubForm('empContactModalOverlay')" aria-label="Закрыть">✕</button>
+      <h3>Доп. контакт</h3>
+      <div class="pm-field"><label>Кто (метка)</label><input id="ecLabel" placeholder="брат, отец, дом..."></div>
+      <div class="pm-field"><label>Телефон</label><input id="ecPhone"></div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveEmpContact()">Сохранить</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="empLatenessModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:380px">
+      <button class="modal-close-x" onclick="closeEmpSubForm('empLatenessModalOverlay')" aria-label="Закрыть">✕</button>
+      <h3>Опоздание</h3>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Дата</label><input id="elDate" type="date"></div>
+        <div class="pm-field"><label>Минут</label><input id="elMinutes" type="number" min="0"></div>
+      </div>
+      <div class="pm-field"><label>Заметка</label><input id="elNote"></div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveEmpLateness()">Сохранить</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="empContractModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:420px">
+      <button class="modal-close-x" onclick="closeEmpSubForm('empContractModalOverlay')" aria-label="Закрыть">✕</button>
+      <h3>Контракт</h3>
+      <div class="pm-field"><label>Название *</label><input id="ectTitle" placeholder="Трудовой договор"></div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Начало</label><input id="ectStart" type="date"></div>
+        <div class="pm-field"><label>Окончание</label><input id="ectEnd" type="date"></div>
+      </div>
+      <div class="pm-field"><label>Заметка</label><input id="ectNote"></div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveEmpContract()">Сохранить</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="empVacationModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:420px">
+      <button class="modal-close-x" onclick="closeEmpSubForm('empVacationModalOverlay')" aria-label="Закрыть">✕</button>
+      <h3>Отпуск</h3>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>С</label><input id="evStart" type="date"></div>
+        <div class="pm-field"><label>По</label><input id="evEnd" type="date"></div>
+      </div>
+      <div class="pm-field">
+        <label>Тип</label>
+        <select id="evType"><option>Оплачиваемый</option><option>Неоплачиваемый</option><option>Больничный</option></select>
+      </div>
+      <div class="pm-field"><label>Заметка</label><input id="evNote"></div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveEmpVacation()">Сохранить</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="empAdvanceModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:380px">
+      <button class="modal-close-x" onclick="closeEmpSubForm('empAdvanceModalOverlay')" aria-label="Закрыть">✕</button>
+      <h3>Аванс</h3>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Дата</label><input id="eaDate" type="date"></div>
+        <div class="pm-field"><label>Сумма (смн)</label><input id="eaAmount" type="number" min="0"></div>
+      </div>
+      <div class="pm-field"><label>Заметка</label><input id="eaNote"></div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveEmpAdvance()">Сохранить</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="empAssetModalOverlay">
+    <div class="order-modal" style="position:relative;max-width:420px">
+      <button class="modal-close-x" onclick="closeEmpSubForm('empAssetModalOverlay')" aria-label="Закрыть">✕</button>
+      <h3>Выданная техника / имущество (ОС)</h3>
+      <div class="pm-field"><label>Наименование *</label><input id="easName" placeholder="Ноутбук Lenovo"></div>
+      <div class="pm-field"><label>Серийный номер</label><input id="easSerial"></div>
+      <div class="pm-grid2">
+        <div class="pm-field"><label>Дата выдачи</label><input id="easIssue" type="date"></div>
+        <div class="pm-field"><label>Дата возврата</label><input id="easReturn" type="date"></div>
+      </div>
+      <div class="pm-field"><label>Заметка</label><input id="easNote"></div>
+      <button class="btn-solid" style="width:100%;margin-top:6px" onclick="saveEmpAsset()">Сохранить</button>
+    </div>
   </div>
 
   <div class="modal-overlay" id="promoModalOverlay">
@@ -1296,14 +1445,14 @@ const PAGE_TITLES = {
   dashboard:'Дашборд', orders:'Заказы', products:'Товары', banners:'Баннеры',
   customers:'Клиенты', logistics:'Курьеры', analytics:'Аналитика', marketing:'Маркетинг',
   finance:'Финансы', purchasing:'Закупки', partners:'Партнёры', activity:'Активность',
-  formbuilder:'Конструктор форм', settings:'Настройка'
+  formbuilder:'Конструктор форм', settings:'Настройка', hr:'Кадры'
 };
 const SOON_SECTIONS = ['customers','analytics','activity','formbuilder','settings'];
 const SOON_EMOJI = {
   customers:'👥', analytics:'📈', marketing:'📣', finance:'💰',
   purchasing:'🛒', activity:'🕐', formbuilder:'🧩', settings:'⚙️'
 };
-const REAL_TABS = ['dashboard','orders','products','banners','logistics','partners','purchasing','finance','marketing'];
+const REAL_TABS = ['dashboard','orders','products','banners','logistics','partners','purchasing','finance','marketing','hr'];
 
 function showSection(name){
   REAL_TABS.forEach(t => {
@@ -1325,6 +1474,7 @@ function showSection(name){
   document.getElementById('purchasingPage').classList.toggle('hidden', name!=='purchasing');
   document.getElementById('financePage').classList.toggle('hidden', name!=='finance');
   document.getElementById('marketingPage').classList.toggle('hidden', name!=='marketing');
+  document.getElementById('hrPage').classList.toggle('hidden', name!=='hr');
   document.getElementById('partnerDetailOverlay').classList.remove('show');
   document.getElementById('comingSoonPage').classList.toggle('hidden', !SOON_SECTIONS.includes(name));
 
@@ -1335,9 +1485,9 @@ function showSection(name){
 
   document.getElementById('pageTitle').textContent = PAGE_TITLES[name] || '';
   document.body.classList.remove('sidebar-open');
-  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics'||name==='partners'||name==='purchasing'||name==='finance'||name==='marketing') ? '' : 'none';
+  document.getElementById('refreshBtn').style.display = (name==='orders'||name==='products'||name==='banners'||name==='logistics'||name==='partners'||name==='purchasing'||name==='finance'||name==='marketing'||name==='hr') ? '' : 'none';
   document.getElementById('refreshBtn').onclick =
-    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : name==='partners' ? loadPartners : name==='purchasing' ? loadPurchasingPage : name==='finance' ? loadFinancePage : name==='marketing' ? loadMarketingPage : null;
+    name==='orders' ? loadOrders : name==='products' ? loadProductsAdmin : name==='banners' ? loadBannersAdmin : name==='logistics' ? loadCouriers : name==='partners' ? loadPartners : name==='purchasing' ? loadPurchasingPage : name==='finance' ? loadFinancePage : name==='marketing' ? loadMarketingPage : name==='hr' ? loadEmployees : null;
   if(name==='products' && !productsLoadedOnce){
     productsLoadedOnce = true;
     loadProductsAdmin();
@@ -1360,6 +1510,9 @@ function showSection(name){
   }
   if(name==='marketing'){
     loadMarketingPage();
+  }
+  if(name==='hr'){
+    loadEmployees();
   }
   if(name==='purchasing'){
     loadPurchasingPage();
@@ -3556,6 +3709,319 @@ async function renderAudienceTab(box){
     </div>
     <div class="fin-bar-labels">${weekdays.map(w=>`<span>${w}</span>`).join('')}</div>
   `;
+}
+
+/* ==========================================================================
+   КАДРЫ
+   ========================================================================== */
+let currentEmployeeId = null;
+let currentEmployeeData = null;
+let currentEmployeeTab = 'main';
+let empPhotoData = null;
+
+function empInitials(e){ return ((e.first_name||'')[0]||'') + ((e.last_name||'')[0]||''); }
+function empFullName(e){ return [e.last_name, e.first_name, e.middle_name].filter(Boolean).join(' ') || e.first_name || 'Сотрудник'; }
+function empAvatarStyle(e){ return e.photo ? `background-image:url('${e.photo}')` : ''; }
+
+async function loadEmployees(){
+  const box = document.getElementById('employeesList');
+  box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
+  try{
+    const employees = await apiFetch('/api/employees');
+    if(!employees.length){
+      box.innerHTML = `<div class="pm-hint">Сотрудников пока нет — нажми «+ Добавить сотрудника».</div>`;
+      return;
+    }
+    box.innerHTML = employees.map(e => `
+      <div class="emp-card" onclick="openEmployeeDetail(${e.id})">
+        <div class="emp-card-head">
+          <div class="emp-avatar" style="${empAvatarStyle(e)}">${e.photo?'':empInitials(e)}</div>
+          <div>
+            <div class="emp-name">${esc(empFullName(e))}</div>
+            <div class="emp-role">${esc(e.position||'—')}${e.department?' · '+esc(e.department):''}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }catch(e){
+    console.error('Не удалось загрузить сотрудников:', e);
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+function handleEmpPhoto(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    empPhotoData = reader.result;
+    document.getElementById('empPhotoPreview').style.backgroundImage = `url('${empPhotoData}')`;
+    document.getElementById('empPhotoPreview').textContent = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function openEmployeeForm(){
+  empPhotoData = null;
+  ['empFirstName','empLastName','empMiddleName','empBirthDate','empPosition','empDepartment','empPhone','empEmail','empHireDate','empPassport','empSocial','empInn','empNotes'].forEach(id=>{
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('empPhotoPreview').style.backgroundImage = '';
+  document.getElementById('empPhotoPreview').textContent = '+ Фото';
+  document.getElementById('employeeFormError').style.display = 'none';
+  document.getElementById('employeeModalOverlay').classList.add('show');
+}
+function closeEmployeeForm(){ document.getElementById('employeeModalOverlay').classList.remove('show'); }
+
+async function saveEmployee(){
+  const first_name = document.getElementById('empFirstName').value.trim();
+  const errBox = document.getElementById('employeeFormError');
+  if(!first_name){ errBox.style.display = 'block'; return; }
+  errBox.style.display = 'none';
+  try{
+    await apiFetch('/api/employees', {
+      method:'POST',
+      body: JSON.stringify({
+        first_name,
+        last_name: document.getElementById('empLastName').value.trim() || null,
+        middle_name: document.getElementById('empMiddleName').value.trim() || null,
+        photo: empPhotoData,
+        birth_date: document.getElementById('empBirthDate').value || null,
+        position: document.getElementById('empPosition').value.trim() || null,
+        department: document.getElementById('empDepartment').value.trim() || null,
+        phone: document.getElementById('empPhone').value.trim() || null,
+        email: document.getElementById('empEmail').value.trim() || null,
+        hire_date: document.getElementById('empHireDate').value || null,
+        passport_series: document.getElementById('empPassport').value.trim() || null,
+        social_insurance_number: document.getElementById('empSocial').value.trim() || null,
+        inn: document.getElementById('empInn').value.trim() || null,
+        notes: document.getElementById('empNotes').value.trim() || null,
+      })
+    });
+    closeEmployeeForm();
+    loadEmployees();
+  }catch(e){
+    console.error('Не удалось сохранить сотрудника:', e);
+    errBox.textContent = 'Не удалось сохранить — проверь подключение к серверу.';
+    errBox.style.display = 'block';
+  }
+}
+
+function closeEmployeeDetail(){ document.getElementById('employeeDetailOverlay').classList.remove('show'); }
+
+async function openEmployeeDetail(id){
+  currentEmployeeId = id;
+  currentEmployeeTab = 'main';
+  document.getElementById('employeeDetailOverlay').classList.add('show');
+  const box = document.getElementById('employeeDetailContent');
+  box.innerHTML = `<div class="pm-hint">Загрузка…</div>`;
+  try{
+    currentEmployeeData = await apiFetch('/api/employees/' + id);
+    renderEmployeeDetail();
+  }catch(e){
+    console.error('Не удалось загрузить сотрудника:', e);
+    box.innerHTML = `<div class="pm-hint">Не удалось загрузить — проверь подключение к серверу.</div>`;
+  }
+}
+
+function setEmployeeTab(tab){
+  currentEmployeeTab = tab;
+  renderEmployeeDetail();
+}
+
+function tenureText(hireDate){
+  if(!hireDate) return '—';
+  const start = new Date(hireDate), now = new Date();
+  let months = (now.getFullYear()-start.getFullYear())*12 + (now.getMonth()-start.getMonth());
+  const years = Math.floor(months/12); months = months % 12;
+  const days = now.getDate() - start.getDate();
+  return `${years} г. ${months} м.${days>=0?' '+days+' д.':''}`;
+}
+
+function renderEmployeeDetail(){
+  const e = currentEmployeeData;
+  if(!e) return;
+  const box = document.getElementById('employeeDetailContent');
+  const tabs = [
+    ['main','Главная'], ['lateness','Опоздания'], ['contracts','Контракты'],
+    ['vacations','Отпуска'], ['advances','Авансы'], ['assets','ОС']
+  ];
+
+  let body = '';
+  if(currentEmployeeTab === 'main'){
+    body = `
+      <div class="pt-overview-grid" style="margin-top:20px">
+        <div><div class="l">Стаж работы</div><div class="v">${tenureText(e.hire_date)}</div></div>
+        <div><div class="l">Дата рождения</div><div class="v" style="font-size:14px">${e.birth_date?new Date(e.birth_date).toLocaleDateString('ru-RU'):'—'}</div></div>
+        <div><div class="l">Должность</div><div class="v" style="font-size:14px">${esc(e.position||'—')}</div></div>
+        <div><div class="l">Отдел</div><div class="v" style="font-size:14px">${esc(e.department||'—')}</div></div>
+      </div>
+
+      <div class="pt-page-head" style="margin-top:22px"><div class="pt-page-title" style="font-size:13px">Контактные данные</div><button class="btn-outline" onclick="openEmpSubForm('empContactModalOverlay')">+ Добавить</button></div>
+      <div class="fin-detail-row"><span>📞 Основной</span><b>${esc(e.phone||'—')}</b></div>
+      ${e.email ? `<div class="fin-detail-row"><span>✉️ Email</span><b>${esc(e.email)}</b></div>` : ''}
+      ${e.contacts.map(c => `<div class="fin-detail-row"><span>${esc(c.label||'—')}</span><b>${esc(c.phone||'')} <button class="btn-outline" style="margin-left:8px;padding:3px 8px" onclick="deleteEmpSub('contacts',${c.id})">✕</button></b></div>`).join('')}
+
+      <div class="pt-page-head" style="margin-top:22px"><div class="pt-page-title" style="font-size:13px">Паспортные данные</div></div>
+      <div class="fin-detail-row"><span>Серия паспорта</span><b>${esc(e.passport_series||'—')}</b></div>
+      <div class="fin-detail-row"><span>Соц. страхование</span><b>${esc(e.social_insurance_number||'—')}</b></div>
+      <div class="fin-detail-row"><span>ИНН</span><b>${esc(e.inn||'—')}</b></div>
+
+      ${e.notes ? `<div class="pm-hint" style="margin-top:16px">📝 ${esc(e.notes)}</div>` : ''}
+      <button class="btn-outline" style="margin-top:20px;color:var(--brick)" onclick="deleteEmployee()">Удалить сотрудника</button>
+    `;
+  } else if(currentEmployeeTab === 'lateness'){
+    body = `
+      <button class="btn-outline" style="margin:16px 0" onclick="openEmpSubForm('empLatenessModalOverlay')">+ Добавить опоздание</button>
+      ${e.lateness.length ? e.lateness.map(l => `
+        <div class="fin-detail-row"><span>${new Date(l.date).toLocaleDateString('ru-RU')}${l.note?' · '+esc(l.note):''}</span><b>${l.minutes} мин <button class="btn-outline" style="margin-left:8px;padding:3px 8px" onclick="deleteEmpSub('lateness',${l.id})">✕</button></b></div>
+      `).join('') : '<div class="pm-hint">Опозданий не зафиксировано.</div>'}
+    `;
+  } else if(currentEmployeeTab === 'contracts'){
+    body = `
+      <button class="btn-outline" style="margin:16px 0" onclick="openEmpSubForm('empContractModalOverlay')">+ Добавить контракт</button>
+      ${e.contracts.length ? e.contracts.map(c => `
+        <div class="fin-detail-row"><span><b>${esc(c.title)}</b><br><span class="pt-muted">${c.start_date?new Date(c.start_date).toLocaleDateString('ru-RU'):''}${c.end_date?' – '+new Date(c.end_date).toLocaleDateString('ru-RU'):''}</span></span><button class="btn-outline" onclick="deleteEmpSub('contracts',${c.id})">✕</button></div>
+      `).join('') : '<div class="pm-hint">Контрактов нет.</div>'}
+    `;
+  } else if(currentEmployeeTab === 'vacations'){
+    body = `
+      <button class="btn-outline" style="margin:16px 0" onclick="openEmpSubForm('empVacationModalOverlay')">+ Добавить отпуск</button>
+      ${e.vacations.length ? e.vacations.map(v => `
+        <div class="fin-detail-row"><span>${new Date(v.start_date).toLocaleDateString('ru-RU')} – ${new Date(v.end_date).toLocaleDateString('ru-RU')} · ${esc(v.type)}</span><button class="btn-outline" onclick="deleteEmpSub('vacations',${v.id})">✕</button></div>
+      `).join('') : '<div class="pm-hint">Отпусков нет.</div>'}
+    `;
+  } else if(currentEmployeeTab === 'advances'){
+    body = `
+      <button class="btn-outline" style="margin:16px 0" onclick="openEmpSubForm('empAdvanceModalOverlay')">+ Добавить аванс</button>
+      ${e.advances.length ? e.advances.map(a => `
+        <div class="fin-detail-row"><span>${new Date(a.date).toLocaleDateString('ru-RU')}${a.note?' · '+esc(a.note):''}</span><b>${Number(a.amount).toLocaleString('ru-RU')} смн <button class="btn-outline" style="margin-left:8px;padding:3px 8px" onclick="deleteEmpSub('advances',${a.id})">✕</button></b></div>
+      `).join('') : '<div class="pm-hint">Авансов не было.</div>'}
+    `;
+  } else if(currentEmployeeTab === 'assets'){
+    body = `
+      <button class="btn-outline" style="margin:16px 0" onclick="openEmpSubForm('empAssetModalOverlay')">+ Добавить технику/имущество</button>
+      ${e.assets.length ? e.assets.map(a => `
+        <div class="fin-detail-row"><span><b>${esc(a.item_name)}</b>${a.serial_number?' · '+esc(a.serial_number):''}<br><span class="pt-muted">выдано: ${a.issue_date?new Date(a.issue_date).toLocaleDateString('ru-RU'):'—'}${a.return_date?' · возвращено: '+new Date(a.return_date).toLocaleDateString('ru-RU'):''}</span></span><button class="btn-outline" onclick="deleteEmpSub('assets',${a.id})">✕</button></div>
+      `).join('') : '<div class="pm-hint">Техника/имущество не выдавались.</div>'}
+    `;
+  }
+
+  box.innerHTML = `
+    <div class="emp-hero"></div>
+    <div class="emp-detail-head">
+      <div class="emp-detail-avatar" style="${empAvatarStyle(e)}">${e.photo?'':empInitials(e)}</div>
+      <div><h3 style="margin:0">${esc(empFullName(e))}</h3><div class="pt-muted">${esc(e.position||'')}</div></div>
+    </div>
+    <div class="pt-tabs" style="margin-top:18px">
+      ${tabs.map(([key,label]) => `<button class="pt-tab ${currentEmployeeTab===key?'active':''}" onclick="setEmployeeTab('${key}')">${label}</button>`).join('')}
+    </div>
+    <div>${body}</div>
+  `;
+}
+
+async function deleteEmployee(){
+  if(!confirm('Удалить этого сотрудника? Все его данные (контракты, отпуска и т.д.) тоже удалятся.')) return;
+  try{
+    await apiFetch('/api/employees/' + currentEmployeeId, { method:'DELETE' });
+    closeEmployeeDetail();
+    loadEmployees();
+  }catch(e){
+    console.error('Не удалось удалить сотрудника:', e);
+    alert('Не удалось удалить — проверь подключение к серверу.');
+  }
+}
+
+function openEmpSubForm(overlayId){
+  document.getElementById(overlayId).classList.add('show');
+}
+function closeEmpSubForm(overlayId){
+  document.getElementById(overlayId).classList.remove('show');
+}
+
+async function refreshEmployeeDetail(){
+  currentEmployeeData = await apiFetch('/api/employees/' + currentEmployeeId);
+  renderEmployeeDetail();
+}
+
+async function deleteEmpSub(path, itemId){
+  if(!confirm('Удалить запись?')) return;
+  try{
+    await apiFetch('/api/' + path + '/' + itemId, { method:'DELETE' });
+    refreshEmployeeDetail();
+  }catch(e){
+    console.error('Не удалось удалить:', e);
+    alert('Не удалось удалить.');
+  }
+}
+
+async function saveEmpContact(){
+  try{
+    await apiFetch('/api/employees/' + currentEmployeeId + '/contacts', {
+      method:'POST', body: JSON.stringify({ label: document.getElementById('ecLabel').value.trim(), phone: document.getElementById('ecPhone').value.trim() })
+    });
+    document.getElementById('ecLabel').value=''; document.getElementById('ecPhone').value='';
+    closeEmpSubForm('empContactModalOverlay');
+    refreshEmployeeDetail();
+  }catch(e){ console.error(e); alert('Не удалось сохранить.'); }
+}
+
+async function saveEmpLateness(){
+  try{
+    await apiFetch('/api/employees/' + currentEmployeeId + '/lateness', {
+      method:'POST', body: JSON.stringify({ date: document.getElementById('elDate').value, minutes: Number(document.getElementById('elMinutes').value)||0, note: document.getElementById('elNote').value.trim()||null })
+    });
+    closeEmpSubForm('empLatenessModalOverlay');
+    refreshEmployeeDetail();
+  }catch(e){ console.error(e); alert('Не удалось сохранить.'); }
+}
+
+async function saveEmpContract(){
+  const title = document.getElementById('ectTitle').value.trim();
+  if(!title){ return; }
+  try{
+    await apiFetch('/api/employees/' + currentEmployeeId + '/contracts', {
+      method:'POST', body: JSON.stringify({ title, start_date: document.getElementById('ectStart').value||null, end_date: document.getElementById('ectEnd').value||null, note: document.getElementById('ectNote').value.trim()||null })
+    });
+    closeEmpSubForm('empContractModalOverlay');
+    refreshEmployeeDetail();
+  }catch(e){ console.error(e); alert('Не удалось сохранить.'); }
+}
+
+async function saveEmpVacation(){
+  try{
+    await apiFetch('/api/employees/' + currentEmployeeId + '/vacations', {
+      method:'POST', body: JSON.stringify({ start_date: document.getElementById('evStart').value, end_date: document.getElementById('evEnd').value, type: document.getElementById('evType').value, note: document.getElementById('evNote').value.trim()||null })
+    });
+    closeEmpSubForm('empVacationModalOverlay');
+    refreshEmployeeDetail();
+  }catch(e){ console.error(e); alert('Не удалось сохранить.'); }
+}
+
+async function saveEmpAdvance(){
+  try{
+    await apiFetch('/api/employees/' + currentEmployeeId + '/advances', {
+      method:'POST', body: JSON.stringify({ date: document.getElementById('eaDate').value, amount: Number(document.getElementById('eaAmount').value)||0, note: document.getElementById('eaNote').value.trim()||null })
+    });
+    closeEmpSubForm('empAdvanceModalOverlay');
+    refreshEmployeeDetail();
+  }catch(e){ console.error(e); alert('Не удалось сохранить.'); }
+}
+
+async function saveEmpAsset(){
+  const item_name = document.getElementById('easName').value.trim();
+  if(!item_name) return;
+  try{
+    await apiFetch('/api/employees/' + currentEmployeeId + '/assets', {
+      method:'POST', body: JSON.stringify({
+        item_name, serial_number: document.getElementById('easSerial').value.trim()||null,
+        issue_date: document.getElementById('easIssue').value||null, return_date: document.getElementById('easReturn').value||null,
+        note: document.getElementById('easNote').value.trim()||null,
+      })
+    });
+    closeEmpSubForm('empAssetModalOverlay');
+    refreshEmployeeDetail();
+  }catch(e){ console.error(e); alert('Не удалось сохранить.'); }
 }
 
 function openExpenseForm(){

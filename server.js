@@ -205,6 +205,117 @@ app.post('/api/orders/:id/assign-courier', requireAuth, async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// КАДРЫ — сотрудники, опоздания, контракты, отпуска, авансы, ОС (техника)
+// ----------------------------------------------------------------------------
+app.get('/api/employees', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT id, first_name, last_name, middle_name, photo, position, department, active FROM employees ORDER BY active DESC, created_at DESC');
+    res.json(rows);
+  } catch (e) {
+    console.error('Ошибка получения сотрудников:', e);
+    res.status(500).json({ error: 'Не удалось получить сотрудников' });
+  }
+});
+
+app.get('/api/employees/:id', requireAuth, async (req, res) => {
+  try {
+    const [[emp]] = await pool.query('SELECT * FROM employees WHERE id = ?', [req.params.id]);
+    if (!emp) return res.status(404).json({ error: 'Сотрудник не найден' });
+    const [contacts] = await pool.query('SELECT * FROM employee_contacts WHERE employee_id = ?', [req.params.id]);
+    const [lateness] = await pool.query('SELECT * FROM employee_lateness WHERE employee_id = ? ORDER BY date DESC', [req.params.id]);
+    const [contracts] = await pool.query('SELECT * FROM employee_contracts WHERE employee_id = ? ORDER BY start_date DESC', [req.params.id]);
+    const [vacations] = await pool.query('SELECT * FROM employee_vacations WHERE employee_id = ? ORDER BY start_date DESC', [req.params.id]);
+    const [advances] = await pool.query('SELECT * FROM employee_advances WHERE employee_id = ? ORDER BY date DESC', [req.params.id]);
+    const [assets] = await pool.query('SELECT * FROM employee_assets WHERE employee_id = ? ORDER BY issue_date DESC', [req.params.id]);
+    res.json({ ...emp, contacts, lateness, contracts, vacations, advances, assets });
+  } catch (e) {
+    console.error('Ошибка получения сотрудника:', e);
+    res.status(500).json({ error: 'Не удалось получить сотрудника' });
+  }
+});
+
+app.post('/api/employees', requireAuth, async (req, res) => {
+  const b = req.body || {};
+  if (!b.first_name) return res.status(400).json({ error: 'Укажите имя' });
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO employees (first_name, last_name, middle_name, photo, position, department, birth_date, email, phone, passport_series, social_insurance_number, inn, hire_date, notes, active)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
+      [b.first_name, b.last_name||null, b.middle_name||null, b.photo||null, b.position||null, b.department||null,
+       b.birth_date||null, b.email||null, b.phone||null, b.passport_series||null, b.social_insurance_number||null,
+       b.inn||null, b.hire_date||null, b.notes||null]
+    );
+    res.json({ id: result.insertId });
+  } catch (e) {
+    console.error('Ошибка добавления сотрудника:', e);
+    res.status(500).json({ error: 'Не удалось добавить сотрудника' });
+  }
+});
+
+app.patch('/api/employees/:id', requireAuth, async (req, res) => {
+  const allowed = ['first_name','last_name','middle_name','photo','position','department','birth_date','email','phone','passport_series','social_insurance_number','inn','hire_date','notes','active'];
+  const body = req.body || {};
+  const sets = []; const values = [];
+  for (const key of allowed) {
+    if (body[key] !== undefined) { sets.push(`${key} = ?`); values.push(key==='active' ? (body[key]?1:0) : body[key]); }
+  }
+  if (!sets.length) return res.json({ ok: true });
+  values.push(req.params.id);
+  try {
+    await pool.query(`UPDATE employees SET ${sets.join(', ')} WHERE id = ?`, values);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка изменения сотрудника:', e);
+    res.status(500).json({ error: 'Не удалось изменить сотрудника' });
+  }
+});
+
+app.delete('/api/employees/:id', requireAuth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    for (const t of ['employee_contacts','employee_lateness','employee_contracts','employee_vacations','employee_advances','employee_assets']) {
+      await pool.query(`DELETE FROM ${t} WHERE employee_id = ?`, [id]);
+    }
+    await pool.query('DELETE FROM employees WHERE id = ?', [id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка удаления сотрудника:', e);
+    res.status(500).json({ error: 'Не удалось удалить сотрудника' });
+  }
+});
+
+// вспомогательный CRUD-конструктор для под-разделов сотрудника (опоздания/контракты/отпуска/авансы/ОС)
+function makeEmployeeSubResource(app, path, table, fields) {
+  app.post(`/api/employees/:id/${path}`, requireAuth, async (req, res) => {
+    const b = req.body || {};
+    const cols = ['employee_id', ...fields];
+    const vals = [req.params.id, ...fields.map(f => b[f] ?? null)];
+    try {
+      await pool.query(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(()=>'?').join(',')})`, vals);
+      res.json({ ok: true });
+    } catch (e) {
+      console.error(`Ошибка добавления (${table}):`, e);
+      res.status(500).json({ error: 'Не удалось сохранить' });
+    }
+  });
+  app.delete(`/api/${path}/:itemId`, requireAuth, async (req, res) => {
+    try {
+      await pool.query(`DELETE FROM ${table} WHERE id = ?`, [req.params.itemId]);
+      res.json({ ok: true });
+    } catch (e) {
+      console.error(`Ошибка удаления (${table}):`, e);
+      res.status(500).json({ error: 'Не удалось удалить' });
+    }
+  });
+}
+makeEmployeeSubResource(app, 'contacts', 'employee_contacts', ['label','phone']);
+makeEmployeeSubResource(app, 'lateness', 'employee_lateness', ['date','minutes','note']);
+makeEmployeeSubResource(app, 'contracts', 'employee_contracts', ['title','start_date','end_date','note']);
+makeEmployeeSubResource(app, 'vacations', 'employee_vacations', ['start_date','end_date','type','note']);
+makeEmployeeSubResource(app, 'advances', 'employee_advances', ['date','amount','note']);
+makeEmployeeSubResource(app, 'assets', 'employee_assets', ['item_name','serial_number','issue_date','return_date','note']);
+
+// ----------------------------------------------------------------------------
 // ДАШБОРД — большая сводка: выручка, трафик, график, клиенты, товары
 // ----------------------------------------------------------------------------
 function resolveDateRange(period, from, to) {
@@ -1711,6 +1822,98 @@ async function ensurePurchasesTable() {
   `);
 }
 
+async function ensureHrTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS employees (
+      id                      INT AUTO_INCREMENT PRIMARY KEY,
+      first_name              VARCHAR(255) NOT NULL,
+      last_name               VARCHAR(255),
+      middle_name             VARCHAR(255),
+      photo                   LONGTEXT,
+      position                VARCHAR(255),
+      department              VARCHAR(255),
+      birth_date              DATE NULL,
+      email                   VARCHAR(255),
+      phone                   VARCHAR(50),
+      passport_series         VARCHAR(50),
+      social_insurance_number VARCHAR(50),
+      inn                     VARCHAR(50),
+      hire_date               DATE NULL,
+      active                  TINYINT(1) NOT NULL DEFAULT 1,
+      notes                   TEXT,
+      created_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS employee_contacts (
+      id           INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id  INT NOT NULL,
+      label        VARCHAR(100),
+      phone        VARCHAR(50),
+      INDEX idx_ec_emp (employee_id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS employee_lateness (
+      id           INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id  INT NOT NULL,
+      date         DATE NOT NULL,
+      minutes      INT NOT NULL DEFAULT 0,
+      note         VARCHAR(255),
+      created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_el_emp (employee_id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS employee_contracts (
+      id           INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id  INT NOT NULL,
+      title        VARCHAR(255) NOT NULL,
+      start_date   DATE,
+      end_date     DATE NULL,
+      note         VARCHAR(255),
+      created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_ect_emp (employee_id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS employee_vacations (
+      id           INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id  INT NOT NULL,
+      start_date   DATE NOT NULL,
+      end_date     DATE NOT NULL,
+      type         VARCHAR(50) DEFAULT 'Оплачиваемый',
+      note         VARCHAR(255),
+      created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_ev_emp (employee_id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS employee_advances (
+      id           INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id  INT NOT NULL,
+      date         DATE NOT NULL,
+      amount       DECIMAL(10,2) NOT NULL,
+      note         VARCHAR(255),
+      created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_ea_emp (employee_id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS employee_assets (
+      id             INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id    INT NOT NULL,
+      item_name      VARCHAR(255) NOT NULL,
+      serial_number  VARCHAR(255),
+      issue_date     DATE,
+      return_date    DATE NULL,
+      note           VARCHAR(255),
+      created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_eas_emp (employee_id)
+    )
+  `);
+}
+
 async function ensureVisitsTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS site_visits (
@@ -1964,6 +2167,7 @@ async function ensureSchema() {
   await ensureFinanceTables();
   await ensureMarketingTables();
   await ensureVisitsTable();
+  await ensureHrTables();
 
   // если товаров ещё нет — заполняем стартовым набором, чтобы сайт не был пустым
   const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM products');
