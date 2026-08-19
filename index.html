@@ -113,7 +113,7 @@ header{
 .icon-btn{
   position:relative;width:40px;height:40px;border-radius:50%;
   background:#F4F5F7;display:flex;align-items:center;justify-content:center;
-  font-size:17px;border:1px solid var(--card-line);
+  font-size:17px;border:1px solid var(--card-line);color:var(--indigo);
 }
 .badge{
   position:absolute;top:-4px;right:-4px;background:var(--accent-green);color:#fff;
@@ -121,6 +121,7 @@ header{
   display:flex;align-items:center;justify-content:center;padding:0 4px;
   border:2px solid #fff;
 }
+.badge-dot{min-width:9px;width:9px;height:9px;padding:0;border-width:2px}
 .wa-btn{
   background:#25D366;color:#fff;border-radius:999px;padding:9px 16px;font-weight:700;
   font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap;
@@ -263,7 +264,7 @@ section.products{padding:28px 20px}
 .card-fav-btn.active{color:var(--brick)}
 .card-info{flex:1;min-width:0;padding:10px 11px 11px;display:flex;flex-direction:column;gap:5px}
 .card-rating{font-size:11px;color:var(--text-soft);display:flex;align-items:center;gap:4px}
-.card-rating .star{color:var(--marigold-dark)}
+.card-rating .star{color:var(--accent-green);display:flex;align-items:center}
 .card-name{font-size:12.5px;font-weight:600;color:var(--indigo);line-height:1.3;min-height:32px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .card-price-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:2px}
@@ -429,7 +430,7 @@ section.products{padding:28px 20px}
   display:flex;align-items:center;justify-content:space-between;
   padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0;
 }
-.pp-back{width:38px;height:38px;border-radius:50%;background:var(--cream);border:1px solid var(--line);font-size:18px}
+.pp-back{width:38px;height:38px;border-radius:50%;background:var(--cream);border:1px solid var(--line);font-size:18px;display:flex;align-items:center;justify-content:center;color:var(--indigo)}
 .pp-body{flex:1;overflow-y:auto;padding-bottom:110px}
 .pp-media{aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;font-size:110px;background:var(--pp-bg,var(--cream))}
 .pp-gallery{
@@ -472,7 +473,7 @@ section.products{padding:28px 20px}
 .pp-cat{font-size:12px;font-weight:700;color:var(--pistachio);text-transform:uppercase;letter-spacing:.05em}
 .pp-title{font-size:24px;margin-top:8px}
 .pp-subtitle{font-size:13px;color:#8a8478;margin-top:4px}
-.pp-rating{font-size:13px;color:var(--ink);margin-top:8px}
+.pp-rating{font-size:13px;color:var(--ink);margin-top:8px;display:flex;align-items:center;gap:6px;color:var(--accent-green-dark);font-weight:700}
 .pp-meta{font-size:12px;color:#8a8478;margin-top:6px;display:flex;gap:14px;flex-wrap:wrap}
 .pp-meta b{color:var(--ink)}
 .pp-price-row{margin-top:16px}
@@ -560,18 +561,18 @@ footer p{margin-top:8px;font-size:14px}
 
 <header>
   <div class="header-inner">
-    <button class="icon-btn" onclick="openMenu()" aria-label="Меню">☰</button>
+    <button class="icon-btn" onclick="openMenu()" aria-label="Меню"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     <div class="logo"><span></span>ҲАМАБОЗОР</div>
     <div class="header-actions">
-      <a class="icon-btn wa-icon-btn" id="headerWaLink" target="_blank">💬</a>
-      <button class="icon-btn" onclick="openCart()">🛒<span class="badge" id="cartBadge">0</span></button>
+      <a class="icon-btn" id="headerWaLink" target="_blank"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="badge badge-dot"></span></a>
+      <button class="icon-btn" onclick="openCart()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="badge" id="cartBadge">0</span></button>
     </div>
   </div>
 </header>
 
 <div class="home-search-wrap">
   <div class="home-search">
-    <span class="src-ic">🔎</span>
+    <span class="src-ic"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
     <input id="searchInputHome" data-i18n-ph="search_placeholder" placeholder="Ҷустуҷӯ...">
   </div>
 </div>
@@ -632,19 +633,19 @@ footer p{margin-top:8px;font-size:14px}
 
 <nav class="bottom-nav">
   <a href="#" class="bn-item active" onclick="event.preventDefault();window.scrollTo({top:0,behavior:'smooth'})">
-    <span class="bn-ic">🏠</span><span data-i18n="nav_home">Асосӣ</span>
+    <span class="bn-ic"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg></span><span data-i18n="nav_home">Асосӣ</span>
   </a>
   <a href="#catalog" class="bn-item" onclick="closeAll()">
-    <span class="bn-ic">▦</span><span data-i18n="nav_categories">Категорияҳо</span>
+    <span class="bn-ic"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span data-i18n="nav_categories">Категорияҳо</span>
   </a>
   <a href="#" class="bn-item bn-center" onclick="event.preventDefault();document.getElementById('searchInputHome').focus();window.scrollTo({top:0,behavior:'smooth'})">
-    <span class="bn-ic">🔎</span>
+    <span class="bn-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
   </a>
   <a href="#" class="bn-item" onclick="event.preventDefault();showFavoritesOnly(this)">
-    <span class="bn-ic">♡</span><span data-i18n="nav_favorites">Дӯстдошта</span>
+    <span class="bn-ic"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></span><span data-i18n="nav_favorites">Дӯстдошта</span>
   </a>
   <a href="#" class="bn-item" onclick="event.preventDefault();openMenu()">
-    <span class="bn-ic">👤</span><span data-i18n="nav_profile">Профил</span>
+    <span class="bn-ic"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span data-i18n="nav_profile">Профил</span>
   </a>
 </nav>
 
@@ -658,7 +659,7 @@ footer p{margin-top:8px;font-size:14px}
   </div>
   <div class="menu-body">
     <div class="searchbar" style="display:flex">
-      🔎 <input id="searchInput" data-i18n-ph="search_placeholder" placeholder="Ҷустуҷӯ...">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> <input id="searchInput" data-i18n-ph="search_placeholder" placeholder="Ҷустуҷӯ...">
     </div>
     <div class="lang-toggle menu-lang-toggle">
       <button id="lang-tj" class="active" onclick="setLang('tj')">Тоҷикӣ</button>
@@ -732,8 +733,8 @@ footer p{margin-top:8px;font-size:14px}
 <!-- product detail page -->
 <div class="product-page" id="productPage">
   <div class="pp-topbar">
-    <button class="pp-back" onclick="closeProduct()">←</button>
-    <button class="icon-btn" onclick="openCart()">🛒<span class="badge" id="cartBadgePP">0</span></button>
+    <button class="pp-back" onclick="closeProduct()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
+    <button class="icon-btn" onclick="openCart()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="badge" id="cartBadgePP">0</span></button>
   </div>
   <div class="pp-body">
     <div class="pp-gallery" id="ppGallery"></div>
@@ -798,6 +799,14 @@ footer p{margin-top:8px;font-size:14px}
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <script>
+/* ==========================================================================
+   ИКОНАҲОИ SVG (истифода дар карточкаҳо, header, навигатсия)
+   ========================================================================== */
+const STAR_ICON = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="12 2.5 15.1 9 22.2 10 17.1 15 18.3 22 12 18.6 5.7 22 6.9 15 1.8 10 8.9 9"/></svg>';
+const HEART_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>';
+const HEART_ICON_FILLED = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>';
+const CART_ICON_SM = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>';
+
 /* ==========================================================================
    ТАНЗИМОТ / НАСТРОЙКИ — ин қисматро иваз кунед
    ========================================================================== */
@@ -1080,7 +1089,7 @@ function renderCard(p){
   const discountPct = (p.old_price && p.old_price > p.price)
     ? Math.round((1 - p.price / p.old_price) * 100) : null;
   const ratingHtml = (p.rating && p.rating_count)
-    ? `<div class="card-rating"><span class="star">★</span> ${p.rating} (${p.rating_count})</div>` : '';
+    ? `<div class="card-rating"><span class="star">${STAR_ICON}</span> ${p.rating} (${p.rating_count})</div>` : '';
   return `
     <div class="card" onclick="openProduct(${p.id})">
       <div class="card-media-wrap">
@@ -1088,7 +1097,7 @@ function renderCard(p){
           ${mediaHtml(p)}
         </div>
         ${discountPct ? `<span class="card-discount-badge">−${discountPct}%</span>` : ''}
-        <button class="card-fav-btn ${isFav?'active':''}" onclick="event.stopPropagation();toggleFavorite(${p.id})">${isFav?'❤️':'🤍'}</button>
+        <button class="card-fav-btn ${isFav?'active':''}" onclick="event.stopPropagation();toggleFavorite(${p.id})">${isFav?HEART_ICON_FILLED:HEART_ICON}</button>
         ${p.tag==='new' ? `<span class="card-ribbon">${lang==='tj'?'НАВ':'NEW'}</span>` : ''}
       </div>
       <div class="card-info">
@@ -1105,7 +1114,7 @@ function renderCard(p){
                  <span class="card-qty-val">${cart[p.id]}</span>
                  <button class="card-qty-btn" onclick="changeQty(${p.id},1)">+</button>
                </div>`
-            : `<button class="card-buy-btn" onclick="event.stopPropagation();addToCart(${p.id})">🛒</button>`
+            : `<button class="card-buy-btn" onclick="event.stopPropagation();addToCart(${p.id})">${CART_ICON_SM}</button>`
           }
         </div>
       </div>
@@ -1365,8 +1374,8 @@ function renderProductDetailRest(p){
 
   const ratingEl = document.getElementById('ppRating');
   if(p.rating && p.rating_count){
-    ratingEl.textContent = `⭐ ${p.rating} · ${p.rating_count} ${lang==='tj'?'бахо':'оценок'}`;
-    ratingEl.style.display = 'block';
+    ratingEl.innerHTML = `${STAR_ICON} ${p.rating} · ${p.rating_count} ${lang==='tj'?'бахо':'оценок'}`;
+    ratingEl.style.display = 'flex';
   }else{
     ratingEl.style.display = 'none';
   }
