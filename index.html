@@ -366,14 +366,19 @@ section.products{padding:28px 20px}
 /* ---------- рекомендации в корзине ---------- */
 .drawer-recommend{padding:4px 20px 16px;border-top:1px solid var(--line)}
 .drawer-recommend-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--indigo);margin:14px 0 10px}
-.drawer-recommend-scroll{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:0 20px}
-.drawer-recommend-scroll::-webkit-scrollbar{display:none}
-.rec-card{flex:0 0 118px;background:#fff;border:1px solid var(--card-line);border-radius:14px;padding:8px;cursor:pointer;position:relative}
+.drawer-recommend-scroll{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.rec-card{background:#fff;border:1px solid var(--card-line);border-radius:14px;padding:8px;cursor:pointer;position:relative}
 .rec-card .rec-media{width:100%;aspect-ratio:1/1;background:#F6F7F5;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden}
 .rec-card .rec-media img{width:100%;height:100%;object-fit:contain;padding:6px}
 .rec-card .rec-name{font-size:11px;font-weight:600;color:var(--indigo);margin-top:7px;line-height:1.25;min-height:27px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .rec-card .rec-price{font-size:12px;font-weight:800;color:var(--accent-green-dark);margin-top:4px}
 .rec-card .rec-add{position:absolute;bottom:8px;right:8px;width:24px;height:24px;border-radius:7px;background:var(--accent-green);color:#fff;display:flex;align-items:center;justify-content:center}
+
+/* ---------- баннер "товар сохранён в корзине" (как в референсе) ---------- */
+.cart-saved-banner{
+  display:flex;align-items:center;gap:8px;background:var(--accent-green-bg,#EAF7EE);color:var(--accent-green-dark);
+  font-size:12.5px;font-weight:700;border-radius:12px;padding:11px 13px;margin:0 20px 14px;
+}
 
 /* ---------- «хариди бехатар» дар корзина ---------- */
 .safe-purchase-box{display:flex;align-items:center;gap:10px;background:var(--accent-green-bg,#EAF7EE);color:var(--accent-green-dark);border-radius:12px;padding:11px 13px;margin-bottom:10px}
@@ -428,7 +433,7 @@ section.products{padding:28px 20px}
 }
 .field textarea{resize:vertical;min-height:60px}
 .field input:focus,.field textarea:focus{border-color:var(--indigo)}
-.btn-promo-apply{background:var(--brand-blue,var(--indigo));color:#fff;padding:0 18px;border-radius:10px;font-weight:700;font-size:13px}
+.btn-promo-apply{background:#FBDCD5;color:var(--brick);padding:0 18px;border-radius:10px;font-weight:800;font-size:13px}
 .modal-actions{display:flex;flex-direction:column;gap:10px;margin-top:18px}
 .btn-wa{background:#25D366;color:#fff}
 .btn-tg{background:#2AABEE;color:#fff}
@@ -463,20 +468,52 @@ section.products{padding:28px 20px}
   display:flex;align-items:center;justify-content:space-between;
   padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0;
 }
+.pp-topbar-logo{
+  font-family:'Unbounded',sans-serif;font-weight:800;font-size:16px;color:var(--indigo);
+  display:flex;align-items:center;gap:7px;white-space:nowrap;
+}
+.pp-topbar-logo span{width:8px;height:8px;border-radius:50%;background:var(--accent-green);display:inline-block}
 .pp-back{width:38px;height:38px;border-radius:50%;background:var(--cream);border:1px solid var(--line);font-size:18px;display:flex;align-items:center;justify-content:center;color:var(--indigo)}
 .pp-body{flex:1;overflow-y:auto;padding-bottom:110px}
 .pp-media{aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;font-size:110px;background:var(--pp-bg,var(--cream))}
+
+/* ---------- галерея товара: большое фото + миниатюры справа (как в референсе) ---------- */
 .pp-gallery{
-  position:relative;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
-  scrollbar-width:none;
+  display:flex;gap:10px;padding:14px 14px 4px;align-items:flex-start;
 }
-.pp-gallery::-webkit-scrollbar{display:none}
-.pp-gallery-slide{
-  flex:0 0 100%;scroll-snap-align:center;aspect-ratio:16/10;
-  display:flex;align-items:center;justify-content:center;font-size:110px;
-  background:var(--pp-bg,var(--cream));
+.pp-gallery-main{
+  position:relative;flex:1;min-width:0;aspect-ratio:1/1;border-radius:16px;overflow:hidden;
+  background:var(--pp-bg,var(--cream));display:flex;align-items:center;justify-content:center;font-size:90px;
 }
-.pp-gallery-slide img{width:100%;height:100%;object-fit:contain}
+.pp-gallery-main img{width:100%;height:100%;object-fit:contain;padding:10px}
+.pp-gallery-badges{position:absolute;top:10px;left:10px;display:flex;gap:6px;z-index:2}
+.pp-gallery-badge-top{background:var(--brick);color:#fff;font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;letter-spacing:.02em}
+.pp-gallery-badge-sale{background:var(--accent-green);color:#fff;font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px}
+.pp-gallery-fav{
+  position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;
+  font-size:15px;color:var(--indigo);z-index:2;box-shadow:0 1px 4px rgba(27,42,74,.14);
+}
+.pp-gallery-fav.active{color:var(--brick)}
+.pp-gallery-count{
+  position:absolute;bottom:10px;left:10px;background:rgba(27,20,10,.55);color:#fff;
+  font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;z-index:2;
+}
+.pp-gallery-thumbs{display:flex;flex-direction:column;gap:8px;width:74px;flex-shrink:0}
+.pp-gallery-thumb{
+  width:74px;height:74px;border-radius:12px;overflow:hidden;background:var(--pp-bg,var(--cream));
+  border:2px solid transparent;display:flex;align-items:center;justify-content:center;font-size:26px;
+  position:relative;
+}
+.pp-gallery-thumb.active{border-color:var(--accent-green)}
+.pp-gallery-thumb img{width:100%;height:100%;object-fit:contain;padding:6px}
+.pp-gallery-thumb-more{
+  background:var(--cream);color:var(--indigo);font-size:12px;font-weight:700;flex-direction:column;gap:2px;
+}
+@media(max-width:420px){
+  .pp-gallery-thumbs{width:58px}
+  .pp-gallery-thumb{width:58px;height:58px}
+}
 .pp-gallery-dots{
   position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:6px;
 }
@@ -542,13 +579,17 @@ section.products{padding:28px 20px}
 }
 .pp-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
 .pp-badge{background:#E4EEDD;color:#4c5c3a;font-size:12px;font-weight:700;padding:7px 12px;border-radius:10px}
-.pp-features{margin-top:14px;padding-left:20px}
-.pp-features li{font-size:13px;color:var(--ink);margin-bottom:6px;line-height:1.5}
-.pp-desc-label{font-size:13px;font-weight:700;color:#6b655a;margin-top:26px;text-transform:uppercase;letter-spacing:.04em}
-.pp-desc-text{font-size:15px;line-height:1.65;margin-top:10px;color:var(--ink)}
+.pp-features{margin-top:14px;padding-left:0;list-style:none}
+.pp-features li{font-size:13.5px;color:var(--ink);margin-bottom:10px;line-height:1.4;display:flex;align-items:center;gap:10px}
+.pp-features li::before{
+  content:'';width:26px;height:26px;flex-shrink:0;border-radius:8px;background:var(--accent-green-bg,#EAF7EE);
+  background-image:var(--feature-ic);background-repeat:no-repeat;background-position:center;background-size:14px;
+}
+.pp-desc-label{font-size:13px;font-weight:700;color:#6b655a;margin-top:0;text-transform:uppercase;letter-spacing:.04em}
+.pp-desc-text{font-size:14.5px;line-height:1.65;margin-top:10px;color:var(--ink)}
 .pp-similar-label{font-size:17px;margin:30px 0 14px}
-.similar-grid{display:flex;flex-direction:column;gap:14px;max-width:360px}
-.similar-grid .card{min-width:150px;flex-shrink:0}
+.similar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+.similar-grid .card{min-width:0}
 .pp-footer{
   position:fixed;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--line);
   padding:14px 16px;display:flex;align-items:center;gap:14px;z-index:98;
@@ -556,7 +597,20 @@ section.products{padding:28px 20px}
 .pp-qty{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:999px;padding:8px 14px;flex-shrink:0}
 .pp-qty button{width:26px;height:26px;border-radius:50%;background:var(--cream);border:none;font-size:15px}
 .pp-qty span{font-weight:700;min-width:16px;text-align:center}
-.pp-add-btn{flex:1;background:var(--accent-green);color:#fff;padding:15px;border-radius:12px;font-weight:800;font-size:14px}
+.pp-add-btn{
+  flex:1;background:var(--accent-green);color:#fff;padding:13px 15px;border-radius:12px;font-weight:800;
+  font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.pp-add-btn:hover{background:var(--accent-green-dark)}
+.pp-add-btn-price{font-weight:800}
+
+/* ---------- плоская цена товара (как в референсе): большая зелёная цена + старая + красный «-15%» ---------- */
+.pp-price-flat{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.pp-price-flat .now{font-family:'Unbounded',sans-serif;font-weight:800;font-size:26px;color:var(--accent-green-dark)}
+.pp-price-flat .old{font-size:14px;color:#9c9384;text-decoration:line-through}
+.pp-price-flat .pct{background:var(--brick);color:#fff;font-size:11px;font-weight:800;padding:4px 8px;border-radius:8px}
+.pp-stock-row{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12.5px;font-weight:700;color:var(--accent-green-dark)}
+.pp-stock-row.out{color:var(--brick)}
 @media(max-width:600px){
   .pp-media{aspect-ratio:1/1;font-size:80px}
   .pp-title{font-size:20px}
@@ -709,6 +763,10 @@ footer p{margin-top:8px;font-size:14px}
     <h3 data-i18n="cart_title">Сабади харид</h3>
     <button class="close-x" onclick="closeAll()">✕</button>
   </div>
+  <div class="cart-saved-banner" id="cartSavedBanner" style="display:none">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span data-i18n="cart_saved_msg">Маҳсулот дар сабад захира карда мешавад</span>
+  </div>
   <div class="drawer-items" id="drawerItems"></div>
   <div class="drawer-recommend" id="drawerRecommend"></div>
   <div class="drawer-foot">
@@ -799,6 +857,7 @@ footer p{margin-top:8px;font-size:14px}
 <div class="product-page" id="productPage">
   <div class="pp-topbar">
     <button class="pp-back" onclick="closeProduct()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
+    <div class="pp-topbar-logo"><span></span>ҲАМАБОЗОР</div>
     <button class="icon-btn" onclick="openCart()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="badge" id="cartBadgePP">0</span></button>
   </div>
   <div class="pp-body">
@@ -808,10 +867,10 @@ footer p{margin-top:8px;font-size:14px}
       <h2 class="pp-title" id="ppTitle"></h2>
       <div class="pp-subtitle" id="ppSubtitle"></div>
       <div class="pp-rating" id="ppRating"></div>
+      <div class="pp-meta" id="ppMeta"></div>
 
       <div class="pp-card">
         <div class="pp-price-row" id="ppPrice"></div>
-        <div class="pp-meta" id="ppMeta"></div>
         <div class="pp-variant" id="ppColors"></div>
         <div class="pp-variant" id="ppSizes"></div>
       </div>
@@ -845,7 +904,7 @@ footer p{margin-top:8px;font-size:14px}
       <span id="ppQty">1</span>
       <button onclick="ppChangeQty(1)">+</button>
     </div>
-    <button class="pp-add-btn" id="ppAddBtn" onclick="ppAddOrOpenCart()"><span id="ppAddBtnLabel" data-i18n="add_to_cart">Илова кардан</span></button>
+    <button class="pp-add-btn" id="ppAddBtn" onclick="ppAddOrOpenCart()"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span id="ppAddBtnLabel" data-i18n="add_to_cart">Илова кардан</span><span class="pp-add-btn-price" id="ppAddBtnPrice"></span></button>
   </div>
 </div>
 
@@ -1010,7 +1069,7 @@ const I18N = {
     nav_home:'Асосӣ', nav_categories:'Категорияҳо', nav_favorites:'Дӯстдошта', nav_profile:'Профил',
     promo_code_title:'Тахфиф 5% барои хариди аввалин', promo_code_btn:'Истифода баред',
     add_to_cart:'Илова кардан', added:'Илова шуд ✅',
-    cart_title:'Сабади харид', cart_empty:'Сабад холӣ аст',
+    cart_title:'Сабади харид', cart_empty:'Сабад холӣ аст', cart_saved_msg:'Маҳсулот дар сабад захира карда мешавад',
     cart_total:'Ҷамъ', cart_delivery:'Бурдарасонӣ', cart_free:'Ройгон 🚚',
     checkout_btn:'Расмикунонии фармоиш', checkout_title:'Маълумоти фармоиш',
     form_name:'Ном', form_phone:'Рақами телефон', form_address:'Суроға',
@@ -1043,7 +1102,7 @@ const I18N = {
     nav_home:'Главная', nav_categories:'Категории', nav_favorites:'Избранное', nav_profile:'Профиль',
     promo_code_title:'Скидка 5% на первый заказ', promo_code_btn:'Применить',
     add_to_cart:'В корзину', added:'Добавлено ✅',
-    cart_title:'Корзина', cart_empty:'Корзина пуста',
+    cart_title:'Корзина', cart_empty:'Корзина пуста', cart_saved_msg:'Товар сохранён в корзине',
     cart_total:'Итого', cart_delivery:'Доставка', cart_free:'Бесплатно 🚚',
     checkout_btn:'Оформить заказ', checkout_title:'Данные для заказа',
     form_name:'Имя', form_phone:'Номер телефона', form_address:'Адрес',
@@ -1314,6 +1373,9 @@ function updateCartUI(){
   document.getElementById('cartTotal').textContent = cartTotal() + ' смн';
   document.getElementById('checkoutBtn').disabled = cartCount()===0;
 
+  const banner = document.getElementById('cartSavedBanner');
+  if(banner) banner.style.display = cartCount() > 0 ? 'flex' : 'none';
+
   const box = document.getElementById('drawerItems');
   const entries = Object.entries(cart);
   if(entries.length===0){
@@ -1387,6 +1449,7 @@ function ppRenderOpen(id){
   ppSelectedColor = null;
   ppSelectedSize = null;
   ppDescExpanded = false;
+  ppGalleryIdx = 0;
   renderProductDetail();
   document.getElementById('productPage').classList.add('show');
   document.body.style.overflow = 'hidden';
@@ -1443,6 +1506,9 @@ function ppFindModelMedia(p){
   return list[0];
 }
 
+let ppGalleryIdx = 0;
+let ppGalleryImages = [];
+
 function renderProductDetail(){
   const p = PRODUCTS.find(x=>x.id===ppCurrentId);
   if(!p) return;
@@ -1452,42 +1518,69 @@ function renderProductDetail(){
   const galleryEl = document.getElementById('ppGallery');
 
   if(modelMedia){
-    galleryEl.onscroll = null;
     galleryEl.innerHTML = `
-      <div class="pp-gallery-slide pp-model-slide" style="--pp-bg:${CARD_BG[p.cat]}">
+      <div class="pp-gallery-main" style="--pp-bg:${CARD_BG[p.cat]};aspect-ratio:9/13">
         ${modelMedia.media_type==='video'
-          ? `<video src="${modelMedia.media_data}" autoplay muted loop playsinline></video>`
-          : `<img src="${modelMedia.media_data}">`}
-        <div class="pp-model-tag">${lang==='tj'?'Инро дар мушоҳида кунед':'Примерочная'} · ${modelMedia.body_type==='plus'?(lang==='tj'?'Пурра':'Полная'):(lang==='tj'?'Борик':'Стройная')}</div>
+          ? `<video src="${modelMedia.media_data}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover"></video>`
+          : `<img src="${modelMedia.media_data}" style="object-fit:cover">`}
+        ${ppGalleryBadges(p)}
+        <div class="pp-model-tag" style="position:absolute;bottom:10px;left:10px">${lang==='tj'?'Инро дар мушоҳида кунед':'Примерочная'} · ${modelMedia.body_type==='plus'?(lang==='tj'?'Пурра':'Полная'):(lang==='tj'?'Борик':'Стройная')}</div>
       </div>`;
     renderProductDetailRest(p);
     return;
   }
 
-  // галерея (главное фото + доп. фото, либо эмодзи, если фото нет)
-  const images = [p.image_data, ...(Array.isArray(p.extra_images)?p.extra_images:[])].filter(Boolean);
-  if(images.length){
-    galleryEl.innerHTML = images.map(src => `
-      <div class="pp-gallery-slide" style="--pp-bg:${CARD_BG[p.cat]}"><img src="${src}"></div>
-    `).join('') + (images.length>1 ? `
-      <button type="button" class="pp-gallery-arrow prev" onclick="ppGalleryStep(-1)">‹</button>
-      <button type="button" class="pp-gallery-arrow next" onclick="ppGalleryStep(1)">›</button>
-      <div class="pp-gallery-dots">${images.map((_,i)=>`<span class="pp-gallery-dot ${i===0?'active':''}"></span>`).join('')}</div>
-    ` : '');
-    if(images.length>1){
-      galleryEl.onscroll = () => {
-        const idx = Math.round(galleryEl.scrollLeft / galleryEl.clientWidth);
-        galleryEl.querySelectorAll('.pp-gallery-dot').forEach((d,i)=>d.classList.toggle('active', i===idx));
-      };
-    }else{
-      galleryEl.onscroll = null;
-    }
-  }else{
-    galleryEl.innerHTML = `<div class="pp-gallery-slide" style="--pp-bg:${CARD_BG[p.cat]}">${p.emoji}</div>`;
-    galleryEl.onscroll = null;
-  }
-
+  // галерея (главное фото + доп. фото, либо эмодзи, если фото нет) — большое фото + миниатюры справа
+  ppGalleryImages = [p.image_data, ...(Array.isArray(p.extra_images)?p.extra_images:[])].filter(Boolean);
+  if(ppGalleryIdx >= ppGalleryImages.length) ppGalleryIdx = 0;
+  ppRenderGallery(p);
   renderProductDetailRest(p);
+}
+
+function ppGalleryBadges(p){
+  const isFav = isFavorite(p.id);
+  const showTop = p.tag==='top';
+  const discountPct = (p.old_price && p.old_price > p.price) ? Math.round((1 - p.price / p.old_price) * 100) : null;
+  return `
+    <div class="pp-gallery-badges">
+      ${showTop ? `<span class="pp-gallery-badge-top">${lang==='tj'?'ТОП':'ТОП'}</span>` : ''}
+      ${discountPct ? `<span class="pp-gallery-badge-sale">−${discountPct}%</span>` : ''}
+    </div>
+    <button type="button" class="pp-gallery-fav ${isFav?'active':''}" onclick="event.stopPropagation();toggleFavorite(${p.id});renderProductDetail()">${isFav?HEART_ICON_FILLED:HEART_ICON}</button>`;
+}
+
+function ppRenderGallery(p){
+  const galleryEl = document.getElementById('ppGallery');
+  const images = ppGalleryImages;
+  const bg = CARD_BG[p.cat];
+  const MAX_THUMBS = 3;
+
+  const mainSrc = images[ppGalleryIdx];
+  const mainHtml = mainSrc ? `<img src="${mainSrc}">` : (p.emoji||'');
+
+  const visibleThumbs = images.slice(0, MAX_THUMBS);
+  const extraCount = images.length - MAX_THUMBS;
+  const thumbsHtml = images.length > 1 ? `
+    <div class="pp-gallery-thumbs">
+      ${visibleThumbs.map((src,i)=>`
+        <button type="button" class="pp-gallery-thumb ${i===ppGalleryIdx?'active':''}" style="--pp-bg:${bg}" onclick="ppGallerySelect(${i})"><img src="${src}"></button>
+      `).join('')}
+      ${extraCount > 0 ? `<button type="button" class="pp-gallery-thumb pp-gallery-thumb-more" style="--pp-bg:${bg}" onclick="ppGallerySelect(${MAX_THUMBS})">+${extraCount}<span style="font-size:9px;font-weight:600">${lang==='tj'?'акси дигар':'ещё фото'}</span></button>` : ''}
+    </div>` : '';
+
+  galleryEl.innerHTML = `
+    <div class="pp-gallery-main" style="--pp-bg:${bg}">
+      ${mainHtml}
+      ${ppGalleryBadges(p)}
+      ${images.length>1 ? `<div class="pp-gallery-count">${ppGalleryIdx+1} / ${images.length}</div>` : ''}
+    </div>
+    ${thumbsHtml}`;
+}
+
+function ppGallerySelect(i){
+  ppGalleryIdx = i;
+  const p = PRODUCTS.find(x=>x.id===ppCurrentId);
+  if(p) ppRenderGallery(p);
 }
 
 function renderProductDetailRest(p){
@@ -1508,16 +1601,22 @@ function renderProductDetailRest(p){
     ratingEl.style.display = 'none';
   }
 
-  document.getElementById('ppPrice').innerHTML = priceHtml(p);
+  // плоская цена: большая зелёная цена + старая перечёркнутая + красный "-N%"
+  const discPct = (p.old_price && p.old_price > p.price) ? Math.round((1 - p.price / p.old_price) * 100) : null;
+  document.getElementById('ppPrice').innerHTML = `
+    <div class="pp-price-flat">
+      <span class="now">${p.price} смн</span>
+      ${discPct ? `<span class="old">${p.old_price} смн</span><span class="pct">−${discPct}%</span>` : ''}
+    </div>
+    <div class="pp-stock-row ${p.stock === 0 ? 'out' : ''}">
+      ${p.stock === 0
+        ? (lang==='tj'?'Тамом шуд':'Нет в наличии')
+        : `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ${lang==='tj'?'Дар захира':'В наличии'}`}
+    </div>`;
 
-  // артикул, наличие на складе и просмотры
+  // артикул и просмотры
   const metaParts = [];
-  metaParts.push(`${lang==='tj'?'Артикул':'Артикул'}: <b>ART-${String(p.id).padStart(6,'0')}</b>`);
-  if(p.stock != null){
-    metaParts.push(p.stock > 0
-      ? `${lang==='tj'?'Мавҷуд аст':'В наличии'}: <b>${p.stock}</b>`
-      : `<b style="color:var(--brick)">${lang==='tj'?'Тамом шуд':'Нет в наличии'}</b>`);
-  }
+  metaParts.push(`${lang==='tj'?'Код':'Код'}: <b>ART-${String(p.id).padStart(6,'0')}</b>`);
   metaParts.push(`👁 ${p.views || 0}`);
   document.getElementById('ppMeta').innerHTML = metaParts.join(' &nbsp;·&nbsp; ');
 
@@ -1605,10 +1704,18 @@ function renderProductDetailRest(p){
   if(warrantyTxt) badges.push(`<span class="pp-badge">🛡️ ${warrantyTxt}</span>`);
   document.getElementById('ppBadges').innerHTML = badges.join('');
 
-  // особенности товара
+  // особенности товара — со значками (линейка/коробка/весы/слои), как в референсе
   const featuresTxt = lang==='tj'?p.features_tj:p.features_ru;
   const features = (featuresTxt||'').split('\n').map(s=>s.trim()).filter(Boolean);
-  document.getElementById('ppFeatures').innerHTML = features.map(f=>`<li>${f}</li>`).join('');
+  const FEATURE_ICONS = [
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23189F45' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='10' rx='1'/%3E%3Cpath d='M7 7v3M11 7v3M15 7v3'/%3E%3C/svg%3E",
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23189F45' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 8 12 3 3 8v8l9 5 9-5V8z'/%3E%3Cpath d='M3 8l9 5 9-5M12 13v8'/%3E%3C/svg%3E",
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23189F45' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v3M6 6h12l2 13H4L6 6z'/%3E%3C/svg%3E",
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23189F45' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='6' rx='1'/%3E%3Crect x='4' y='14' width='16' height='6' rx='1'/%3E%3C/svg%3E"
+  ];
+  document.getElementById('ppFeatures').innerHTML = features.map((f,i)=>
+    `<li style="--feature-ic:url('${FEATURE_ICONS[i % FEATURE_ICONS.length]}')">${f}</li>`
+  ).join('');
 
   // продавец / партнёр (если указан)
   const sellerCardEl = document.getElementById('ppSellerCard');
@@ -1668,11 +1775,17 @@ function ppChangeQty(delta){
 }
 function updatePpAddBtnLabel(){
   const label = document.getElementById('ppAddBtnLabel');
+  const priceEl = document.getElementById('ppAddBtnPrice');
   if(!label || !ppCurrentId) return;
+  const p = PRODUCTS.find(x=>x.id===ppCurrentId);
   const inCart = cart[ppCurrentId] || 0;
   label.textContent = inCart
-    ? (lang==='tj' ? `✓ Дар сабад (${inCart}) — Давом додан` : `✓ В корзине (${inCart}) — Продолжить`)
+    ? (lang==='tj' ? `✓ Дар сабад (${inCart})` : `✓ В корзине (${inCart})`)
     : I18N[lang].add_to_cart;
+  if(priceEl && p){
+    const unitP = (ppBundleQty && ppBundleTotal) ? Math.round((ppBundleTotal/ppBundleQty)*100)/100 : p.price;
+    priceEl.textContent = (unitP * ppQtyVal) + ' смн';
+  }
 }
 
 function ppAddOrOpenCart(){
