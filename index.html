@@ -362,6 +362,39 @@ section.products{padding:28px 20px}
 .qty span{font-size:13px;font-weight:700;min-width:16px;text-align:center}
 .remove-x{font-size:11px;color:var(--brick);font-weight:700;margin-inline-start:8px;background:none}
 .empty-msg{text-align:center;color:#8a8478;font-size:14px;padding:40px 0}
+
+/* ---------- рекомендации в корзине ---------- */
+.drawer-recommend{padding:4px 20px 16px;border-top:1px solid var(--line)}
+.drawer-recommend-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--indigo);margin:14px 0 10px}
+.drawer-recommend-scroll{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:0 20px}
+.drawer-recommend-scroll::-webkit-scrollbar{display:none}
+.rec-card{flex:0 0 118px;background:#fff;border:1px solid var(--card-line);border-radius:14px;padding:8px;cursor:pointer;position:relative}
+.rec-card .rec-media{width:100%;aspect-ratio:1/1;background:#F6F7F5;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden}
+.rec-card .rec-media img{width:100%;height:100%;object-fit:contain;padding:6px}
+.rec-card .rec-name{font-size:11px;font-weight:600;color:var(--indigo);margin-top:7px;line-height:1.25;min-height:27px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rec-card .rec-price{font-size:12px;font-weight:800;color:var(--accent-green-dark);margin-top:4px}
+.rec-card .rec-add{position:absolute;bottom:8px;right:8px;width:24px;height:24px;border-radius:7px;background:var(--accent-green);color:#fff;display:flex;align-items:center;justify-content:center}
+
+/* ---------- «хариди бехатар» дар корзина ---------- */
+.safe-purchase-box{display:flex;align-items:center;gap:10px;background:var(--accent-green-bg,#EAF7EE);color:var(--accent-green-dark);border-radius:12px;padding:11px 13px;margin-bottom:10px}
+.safe-purchase-title{font-size:12.5px;font-weight:700;color:var(--indigo)}
+.safe-purchase-sub{font-size:11px;color:var(--text-soft);margin-top:1px}
+
+/* ---------- сводка ва блокҳои эътимод дар checkout ---------- */
+.checkout-order-summary{background:var(--cream);border-radius:12px;padding:10px 12px;margin-bottom:16px}
+.checkout-order-item{display:flex;align-items:center;gap:10px;padding:4px 0}
+.checkout-order-item .em{width:46px;height:46px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;flex-shrink:0}
+.checkout-order-item .em img{width:100%;height:100%;object-fit:contain;padding:5px}
+.checkout-order-item .info{flex:1;min-width:0}
+.checkout-order-item .name{font-size:13px;font-weight:600;color:var(--ink)}
+.checkout-order-item .variant{font-size:11px;color:var(--text-soft);margin-top:1px}
+.checkout-order-item .price{font-size:12.5px;font-weight:700;color:var(--accent-green-dark);white-space:nowrap}
+.checkout-order-item .qty-x{font-size:11px;color:var(--text-soft);white-space:nowrap}
+.checkout-order-total{display:flex;justify-content:space-between;font-size:13px;font-weight:800;color:var(--indigo);border-top:1px solid var(--line);margin-top:6px;padding-top:8px}
+.checkout-trust-block{background:var(--accent-green-bg,#EAF7EE);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:12px;margin-top:14px}
+.checkout-trust-row{display:flex;align-items:flex-start;gap:10px;color:var(--accent-green-dark)}
+.checkout-trust-title{font-size:12.5px;font-weight:700;color:var(--indigo)}
+.checkout-trust-sub{font-size:11px;color:var(--text-soft);margin-top:1px}
 .drawer-foot{border-top:1px solid var(--line);padding:16px 20px;display:flex;flex-direction:column;gap:6px}
 .row-line{display:flex;justify-content:space-between;font-size:13px;color:#6b655a}
 .row-line.total{font-size:16px;font-weight:800;color:var(--indigo)}
@@ -677,7 +710,15 @@ footer p{margin-top:8px;font-size:14px}
     <button class="close-x" onclick="closeAll()">✕</button>
   </div>
   <div class="drawer-items" id="drawerItems"></div>
+  <div class="drawer-recommend" id="drawerRecommend"></div>
   <div class="drawer-foot">
+    <div class="safe-purchase-box">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+      <div>
+        <div class="safe-purchase-title" data-i18n="safe_purchase_title">Хариди бехатар</div>
+        <div class="safe-purchase-sub" data-i18n="safe_purchase_sub">Маълумоти шумо ҳифз карда мешавад</div>
+      </div>
+    </div>
     <div class="row-line"><span data-i18n="cart_delivery">Бурдарасонӣ</span><span data-i18n="cart_free">Ройгон 🚚</span></div>
     <div class="row-line total"><span data-i18n="cart_total">Ҷамъ</span><span id="cartTotal">0 смн</span></div>
     <button class="checkout-btn" id="checkoutBtn" onclick="openCheckout()" disabled>
@@ -692,6 +733,7 @@ footer p{margin-top:8px;font-size:14px}
     <button class="modal-close-x" onclick="closeAll()" aria-label="Пӯшидан">✕</button>
     <div id="checkoutForm">
       <h3 data-i18n="checkout_title">Маълумоти фармоиш</h3>
+      <div class="checkout-order-summary" id="checkoutOrderSummary"></div>
       <div class="field">
         <label data-i18n="form_name">Ном</label>
         <input id="custName" placeholder="">
@@ -717,6 +759,29 @@ footer p{margin-top:8px;font-size:14px}
         <div id="promoResult" style="font-size:12px;margin-top:6px"></div>
       </div>
       <div class="field-error" id="formError" data-i18n="form_error">Лутфан ном ва телефонро пур кунед</div>
+      <div class="checkout-trust-block">
+        <div class="checkout-trust-row">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+          <div>
+            <div class="checkout-trust-title" data-i18n="trust_privacy_title">Маълумоти шахсӣ ҳифз карда мешавад</div>
+            <div class="checkout-trust-sub" data-i18n="trust_privacy_sub">Мо маълумоти шуморо ба шахсони сеюм намедиҳем</div>
+          </div>
+        </div>
+        <div class="checkout-trust-row">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h3.5L23 12v4h-7"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
+          <div>
+            <div class="checkout-trust-title" data-i18n="trust_delivery_title">Таҳвили зуд</div>
+            <div class="checkout-trust-sub" data-i18n="trust_delivery_sub">Дар тамоми Тоҷикистон</div>
+          </div>
+        </div>
+        <div class="checkout-trust-row">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2-9.5L1 10"/></svg>
+          <div>
+            <div class="checkout-trust-title" data-i18n="trust_return_title">Имконияти баргардонидан</div>
+            <div class="checkout-trust-sub" data-i18n="trust_return_sub">Дар давоми 14 рӯз</div>
+          </div>
+        </div>
+      </div>
       <div class="modal-actions">
         <button class="checkout-btn" id="submitOrderBtn" onclick="submitOrder('direct')"><span data-i18n="checkout_btn">Расмикунонии фармоиш</span></button>
       </div>
@@ -956,6 +1021,11 @@ const I18N = {
     close:'Хуб шуд',
     footer_question:'Савол доред? Ба мо нависед.', footer_rights:'Ҳамаи ҳуқуқҳо ҳифз шудаанд',
     pp_desc_label:'Тавсиф', pp_similar:'Молҳои монанд', pp_seller_label:'Фурӯшанда',
+    cart_recommend_title:'Шумо метавонед илова кунед',
+    safe_purchase_title:'Хариди бехатар', safe_purchase_sub:'Маълумоти шумо ҳифз карда мешавад',
+    trust_privacy_title:'Маълумоти шахсӣ ҳифз карда мешавад', trust_privacy_sub:'Мо маълумоти шуморо ба шахсони сеюм намедиҳем',
+    trust_delivery_title:'Таҳвили зуд', trust_delivery_sub:'Дар тамоми Тоҷикистон',
+    trust_return_title:'Имконияти баргардонидан', trust_return_sub:'Дар давоми 14 рӯз',
   },
   ru:{
     search_placeholder:'Поиск...',
@@ -984,6 +1054,11 @@ const I18N = {
     close:'Хорошо',
     footer_question:'Остались вопросы? Напишите нам.', footer_rights:'Все права защищены',
     pp_desc_label:'Описание', pp_similar:'Похожие товары', pp_seller_label:'Продавец',
+    cart_recommend_title:'Вы можете добавить',
+    safe_purchase_title:'Безопасная покупка', safe_purchase_sub:'Ваши данные под защитой',
+    trust_privacy_title:'Личные данные под защитой', trust_privacy_sub:'Мы не передаём ваши данные третьим лицам',
+    trust_delivery_title:'Быстрая доставка', trust_delivery_sub:'По всему Таджикистану',
+    trust_return_title:'Возможность возврата', trust_return_sub:'В течение 14 дней',
   }
 };
 
@@ -1182,6 +1257,52 @@ function cartTotal(){
   },0);
 }
 
+function renderCartRecommendations(){
+  const box = document.getElementById('drawerRecommend');
+  if(!box) return;
+  const cartIds = Object.keys(cart).map(Number);
+  if(cartIds.length === 0){ box.innerHTML = ''; return; }
+  const cartCats = new Set(PRODUCTS.filter(p=>cartIds.includes(p.id)).map(p=>p.cat));
+  let picks = PRODUCTS.filter(p => !cartIds.includes(p.id) && cartCats.has(p.cat));
+  if(picks.length < 4){
+    picks = picks.concat(PRODUCTS.filter(p => !cartIds.includes(p.id) && !picks.includes(p)));
+  }
+  picks = picks.slice(0, 8);
+  if(!picks.length){ box.innerHTML = ''; return; }
+  box.innerHTML = `
+    <div class="drawer-recommend-title">${I18N[lang].cart_recommend_title}</div>
+    <div class="drawer-recommend-scroll">
+      ${picks.map(p => `
+        <div class="rec-card" onclick="closeAll();openProduct(${p.id})">
+          <div class="rec-media">${mediaHtml(p)}</div>
+          <div class="rec-name">${lang==='tj'?p.name_tj:p.name_ru}</div>
+          <div class="rec-price">${p.price} смн</div>
+          <button class="rec-add" onclick="event.stopPropagation();addToCart(${p.id})">${CART_ICON_SM}</button>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function renderCheckoutOrderSummary(){
+  const box = document.getElementById('checkoutOrderSummary');
+  if(!box) return;
+  const entries = Object.entries(cart);
+  box.innerHTML = entries.map(([id,qty])=>{
+    const p = PRODUCTS.find(p=>p.id==id);
+    if(!p) return '';
+    return `
+      <div class="checkout-order-item">
+        <div class="em">${mediaHtml(p)}</div>
+        <div class="info">
+          <div class="name">${lang==='tj'?p.name_tj:p.name_ru}</div>
+          ${cartVariantNote[id] ? `<div class="variant">${cartVariantNote[id]}</div>` : ''}
+        </div>
+        <div class="qty-x">× ${qty}</div>
+        <div class="price">${unitPrice(id)*qty} смн</div>
+      </div>`;
+  }).join('') + `<div class="checkout-order-total"><span>${I18N[lang].cart_total}</span><span>${cartTotal()} смн</span></div>`;
+}
+
 function updateCartUI(){
   document.getElementById('cartBadge').textContent = cartCount();
   document.getElementById('cartBadgePP').textContent = cartCount();
@@ -1192,6 +1313,7 @@ function updateCartUI(){
   const entries = Object.entries(cart);
   if(entries.length===0){
     box.innerHTML = `<p class="empty-msg">${I18N[lang].cart_empty}</p>`;
+    renderCartRecommendations();
     return;
   }
   box.innerHTML = entries.map(([id,qty])=>{
@@ -1212,6 +1334,7 @@ function updateCartUI(){
         </div>
       </div>`;
   }).join('');
+  renderCartRecommendations();
 }
 
 /* ---------- страница товара ---------- */
@@ -1595,6 +1718,7 @@ function closeAll(){
 }
 function openCheckout(){
   if(cartCount()===0) return;
+  renderCheckoutOrderSummary();
   document.getElementById('checkoutOverlay').classList.add('show');
 }
 
