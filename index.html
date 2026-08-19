@@ -1332,7 +1332,7 @@ function renderCartRecommendations(){
   if(picks.length < 4){
     picks = picks.concat(PRODUCTS.filter(p => !cartIds.includes(p.id) && !picks.includes(p)));
   }
-  picks = picks.slice(0, 8);
+  picks = picks.slice(0, 3);
   if(!picks.length){ box.innerHTML = ''; return; }
   box.innerHTML = `
     <div class="drawer-recommend-title">${I18N[lang].cart_recommend_title}</div>
