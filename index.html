@@ -34,11 +34,11 @@
 
 <style>
 :root{
-  --indigo:#1B2A4A;
-  --indigo-2:#233a63;
+  --indigo:#192740;
+  --indigo-2:#213353;
   --marigold:#E8A33D;
   --marigold-dark:#c98620;
-  --brick:#C1442E;
+  --brick:#C43E29;
   --cream:#F7F3EA;
   --pistachio:#7A8B5E;
   --ink:#2B2620;
@@ -46,8 +46,8 @@
   --line:rgba(43,38,32,.12);
   --shadow: 0 8px 24px rgba(27,42,74,.12);
   --brand-blue:#2F6FED;
-  --accent-green:#16A34A;
-  --accent-green-dark:#0F7C38;
+  --accent-green:#189F45;
+  --accent-green-dark:#128233;
   --bg:#FAFAF8;
   --card-line:rgba(27,42,74,.08);
   --text-soft:#8a8478;
@@ -612,7 +612,7 @@ footer p{margin-top:8px;font-size:14px}
 
 <section class="promo-strip">
   <div class="promo-strip-inner" id="bannerCarousel">
-    <div class="promo-card" style="--promo-bg:#123024">
+    <div class="promo-card" style="--promo-bg:#082E22">
       <div class="promo-title" data-i18n="promo1_title">Тахфифҳо то 30%</div>
       <div class="promo-sub" data-i18n="promo1_sub">Ва молҳои интихобшуда танҳо то охири ҳафта!</div>
       <a href="#catalog" class="promo-cta" onclick="closeAll()">Бинед молҳо →</a>
@@ -783,7 +783,7 @@ footer p{margin-top:8px;font-size:14px}
         </div>
       </div>
       <div class="modal-actions">
-        <button class="checkout-btn" id="submitOrderBtn" onclick="submitOrder('direct')"><span data-i18n="checkout_btn">Расмикунонии фармоиш</span></button>
+        <button class="checkout-btn" id="submitOrderBtn" onclick="submitOrder('direct')"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span data-i18n="checkout_btn">Расмикунонии фармоиш</span></button>
       </div>
     </div>
     <div id="successBox" class="success-box" style="display:none">
@@ -1064,7 +1064,12 @@ const I18N = {
 
 const CAT_LABELS = { all:{tj:'Ҳама',ru:'Все'}, electronics:{tj:'Электроника',ru:'Электроника'},
   clothing:{tj:'Либос',ru:'Одежда'}, bags:{tj:'Сумкаҳо',ru:'Сумки'} };
-const CAT_ICONS = { all:'▦', electronics:'📱', clothing:'👕', bags:'👜' };
+const CAT_ICONS = {
+  all:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+  electronics:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>',
+  clothing:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 6l2 3 2-1.5V21h8V7.5L18 9l2-3-4-3-2 2h-4z"/></svg>',
+  bags:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/></svg>',
+};
 const CARD_BG = { electronics:'#EFE6D2', clothing:'#F3DEDA', bags:'#E4E9DA' };
 
 /* ==========================================================================
