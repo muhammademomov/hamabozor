@@ -128,9 +128,9 @@ header{
 }
 .sb-logo{padding:22px 20px 18px;display:flex;align-items:center;gap:10px}
 .sb-logomark{
-  width:32px;height:32px;border-radius:9px;background:var(--accent-purple);color:#fff;
+  width:32px;height:32px;border-radius:9px;background:var(--accent-green);color:#fff;
   display:flex;align-items:center;justify-content:center;font-family:'Unbounded',sans-serif;
-  font-weight:800;font-size:15px;flex-shrink:0;box-shadow:0 0 0 4px rgba(124,92,252,.18);
+  font-weight:800;font-size:15px;flex-shrink:0;box-shadow:0 0 0 4px rgba(22,163,74,.18);
 }
 .sb-brand{font-family:'Unbounded',sans-serif;font-weight:800;font-size:15px;color:#fff;letter-spacing:-.01em}
 .sb-sub{font-size:11px;color:var(--sb-text);font-weight:600;margin-top:1px}
@@ -143,14 +143,14 @@ header{
   transition:background .15s,color .15s;width:100%;
 }
 .nav-it:hover{background:var(--sb-bg-2);color:#fff}
-.nav-it.active{background:var(--accent-purple);color:#fff;font-weight:700}
+.nav-it.active{background:var(--accent-green);color:#fff;font-weight:700}
 .nav-it.soon{opacity:.5}
 .nav-it .soon-tag{margin-left:auto;font-size:9px;font-weight:700;background:var(--sb-bg-2);color:var(--sb-text);padding:2px 6px;border-radius:6px;letter-spacing:.02em}
 .nav-ic{width:18px;text-align:center;flex-shrink:0;font-size:15px}
 .sb-foot{padding:14px 16px;border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:10px}
 .sb-user{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
 .sb-avatar{
-  width:34px;height:34px;border-radius:50%;background:var(--accent-purple);color:#fff;font-weight:800;
+  width:34px;height:34px;border-radius:50%;background:var(--accent-green);color:#fff;font-weight:800;
   font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
 .sb-uinfo{flex:1;min-width:0}
@@ -393,7 +393,7 @@ header{
 .modal-overlay .pt-detail-modal{max-width:920px;width:96%;max-height:92vh;overflow-y:auto;padding:28px}
 .pt-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:18px 0 20px;flex-wrap:wrap}
 .pt-tab{padding:10px 16px;font-size:13px;font-weight:700;color:#8a8478;border-bottom:2px solid transparent;margin-bottom:-1px}
-.pt-tab.active{color:var(--brand-blue-dark);border-bottom-color:var(--brand-blue)}
+.pt-tab.active{color:var(--accent-green-dark);border-bottom-color:var(--accent-green)}
 .pt-overview-grid{display:flex !important;flex-wrap:wrap;gap:16px 24px}
 .pt-overview-grid > *{flex:1 1 180px;min-width:180px}
 .pt-overview-grid .l{font-size:12px;color:#8a8478;font-weight:700;text-transform:uppercase;letter-spacing:.02em}
@@ -465,7 +465,15 @@ header{
 .pr-purchase-row .btn-outline{padding:5px 9px;font-size:12px}
 .fin-period-row{display:flex;gap:8px;flex-wrap:wrap}
 .fin-period-btn{padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:var(--paper);font-size:13px;font-weight:700;color:#6b655a}
-.fin-period-btn.active{background:var(--brand-blue);border-color:var(--brand-blue);color:#fff}
+.fin-period-btn.active{background:var(--accent-green);border-color:var(--accent-green);color:#fff}
+.fin-quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.fin-quick-btn{
+  display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--cream);
+  border:1px solid var(--line);border-radius:12px;padding:14px 10px;font-size:12px;font-weight:700;
+  color:var(--ink);transition:background .15s,border-color .15s;
+}
+.fin-quick-btn:hover{background:var(--paper);border-color:var(--accent-green)}
+.fin-quick-ic{font-size:19px}
 .fin-card{
   background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;
   box-shadow:var(--shadow);border-top:3px solid transparent;transition:transform .1s;
@@ -481,6 +489,12 @@ header{
 .fin-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .fin-card-label{font-size:12px;font-weight:700;color:#8a8478;text-transform:uppercase;letter-spacing:.02em}
 .fin-card-icon{font-size:16px;background:var(--cream);border-radius:8px;padding:6px;line-height:1}
+.fin-card-green .fin-card-icon{background:var(--accent-green-bg)}
+.fin-card-blue .fin-card-icon{background:#E7EFFE}
+.fin-card-red .fin-card-icon{background:#F6DEDA}
+.fin-card-orange .fin-card-icon{background:#FBEDD8}
+.fin-card-purple .fin-card-icon{background:#EEE9FE}
+.fin-card-teal .fin-card-icon{background:#E1F7F3}
 .fin-card-value{font-family:'Unbounded',sans-serif;font-weight:800;font-size:20px;color:var(--indigo)}
 .fin-feed{display:flex;flex-direction:column;gap:8px}
 .fin-feed-row{
@@ -901,20 +915,36 @@ tbody tr:hover{background:var(--cream)}
 
     <div id="financeTabContent"></div>
 
-    <div class="pt-page-head" style="margin-top:26px">
-      <div class="pt-page-title">🧾 Общие расходы</div>
-      <button class="btn-solid" onclick="openExpenseGeneralForm()">+ Добавить расход</button>
-    </div>
-    <div class="couriers-list" id="generalExpensesList"></div>
+    <div class="dash-two-col" style="margin-top:26px">
+      <div class="courier-setup-card">
+        <div class="pt-page-head" style="margin:0 0 12px">
+          <div class="pt-page-title">🧾 Общие расходы</div>
+          <button class="btn-solid" onclick="openExpenseGeneralForm()">+ Добавить расход</button>
+        </div>
+        <div class="couriers-list" id="generalExpensesList"></div>
+      </div>
 
-    <div class="pt-page-head" style="margin-top:26px">
-      <div class="pt-page-title">🏦 Взносы и изъятия (мои личные деньги в бизнесе)</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn-outline" onclick="openOwnerTxForm('withdrawal')">− Забрал из бизнеса</button>
-        <button class="btn-solid" onclick="openOwnerTxForm('contribution')">+ Внёс в бизнес</button>
+      <div class="courier-setup-card">
+        <div class="courier-setup-title">⚡ Быстрые действия</div>
+        <div class="fin-quick-actions">
+          <button class="fin-quick-btn" onclick="openExpenseGeneralForm()"><span class="fin-quick-ic">➕</span>Добавить расход</button>
+          <button class="fin-quick-btn" onclick="openOwnerTxForm('contribution')"><span class="fin-quick-ic">⬆️</span>Внести в бизнес</button>
+          <button class="fin-quick-btn" onclick="openOwnerTxForm('withdrawal')"><span class="fin-quick-ic">⬇️</span>Забрать из бизнеса</button>
+          <button class="fin-quick-btn" onclick="window.print()"><span class="fin-quick-ic">📄</span>Экспорт отчётов</button>
+        </div>
       </div>
     </div>
-    <div class="couriers-list" id="ownerTxList"></div>
+
+    <div class="courier-setup-card" style="margin-top:16px">
+      <div class="pt-page-head" style="margin:0 0 12px">
+        <div class="pt-page-title">🏦 Взносы и изъятия (мои личные деньги в бизнесе)</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-outline" onclick="openOwnerTxForm('withdrawal')">− Забрал из бизнеса</button>
+          <button class="btn-solid" onclick="openOwnerTxForm('contribution')">+ Внёс в бизнес</button>
+        </div>
+      </div>
+      <div class="couriers-list" id="ownerTxList"></div>
+    </div>
   </div>
 
   <div class="wrap hidden" id="marketingPage">
@@ -1559,8 +1589,8 @@ async function loadDashboard(){
 
     box.innerHTML = `
       <div class="pt-grid" style="margin-top:18px">
-        ${finCard('📷','blue','Общая выручка', d.revenue.toLocaleString('ru-RU')+' смн', null)}
-        ${finCard('🛒','blue','Всего заказов', d.orders_count, null)}
+        ${finCard('💰','green','Общая выручка', d.revenue.toLocaleString('ru-RU')+' смн', null)}
+        ${finCard('🛒','purple','Всего заказов', d.orders_count, null)}
         ${finCard('👥','purple','Общий трафик', d.traffic+' посещений', null)}
         ${finCard('📈','orange','Конверсия', d.conversion+'%', null)}
         ${finCard('💳','teal','Средний чек', d.avg_check.toLocaleString('ru-RU')+' смн', null)}
