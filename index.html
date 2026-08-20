@@ -1048,6 +1048,28 @@ async function loadBanners(){
   }catch(e){
     console.warn('Не удалось загрузить баннеры, показываем стандартные:', e);
   }
+  startBannerAutoplay();
+}
+
+// баннеры листаются сами по кругу — покупателю не нужно свайпать вручную
+let bannerTimer = null;
+function startBannerAutoplay(){
+  const el = document.getElementById('bannerCarousel');
+  if(!el) return;
+  clearInterval(bannerTimer);
+  if(el.children.length <= 1) return;
+  bannerTimer = setInterval(() => {
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    const next = el.scrollLeft + el.clientWidth;
+    el.scrollTo({ left: next > maxScroll - 5 ? 0 : next, behavior: 'smooth' });
+  }, 4000);
+  // если покупатель сам полистал баннер вручную — не перебиваем его сразу следующим тиком
+  let resumeTimeout = null;
+  el.addEventListener('pointerdown', () => {
+    clearInterval(bannerTimer);
+    clearTimeout(resumeTimeout);
+    resumeTimeout = setTimeout(startBannerAutoplay, 5000);
+  });
 }
 
 /* ==========================================================================
@@ -1467,6 +1489,8 @@ function ppRenderClose(){
   document.getElementById('productPage').classList.remove('show');
   document.body.style.overflow = '';
   ppCurrentId = null;
+  clearInterval(ppGalleryTimer);
+  ppGalleryTimer = null;
 }
 function handleRoute(){
   const m = location.pathname.match(/^\/product\/.*-(\d+)$/);
@@ -1509,6 +1533,7 @@ function ppFindModelMedia(p){
 
 let ppGalleryIdx = 0;
 let ppGalleryImages = [];
+let ppGalleryTimer = null;
 
 function renderProductDetail(){
   const p = PRODUCTS.find(x=>x.id===ppCurrentId);
@@ -1576,12 +1601,21 @@ function ppRenderGallery(p){
       ${images.length>1 ? `<div class="pp-gallery-count">${ppGalleryIdx+1} / ${images.length}</div>` : ''}
     </div>
     ${thumbsHtml}`;
+
+  // фото товара сами листаются по кругу — покупателю не нужно свайпать вручную
+  clearInterval(ppGalleryTimer);
+  if(images.length > 1){
+    ppGalleryTimer = setInterval(() => {
+      ppGalleryIdx = (ppGalleryIdx + 1) % images.length;
+      ppRenderGallery(p);
+    }, 3200);
+  }
 }
 
 function ppGallerySelect(i){
   ppGalleryIdx = i;
   const p = PRODUCTS.find(x=>x.id===ppCurrentId);
-  if(p) ppRenderGallery(p);
+  if(p) ppRenderGallery(p); // перезапускает и таймер автолистания
 }
 
 function renderProductDetailRest(p){
