@@ -36,6 +36,12 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:980px}
+.pm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.pm-chip{padding:6px 12px;border-radius:980px;font-size:12.5px;font-weight:600;border:1px solid #d2d2d7;background:#fff;color:#3a3a3c;cursor:pointer}
+.pm-chip.active{background:#16A34A;border-color:#16A34A;color:#fff}
+.pm-chip-add{display:flex;gap:8px;margin-top:8px}
+.pm-chip-add .field{flex:1}
+.pm-chip-add .btn{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -92,6 +98,58 @@ const TITLES={dashboard:'Дашборд',orders:'Заказы',products:'Тов�
 function money(n){ return (Math.round((Number(n)||0)*100)/100).toLocaleString('ru-RU')+' смн'; }
 function fmtDate(s){ if(!s) return '—'; try{ return new Date(s).toLocaleDateString('ru-RU'); }catch(e){ return s; } }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------------- известные цвета/размеры (запоминаются для будущих товаров) ---------------- */
+const PM_KNOWN_KEY = { colors:'hamabozor_known_colors', sizes:'hamabozor_known_sizes' };
+const PM_DEFAULTS = {
+  colors: ['Чёрный','Белый','Серый','Синий','Небесный','Красный','Зелёный','Коричневый','Розовый','Оранжевый'],
+  sizes: ['S','M','L','XL','13-14 дюймов','15-16 дюймов']
+};
+function pmGetKnown(kind){
+  let list = [];
+  try{ list = JSON.parse(localStorage.getItem(PM_KNOWN_KEY[kind])||'null') || []; }catch(e){}
+  if(!list.length) list = [...PM_DEFAULTS[kind]];
+  // подмешиваем значения, которые реально уже используются в товарах (на случай если раньше добавляли не через это поле)
+  (cache.products||[]).forEach(p=>{
+    const raw = kind==='colors'?p.colors:p.sizes;
+    (raw||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(v=>{ if(!list.includes(v)) list.push(v); });
+  });
+  return list;
+}
+function pmSaveKnown(kind, list){
+  localStorage.setItem(PM_KNOWN_KEY[kind], JSON.stringify(list));
+}
+function pmCurrentValues(kind){
+  const el = document.getElementById('pm_'+kind);
+  return (el ? el.value : '').split(',').map(s=>s.trim()).filter(Boolean);
+}
+function renderPmChips(kind){
+  const known = pmGetKnown(kind);
+  const current = pmCurrentValues(kind);
+  const box = document.getElementById('pm_'+kind+'_chips');
+  if(!box) return;
+  box.innerHTML = known.map(v=>`<button type="button" class="pm-chip ${current.includes(v)?'active':''}" onclick="pmToggleChip('${kind}','${v.replace(/'/g,"\\'")}')">${esc(v)}</button>`).join('');
+}
+function pmToggleChip(kind, value){
+  let current = pmCurrentValues(kind);
+  if(current.includes(value)) current = current.filter(v=>v!==value);
+  else current.push(value);
+  document.getElementById('pm_'+kind).value = current.join(', ');
+  renderPmChips(kind);
+}
+function pmAddKnownValue(kind){
+  const input = document.getElementById('pm_'+kind+'_new');
+  const value = (input.value||'').trim();
+  if(!value) return;
+  const known = pmGetKnown(kind);
+  if(!known.includes(value)){ known.push(value); pmSaveKnown(kind, known); }
+  input.value = '';
+  // сразу добавляем и в сам товар
+  let current = pmCurrentValues(kind);
+  if(!current.includes(value)) current.push(value);
+  document.getElementById('pm_'+kind).value = current.join(', ');
+  renderPmChips(kind);
+}
 function dashStatCard(icon, iconBg, label, value){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -308,8 +366,16 @@ function openProductModal(p){
       <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Склад, цвета, размеры</div></div>
       <div>${lbl('Остаток (шт)')}<input id="pm_stock" type="number" class="field" value="${p&&p.stock!=null?p.stock:''}"></div>
       <div></div>
-      <div>${lbl('Цвета (через запятую)')}<input id="pm_colors" class="field" placeholder="Чёрный, Серый, Небесный" value="${esc(p&&p.colors)}"></div>
-      <div>${lbl('Размеры (через запятую)')}<input id="pm_sizes" class="field" placeholder="13-14 дюймов, 15-16 дюймов" value="${esc(p&&p.sizes)}"></div>
+      <div>${lbl('Цвета (через запятую)')}
+        <div id="pm_colors_chips" class="pm-chips"></div>
+        <input id="pm_colors" class="field" placeholder="Чёрный, Серый, Небесный" value="${esc(p&&p.colors)}" oninput="renderPmChips('colors')">
+        <div class="pm-chip-add"><input id="pm_colors_new" class="field" placeholder="Новый цвет..." onkeydown="if(event.key==='Enter'){event.preventDefault();pmAddKnownValue('colors')}"><button type="button" class="btn btn-secondary" onclick="pmAddKnownValue('colors')">+ Добавить</button></div>
+      </div>
+      <div>${lbl('Размеры (через запятую)')}
+        <div id="pm_sizes_chips" class="pm-chips"></div>
+        <input id="pm_sizes" class="field" placeholder="13-14 дюймов, 15-16 дюймов" value="${esc(p&&p.sizes)}" oninput="renderPmChips('sizes')">
+        <div class="pm-chip-add"><input id="pm_sizes_new" class="field" placeholder="Новый размер..." onkeydown="if(event.key==='Enter'){event.preventDefault();pmAddKnownValue('sizes')}"><button type="button" class="btn btn-secondary" onclick="pmAddKnownValue('sizes')">+ Добавить</button></div>
+      </div>
 
       <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Описание и особенности</div></div>
       <div>${lbl('Описание (рус.)')}<textarea id="pm_desc_ru" class="field" style="min-height:70px">${esc(p&&p.desc_ru)}</textarea></div>
@@ -342,6 +408,8 @@ function openProductModal(p){
     <button class="btn btn-primary" style="width:100%;margin-top:18px;padding:12px" onclick="saveProduct()">Сохранить товар</button>
   </div></div>`;
   renderPmGallery();
+  renderPmChips('colors');
+  renderPmChips('sizes');
 }
 function renderPmGallery(){
   document.getElementById('pm_extra_gallery').innerHTML = pmExtraImages.map((src,i)=>`
@@ -361,6 +429,14 @@ function saveProduct(){
   const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
   const numOrNull = id => { const s = v(id); return s===''?null:Number(s); };
   const name_tj = v('pm_name_tj');
+  // запоминаем любые новые цвета/размеры, вписанные вручную в текстовое поле, для будущих товаров
+  ['colors','sizes'].forEach(kind=>{
+    const used = pmCurrentValues(kind);
+    const known = pmGetKnown(kind);
+    let changed = false;
+    used.forEach(val=>{ if(!known.includes(val)){ known.push(val); changed = true; } });
+    if(changed) pmSaveKnown(kind, known);
+  });
   const payload={
     name_ru, name_tj: name_tj || name_ru,
     subtitle_ru: v('pm_subtitle_ru'), subtitle_tj: v('pm_subtitle_tj'),
