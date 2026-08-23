@@ -103,6 +103,10 @@ header{
   border:none;background:none;outline:none;width:100%;font-size:14px;color:var(--indigo);
 }
 .header-actions{display:flex;align-items:center;gap:8px;margin-inline-start:auto}
+.header-lang-btn{
+  display:flex;align-items:center;gap:4px;background:var(--cream);border:1px solid var(--line);
+  border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;color:var(--indigo);white-space:nowrap;
+}
 .lang-toggle{
   display:flex;border:1px solid var(--card-line);border-radius:999px;overflow:hidden;
 }
@@ -666,6 +670,7 @@ footer p{margin-top:8px;font-size:14px}
     <button class="icon-btn" onclick="openMenu()" aria-label="Меню"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     <div class="logo"><span></span>ҲАМАБОЗОР</div>
     <div class="header-actions">
+      <button class="header-lang-btn" onclick="toggleLangQuick()" id="headerLangBtn">RU</button>
       <a class="icon-btn" id="headerWaLink" target="_blank"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="badge badge-dot"></span></a>
       <button class="icon-btn" onclick="openCart()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="badge" id="cartBadge">0</span></button>
     </div>
@@ -2062,6 +2067,8 @@ function setLang(l){
   lang = l;
   document.getElementById('lang-tj').classList.toggle('active', l==='tj');
   document.getElementById('lang-ru').classList.toggle('active', l==='ru');
+  const headerBtn = document.getElementById('headerLangBtn');
+  if(headerBtn) headerBtn.textContent = l==='tj' ? 'RU' : 'TJ'; // показываем язык, НА который переключит следующий клик
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     el.textContent = I18N[lang][el.dataset.i18n];
   });
@@ -2071,6 +2078,9 @@ function setLang(l){
   renderProducts();
   updateCartUI();
   if(ppCurrentId) renderProductDetail();
+}
+function toggleLangQuick(){
+  setLang(lang==='tj' ? 'ru' : 'tj');
 }
 
 /* ---------- WhatsApp links ---------- */
