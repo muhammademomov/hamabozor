@@ -1199,6 +1199,38 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
 
 function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
 
+// --- реальный расход на рекламу из Meta Ads Manager (Marketing API) ---
+// требует переменные окружения META_ACCESS_TOKEN и META_AD_ACCOUNT_ID (см. Railway → Variables)
+app.get('/api/finance/meta-ads-spend', requireAuth, async (req, res) => {
+  const token = process.env.META_ACCESS_TOKEN;
+  const adAccountId = process.env.META_AD_ACCOUNT_ID;
+  if (!token || !adAccountId) {
+    return res.status(200).json({ connected: false, message: 'META_ACCESS_TOKEN или META_AD_ACCOUNT_ID не настроены в Railway' });
+  }
+  const period = req.query.period || 'today';
+  const datePreset = period === 'today' ? 'today' : period === 'week' ? 'last_7d' : period === 'month' ? 'last_30d' : 'maximum';
+  try {
+    const url = `https://graph.facebook.com/v26.0/${adAccountId}/insights?fields=spend,campaign_name&level=campaign&date_preset=${datePreset}&access_token=${encodeURIComponent(token)}`;
+    const metaRes = await fetch(url);
+    const data = await metaRes.json();
+    if (data.error) {
+      console.error('Ошибка Meta Ads API:', data.error);
+      return res.status(200).json({ connected: false, message: data.error.message || 'Ошибка Meta Ads API' });
+    }
+    const rows = data.data || [];
+    const totalSpend = rows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
+    res.json({
+      connected: true,
+      period,
+      total_spend: round2(totalSpend),
+      by_campaign: rows.map(r => ({ name: r.campaign_name, spend: round2(Number(r.spend) || 0) })),
+    });
+  } catch (e) {
+    console.error('Ошибка запроса к Meta Ads API:', e);
+    res.status(200).json({ connected: false, message: 'Не удалось связаться с Meta Ads API' });
+  }
+});
+
 // баланс — снимок на сегодня (не за период, как ОПиУ/ОДДС, а состояние прямо сейчас)
 app.get('/api/finance/balance', requireAuth, async (req, res) => {
   try {
