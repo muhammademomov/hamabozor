@@ -282,21 +282,48 @@ function openProductModal(p){
   pmEditId = p ? p.id : null;
   pmExtraImages = p && Array.isArray(p.extra_images) ? [...p.extra_images] : [];
   const partners = cache.partners||[];
+  const lbl = (t)=>`<label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">${t}</label>`;
   document.getElementById('modalRoot').innerHTML = `
-  <div class="modal-backdrop"><div class="modal">
+  <div class="modal-backdrop"><div class="modal" style="max-width:680px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3>${p?'Изменить товар':'Новый товар'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Название *</label><input id="pm_name_ru" class="field" value="${esc(p&&p.name_ru)}"></div>
-      <div><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Категория</label>
+      <div>${lbl('Название (рус.) *')}<input id="pm_name_ru" class="field" value="${esc(p&&p.name_ru)}"></div>
+      <div>${lbl('Название (тадж.)')}<input id="pm_name_tj" class="field" value="${esc(p&&p.name_tj)}"></div>
+
+      <div>${lbl('Подзаголовок (рус.)')}<input id="pm_subtitle_ru" class="field" value="${esc(p&&p.subtitle_ru)}"></div>
+      <div>${lbl('Подзаголовок (тадж.)')}<input id="pm_subtitle_tj" class="field" value="${esc(p&&p.subtitle_tj)}"></div>
+
+      <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Цена и скидка за количество</div></div>
+      <div>${lbl('Категория')}
         <select id="pm_cat" class="field">${['electronics','clothing','bags'].map(c=>`<option value="${c}" ${p&&p.cat===c?'selected':''}>${CAT_LABEL[c]}</option>`).join('')}</select></div>
-      <div><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Тег</label>
+      <div>${lbl('Тег')}
         <select id="pm_tag" class="field"><option value="">Без тега</option><option value="new" ${p&&p.tag==='new'?'selected':''}>Новинка</option><option value="hit" ${p&&p.tag==='hit'?'selected':''}>Хит</option><option value="sale" ${p&&p.tag==='sale'?'selected':''}>Скидка</option></select></div>
-      <div><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Цена продажи *</label><input id="pm_price" type="number" class="field" value="${p&&p.price!=null?p.price:''}"></div>
-      <div><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Старая цена</label><input id="pm_old_price" type="number" class="field" value="${p&&p.old_price!=null?p.old_price:''}"></div>
-      <div><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Себестоимость</label><input id="pm_cost_price" type="number" class="field" value="${p&&p.cost_price!=null?p.cost_price:''}"></div>
-      <div><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Остаток (шт)</label><input id="pm_stock" type="number" class="field" value="${p&&p.stock!=null?p.stock:''}"></div>
-      <div><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Цвета (через запятую)</label><input id="pm_colors" class="field" placeholder="чёрный, белый" value="${esc(p&&p.colors)}"></div>
-      <div><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Размеры (через запятую)</label><input id="pm_sizes" class="field" placeholder="S, M, L" value="${esc(p&&p.sizes)}"></div>
+      <div>${lbl('Цена продажи (за 1 шт) *')}<input id="pm_price" type="number" class="field" value="${p&&p.price!=null?p.price:''}"></div>
+      <div>${lbl('Старая цена (зачёркнутая)')}<input id="pm_old_price" type="number" class="field" value="${p&&p.old_price!=null?p.old_price:''}"></div>
+      <div>${lbl('Цена за 2 шт (общая)')}<input id="pm_bundle2" type="number" class="field" value="${p&&p.bundle2_price!=null?p.bundle2_price:''}"></div>
+      <div>${lbl('Цена за 3 шт (общая)')}<input id="pm_bundle3" type="number" class="field" value="${p&&p.bundle3_price!=null?p.bundle3_price:''}"></div>
+      <div>${lbl('Цена за 4 шт (общая)')}<input id="pm_bundle4" type="number" class="field" value="${p&&p.bundle4_price!=null?p.bundle4_price:''}"></div>
+      <div>${lbl('Себестоимость')}<input id="pm_cost_price" type="number" class="field" value="${p&&p.cost_price!=null?p.cost_price:''}"></div>
+
+      <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Склад, цвета, размеры</div></div>
+      <div>${lbl('Остаток (шт)')}<input id="pm_stock" type="number" class="field" value="${p&&p.stock!=null?p.stock:''}"></div>
+      <div></div>
+      <div>${lbl('Цвета (через запятую)')}<input id="pm_colors" class="field" placeholder="Чёрный, Серый, Небесный" value="${esc(p&&p.colors)}"></div>
+      <div>${lbl('Размеры (через запятую)')}<input id="pm_sizes" class="field" placeholder="13-14 дюймов, 15-16 дюймов" value="${esc(p&&p.sizes)}"></div>
+
+      <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Описание и особенности</div></div>
+      <div>${lbl('Описание (рус.)')}<textarea id="pm_desc_ru" class="field" style="min-height:70px">${esc(p&&p.desc_ru)}</textarea></div>
+      <div>${lbl('Описание (тадж.)')}<textarea id="pm_desc_tj" class="field" style="min-height:70px">${esc(p&&p.desc_tj)}</textarea></div>
+      <div>${lbl('Особенности (рус.) — каждая с новой строки')}<textarea id="pm_features_ru" class="field" style="min-height:70px">${esc(p&&p.features_ru)}</textarea></div>
+      <div>${lbl('Особенности (тадж.) — каждая с новой строки')}<textarea id="pm_features_tj" class="field" style="min-height:70px">${esc(p&&p.features_tj)}</textarea></div>
+
+      <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Доставка и гарантия</div></div>
+      <div>${lbl('Доставка (рус.)')}<input id="pm_delivery_ru" class="field" placeholder="Доставка через Лаклак, 15 смн, 1-2 дня" value="${esc(p&&p.delivery_ru)}"></div>
+      <div>${lbl('Доставка (тадж.)')}<input id="pm_delivery_tj" class="field" value="${esc(p&&p.delivery_tj)}"></div>
+      <div>${lbl('Гарантия (рус.)')}<input id="pm_warranty_ru" class="field" placeholder="Гарантия 30 дней" value="${esc(p&&p.warranty_ru)}"></div>
+      <div>${lbl('Гарантия (тадж.)')}<input id="pm_warranty_tj" class="field" value="${esc(p&&p.warranty_tj)}"></div>
+
+      <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Продавец и партнёр</div></div>
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Продавец / поставщик</label><input id="pm_seller_name" class="field" value="${esc(p&&p.seller_name)}"></div>
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Партнёр</label>
         <select id="pm_partner_id" class="field"><option value="">Без партнёра</option>${partners.map(pn=>`<option value="${pn.id}" ${p&&p.partner_id==pn.id?'selected':''}>${esc(pn.name)}</option>`).join('')}</select></div>
@@ -331,13 +358,24 @@ function saveProduct(){
   const name_ru=document.getElementById('pm_name_ru').value, price=document.getElementById('pm_price').value;
   if(!name_ru||price===''){ document.getElementById('pmError').textContent='Укажите название и цену'; return; }
   const img=document.getElementById('pm_image_preview');
-  const payload={ name_ru, name_tj:name_ru, cat:document.getElementById('pm_cat').value, tag:document.getElementById('pm_tag').value,
-    price:Number(price), old_price:document.getElementById('pm_old_price').value===''?null:Number(document.getElementById('pm_old_price').value),
-    cost_price:document.getElementById('pm_cost_price').value===''?null:Number(document.getElementById('pm_cost_price').value),
-    stock:document.getElementById('pm_stock').value===''?null:Number(document.getElementById('pm_stock').value),
-    colors:document.getElementById('pm_colors').value, sizes:document.getElementById('pm_sizes').value,
-    seller_name:document.getElementById('pm_seller_name').value, partner_id:document.getElementById('pm_partner_id').value?Number(document.getElementById('pm_partner_id').value):null,
-    image_data: img.style.display!=='none'?img.src:null, extra_images:pmExtraImages, desc_ru:'' };
+  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const numOrNull = id => { const s = v(id); return s===''?null:Number(s); };
+  const name_tj = v('pm_name_tj');
+  const payload={
+    name_ru, name_tj: name_tj || name_ru,
+    subtitle_ru: v('pm_subtitle_ru'), subtitle_tj: v('pm_subtitle_tj'),
+    cat:document.getElementById('pm_cat').value, tag:document.getElementById('pm_tag').value,
+    price:Number(price), old_price:numOrNull('pm_old_price'),
+    bundle2_price:numOrNull('pm_bundle2'), bundle3_price:numOrNull('pm_bundle3'), bundle4_price:numOrNull('pm_bundle4'),
+    cost_price:numOrNull('pm_cost_price'),
+    stock:numOrNull('pm_stock'),
+    colors:v('pm_colors'), sizes:v('pm_sizes'),
+    desc_ru:v('pm_desc_ru'), desc_tj:v('pm_desc_tj'),
+    features_ru:v('pm_features_ru'), features_tj:v('pm_features_tj'),
+    delivery_ru:v('pm_delivery_ru'), delivery_tj:v('pm_delivery_tj'),
+    warranty_ru:v('pm_warranty_ru'), warranty_tj:v('pm_warranty_tj'),
+    seller_name:v('pm_seller_name'), partner_id:v('pm_partner_id')?Number(v('pm_partner_id')):null,
+    image_data: img.style.display!=='none'?img.src:null, extra_images:pmExtraImages };
   const req = pmEditId ? apiFetch('/api/products/'+pmEditId,{method:'PUT',body:JSON.stringify(payload)}) : apiFetch('/api/products',{method:'POST',body:JSON.stringify(payload)});
   req.then(()=>{ closeModal(); loadProducts(); flash('Товар сохранён'); }).catch(e=>{ document.getElementById('pmError').textContent=e.message; });
 }
