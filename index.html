@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ҲАМАБОЗОР — Ҳама чиз дар як ҷо</title>
+<title>Imkon.Shop — Ҳама чиз дар як ҷо</title>
 <meta name="description" content="Электроника, либос ва сумка бо нархи арзон ва бурдарасонии ройгон дар Душанбе">
 
 <!--
@@ -668,7 +668,7 @@ footer p{margin-top:8px;font-size:14px}
 <header>
   <div class="header-inner">
     <button class="icon-btn" onclick="openMenu()" aria-label="Меню"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-    <div class="logo"><span></span>ҲАМАБОЗОР</div>
+    <div class="logo"><span></span>Imkon.Shop</div>
     <div class="header-actions">
       <button class="header-lang-btn" onclick="toggleLangQuick()" id="headerLangBtn">RU</button>
       <a class="icon-btn" id="headerWaLink" target="_blank"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="badge badge-dot"></span></a>
@@ -884,7 +884,7 @@ footer p{margin-top:8px;font-size:14px}
 <div class="product-page" id="productPage">
   <div class="pp-topbar">
     <button class="pp-back" onclick="closeProduct()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
-    <div class="pp-topbar-logo" onclick="closeProduct()"><span></span>ҲАМАБОЗОР</div>
+    <div class="pp-topbar-logo" onclick="closeProduct()"><span></span>Imkon.Shop</div>
     <button class="icon-btn" onclick="openCart()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="badge" id="cartBadgePP">0</span></button>
   </div>
   <div class="pp-body">
@@ -942,7 +942,7 @@ footer p{margin-top:8px;font-size:14px}
   <div class="footer-inner">
     <h3 data-i18n="footer_question">Савол доред? Ба мо нависед.</h3>
     <a class="footer-wa" id="footerWaLink" target="_blank">💬 WhatsApp</a>
-    <p class="footer-rights">© ҲАМАБОЗОР · Тоҷикистон · <span data-i18n="footer_rights">Ҳамаи ҳуқуқҳо ҳифз шудаанд</span></p>
+    <p class="footer-rights">© Imkon.Shop · Тоҷикистон · <span data-i18n="footer_rights">Ҳамаи ҳуқуқҳо ҳифз шудаанд</span></p>
   </div>
 </footer>
 
@@ -1183,7 +1183,7 @@ const CARD_BG = { electronics:'#EFE6D2', clothing:'#F3DEDA', bags:'#E4E9DA' };
 /* ==========================================================================
    ҲОЛАТ / СОСТОЯНИЕ
    ========================================================================== */
-let lang = 'tj';
+let lang = 'ru';
 let activeCat = 'all';
 let cart = {}; // {productId: qty}
 let cartPriceOverride = {}; // {productId: цена за 1 шт, если товар добавлен по пакетной цене}
@@ -1913,7 +1913,7 @@ function buildOrderText(name, phone, address, comment){
     const note = cartVariantNote[id] ? ` (${cartVariantNote[id]})` : '';
     return `• ${pname}${note} × ${qty} = ${unitPrice(id)*qty} смн`;
   });
-  const head = lang==='tj' ? '🛒 ФАРМОИШИ НАВ — ҲАМАБОЗОР' : '🛒 НОВЫЙ ЗАКАЗ — ҲАМАБОЗОР';
+  const head = lang==='tj' ? '🛒 ФАРМОИШИ НАВ — Imkon.Shop' : '🛒 НОВЫЙ ЗАКАЗ — Imkon.Shop';
   const l = {
     name: lang==='tj'?'Ном':'Имя', phone: lang==='tj'?'Телефон':'Телефон',
     address: lang==='tj'?'Суроға':'Адрес', comment: lang==='tj'?'Шарҳ':'Комментарий',
@@ -2105,6 +2105,7 @@ document.getElementById('searchInputHome').addEventListener('input', e => {
 renderTabs();
 renderProducts();
 updateCartUI();
+setLang('ru'); // сайт по умолчанию открывается на русском, покупатель может переключить на таджикский
 setupWaLinks();
 handleRoute();
 loadProducts();
