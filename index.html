@@ -668,7 +668,7 @@ footer p{margin-top:8px;font-size:14px}
 <header>
   <div class="header-inner">
     <button class="icon-btn" onclick="openMenu()" aria-label="Меню"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-    <div class="logo"><span></span>Imkon.Shop</div>
+    <div class="logo" onclick="goHome()" style="cursor:pointer"><span></span>Imkon.Shop</div>
     <div class="header-actions">
       <button class="header-lang-btn" onclick="toggleLangQuick()" id="headerLangBtn">RU</button>
       <a class="icon-btn" id="headerWaLink" target="_blank"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="badge badge-dot"></span></a>
@@ -746,10 +746,10 @@ footer p{margin-top:8px;font-size:14px}
 </section>
 
 <nav class="bottom-nav">
-  <a href="#" class="bn-item active" onclick="event.preventDefault();window.scrollTo({top:0,behavior:'smooth'})">
+  <a href="#" class="bn-item active" onclick="event.preventDefault();goHome()">
     <span class="bn-ic"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg></span><span data-i18n="nav_home">Асосӣ</span>
   </a>
-  <a href="#catalog" class="bn-item" onclick="closeAll()">
+  <a href="#catalog" class="bn-item" onclick="showingFavoritesOnly=false; renderProducts(); closeAll()">
     <span class="bn-ic"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span data-i18n="nav_categories">Категорияҳо</span>
   </a>
   <a href="#" class="bn-item bn-center" onclick="event.preventDefault();document.getElementById('searchInputHome').focus();window.scrollTo({top:0,behavior:'smooth'})">
@@ -1898,6 +1898,17 @@ function closeAll(){
   document.getElementById('checkoutOverlay').classList.remove('show');
   document.getElementById('checkoutForm').style.display='block';
   document.getElementById('successBox').style.display='none';
+}
+function goHome(){
+  // сброс фильтра "Избранное" — иначе главная останется отфильтрованной
+  showingFavoritesOnly = false;
+  closeAll();
+  if(ppCurrentId) closeProduct();
+  renderProducts();
+  document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
+  const homeBtn = document.querySelector('.bn-item');
+  if(homeBtn) homeBtn.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 function openCheckout(){
   if(cartCount()===0) return;
