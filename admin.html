@@ -576,6 +576,13 @@ function openPartnerModal(p){
       <input id="pt_name" class="field" placeholder="Имя *" value="${esc(p&&p.name)}"><input id="pt_phone" class="field" placeholder="Телефон" value="${esc(p&&p.phone)}">
       <select id="pt_deal_type" class="field"><option value="commission" ${!p||p.deal_type==='commission'?'selected':''}>Комиссия</option><option value="wholesale" ${p&&p.deal_type==='wholesale'?'selected':''}>Опт</option></select>
       <input id="pt_commission_percent" type="number" class="field" placeholder="Комиссия, %" value="${p&&p.commission_percent!=null?p.commission_percent:''}">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">С чего считать комиссию</label>
+        <select id="pt_commission_basis" class="field">
+          <option value="gross" ${!p||p.commission_basis==='gross'?'selected':''}>От валовой прибыли (цена − себестоимость)</option>
+          <option value="net" ${p&&p.commission_basis==='net'?'selected':''}>От чистой прибыли (после всех расходов — курьеры, реклама и т.д.)</option>
+        </select>
+      </div>
       <textarea id="pt_notes" class="field" style="min-height:60px" placeholder="Заметки">${esc(p&&p.notes)}</textarea>
     </div>
     <div id="ptError" style="color:#ff3b30;font-size:12.5px;margin-top:12px"></div>
@@ -585,7 +592,7 @@ function openPartnerModal(p){
 function savePartner(id){
   const name=document.getElementById('pt_name').value;
   if(!name){ document.getElementById('ptError').textContent='Укажите имя'; return; }
-  const payload={ name, phone:document.getElementById('pt_phone').value, deal_type:document.getElementById('pt_deal_type').value, commission_percent:Number(document.getElementById('pt_commission_percent').value||0), notes:document.getElementById('pt_notes').value };
+  const payload={ name, phone:document.getElementById('pt_phone').value, deal_type:document.getElementById('pt_deal_type').value, commission_percent:Number(document.getElementById('pt_commission_percent').value||0), commission_basis:document.getElementById('pt_commission_basis').value, notes:document.getElementById('pt_notes').value };
   const req = id ? apiFetch('/api/partners/'+id,{method:'PATCH',body:JSON.stringify(payload)}) : apiFetch('/api/partners',{method:'POST',body:JSON.stringify(payload)});
   req.then(()=>{ closeModal(); loadPartners(); }).catch(e=>document.getElementById('ptError').textContent=e.message);
 }
@@ -596,7 +603,7 @@ function renderPartnerDetail(pd){
   document.getElementById('modalRoot').innerHTML = `
   <div class="modal-backdrop"><div class="modal" style="max-width:640px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3>${esc(pd.name)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
-    <div style="font-size:12.5px;color:#6e6e73;margin-bottom:18px">${pd.deal_type==='wholesale'?'Опт':'Комиссия'} · ${pd.commission_percent||0}% ${pd.phone?'· 📞 '+esc(pd.phone):''}</div>
+    <div style="font-size:12.5px;color:#6e6e73;margin-bottom:18px">${pd.deal_type==='wholesale'?'Опт':'Комиссия'} · ${pd.commission_percent||0}% · ${pd.commission_basis==='net'?'от чистой прибыли':'от валовой прибыли'} ${pd.phone?'· 📞 '+esc(pd.phone):''}</div>
     <div class="grid4" style="margin-bottom:18px">
       <div style="background:#f5f5f7;border-radius:12px;padding:12px"><div style="font-size:11px;color:#6e6e73">Выручка</div><b style="font-size:15px">${money(pd.stats&&pd.stats.revenue)}</b></div>
       <div style="background:#f5f5f7;border-radius:12px;padding:12px"><div style="font-size:11px;color:#6e6e73">Начислено</div><b style="font-size:15px">${money(pd.stats&&pd.stats.owed_from_sales)}</b></div>

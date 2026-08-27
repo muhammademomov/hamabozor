@@ -865,13 +865,13 @@ app.get('/api/partners/:id', requireAuth, async (req, res) => {
 });
 
 app.post('/api/partners', requireAuth, async (req, res) => {
-  const { name, phone, telegram, deal_type, commission_percent, notes, wholesale_payment_timing } = req.body || {};
+  const { name, phone, telegram, deal_type, commission_percent, commission_basis, notes, wholesale_payment_timing } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Укажите имя партнёра' });
   try {
     const [result] = await pool.query(
-      `INSERT INTO partners (name, phone, telegram, deal_type, commission_percent, notes, wholesale_payment_timing, active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-      [name, phone || null, telegram || null, deal_type === 'wholesale' ? 'wholesale' : 'commission', commission_percent || 0, notes || null, wholesale_payment_timing === 'immediate' ? 'immediate' : 'on_sale']
+      `INSERT INTO partners (name, phone, telegram, deal_type, commission_percent, commission_basis, notes, wholesale_payment_timing, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [name, phone || null, telegram || null, deal_type === 'wholesale' ? 'wholesale' : 'commission', commission_percent || 0, commission_basis === 'net' ? 'net' : 'gross', notes || null, wholesale_payment_timing === 'immediate' ? 'immediate' : 'on_sale']
     );
     res.json({ id: result.insertId });
   } catch (e) {
@@ -881,7 +881,7 @@ app.post('/api/partners', requireAuth, async (req, res) => {
 });
 
 app.patch('/api/partners/:id', requireAuth, async (req, res) => {
-  const allowed = ['name','phone','telegram','deal_type','commission_percent','notes','active','wholesale_payment_timing'];
+  const allowed = ['name','phone','telegram','deal_type','commission_percent','commission_basis','notes','active','wholesale_payment_timing'];
   const body = req.body || {};
   const sets = []; const values = [];
   for (const key of allowed) {
@@ -1139,18 +1139,21 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     );
     const partnerExpenses = partnerExpRows.reduce((s, e) => s + (Number(e.amount) || 0) * (Number(e.partner_share_percent) || 0) / 100, 0);
 
-    // комиссия партнёру от факта продажи его товара — считается автоматически по каждой продаже:
-    // (цена продажи - себестоимость) × commission_percent партнёра. Начисляется только для товаров,
-    // привязанных к партнёру с типом сделки "комиссия" (deal_type='commission') — у оптовых
-    // партнёров (wholesale) себестоимость уже сама по себе является тем, что им причитается,
-    // и считается через cogs выше, повторно её начислять как комиссию не нужно.
-    const [partnersAll] = await pool.query('SELECT id, name, commission_percent, deal_type FROM partners');
+    // комиссия партнёру от факта продажи его товара — считается автоматически по каждой продаже.
+    // У каждого партнёра можно выбрать базу для расчёта (настраивается в карточке партнёра):
+    //   'gross' — комиссия от валовой прибыли: (цена продажи - себестоимость) × commission_percent
+    //   'net'   — комиссия от чистой прибыли: сначала из валовой прибыли по товарам этого партнёра
+    //             вычитается его доля операционных расходов периода (курьеры, реклама, общие расходы),
+    //             пропорциональная его доле в общей выручке, и только потом берётся % от остатка
+    // Начисляется только для товаров, привязанных к партнёру с типом сделки "комиссия" — у оптовых
+    // партнёров (wholesale) себестоимость уже сама по себе является тем, что им причитается (через cogs).
+    const [partnersAll] = await pool.query('SELECT id, name, commission_percent, commission_basis, deal_type FROM partners');
     const partnersById = {};
     partnersAll.forEach(p => { partnersById[p.id] = p; });
     const [productsForCommission] = await pool.query('SELECT id, partner_id, cost_price FROM products WHERE partner_id IS NOT NULL');
     const productMetaById = {};
     productsForCommission.forEach(p => { productMetaById[p.id] = p; });
-    let partnerCommissionAccrued = 0;
+    const partnerSalesById = {}; // partnerId -> { revenue, margin }
     for (const o of orders) {
       const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
       for (const item of items) {
@@ -1159,8 +1162,11 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
         const partner = partnersById[prodMeta.partner_id];
         if (!partner || partner.deal_type !== 'commission') continue;
         const qty = Number(item.qty) || 0;
-        const margin = ((Number(item.price) || 0) - (Number(prodMeta.cost_price) || 0)) * qty;
-        partnerCommissionAccrued += margin * (Number(partner.commission_percent) || 0) / 100;
+        const lineRevenue = (Number(item.price) || 0) * qty;
+        const lineMargin = lineRevenue - (Number(prodMeta.cost_price) || 0) * qty;
+        if (!partnerSalesById[partner.id]) partnerSalesById[partner.id] = { revenue: 0, margin: 0 };
+        partnerSalesById[partner.id].revenue += lineRevenue;
+        partnerSalesById[partner.id].margin += lineMargin;
       }
     }
 
@@ -1206,6 +1212,29 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     const metaAds = await fetchMetaAdsSpend(period);
     const adExpensesMeta = metaAds.connected ? Number(metaAds.total_spend) || 0 : 0;
     const adExpenses = adExpensesManual + adExpensesMeta;
+
+    // теперь, когда известны все операционные расходы периода, считаем комиссию каждому партнёру
+    // по выбранной для него базе (пул расходов для 'net' — курьеры + реклама + общие расходы;
+    // себестоимость сюда не входит, она уже вычтена в margin, а ручные partnerExpenses не берём,
+    // чтобы не создавать циклическую зависимость комиссии от самой себя)
+    const operatingExpensePool = courierSalaryAccrued + generalExpenses + adExpensesMeta;
+    let partnerCommissionAccrued = 0;
+    const partnerCommissionRows = [];
+    for (const [partnerId, sales] of Object.entries(partnerSalesById)) {
+      const partner = partnersById[partnerId];
+      const pct = (Number(partner.commission_percent) || 0) / 100;
+      let base = sales.margin;
+      if (partner.commission_basis === 'net') {
+        const expenseShare = revenue > 0 ? (sales.revenue / revenue) * operatingExpensePool : 0;
+        base = Math.max(0, sales.margin - expenseShare);
+      }
+      const commission = base * pct;
+      partnerCommissionAccrued += commission;
+      partnerCommissionRows.push({
+        partner_name: partner.name, basis: partner.commission_basis, revenue: round2(sales.revenue),
+        margin: round2(sales.margin), commission: round2(commission),
+      });
+    }
 
     // ОПиУ (начисленным методом): выручка - себестоимость - все расходы (включая рекламу из Meta
     // и автоматическую комиссию партнёрам за проданный товар)
@@ -1257,6 +1286,7 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
         orders,
         purchases: purchaseRows,
         partner_expenses: partnerExpRows,
+        partner_commission_by_partner: partnerCommissionRows,
         partner_payouts: partnerPayoutRows,
         courier_salary: courierSalaryRows,
         courier_payouts: courierPayoutRows,
@@ -2114,6 +2144,10 @@ async function ensurePartnerTables() {
       created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await ensureColumn('partners', 'commission_basis', "ENUM('gross','net') NOT NULL DEFAULT 'gross'");
+  // commission_basis: 'gross' — комиссия считается от валовой прибыли (цена - себестоимость) по товарам партнёра,
+  //                    'net'   — комиссия считается от чистой прибыли: после вычета доли операционных расходов
+  //                              (курьеры, реклама, общие расходы), пропорциональной выручке этого партнёра
   await pool.query(`
     CREATE TABLE IF NOT EXISTS partner_expenses (
       id                    INT AUTO_INCREMENT PRIMARY KEY,
