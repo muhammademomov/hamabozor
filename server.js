@@ -724,51 +724,91 @@ app.get('/api/marketing/audience', requireAuth, async (req, res) => {
 // ПАРТНЁРЫ — учёт комиссии/опта, расходов и выплат
 // ----------------------------------------------------------------------------
 
-// считает статистику по одному партнёру: продажи, что причитается, расходы, выплаты, остаток долга
+// ----------------------------------------------------------------------------
+// общие показатели компании за всё время (нужны, чтобы посчитать долю расходов
+// для партнёров с комиссией "от чистой прибыли"). Кэшируем на минуту, чтобы не
+// пересчитывать заново при каждом партнёре в списке (их может быть много).
+let companyTotalsCache = null;
+let companyTotalsCacheAt = 0;
+async function getCompanyTotalsAllTime() {
+  const now = Date.now();
+  if (companyTotalsCache && (now - companyTotalsCacheAt) < 60000) return companyTotalsCache;
+
+  const [[revRow]] = await pool.query("SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE status = 'done'");
+  const totalRevenue = Number(revRow.total) || 0;
+
+  const [couriersAll] = await pool.query('SELECT id, salary_type, salary_rate FROM couriers');
+  let courierSalaryAllTime = 0;
+  for (const c of couriersAll) {
+    const [[dRow]] = await pool.query("SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered'", [c.id]);
+    const deliveries = Number(dRow.cnt) || 0;
+    courierSalaryAllTime += c.salary_type === 'fixed' ? (Number(c.salary_rate) || 0) : deliveries * (Number(c.salary_rate) || 0);
+  }
+
+  const [[genRow]] = await pool.query('SELECT COALESCE(SUM(amount), 0) AS total FROM general_expenses');
+  const generalExpensesAllTime = Number(genRow.total) || 0;
+
+  let adExpensesAllTime = 0;
+  try {
+    const metaAll = await fetchMetaAdsSpend('all');
+    if (metaAll.connected) adExpensesAllTime = Number(metaAll.total_spend) || 0;
+  } catch (e) { /* Meta недоступна — просто не учитываем в общем пуле расходов */ }
+
+  companyTotalsCache = {
+    totalRevenue,
+    totalOperatingExpenses: courierSalaryAllTime + generalExpensesAllTime + adExpensesAllTime,
+  };
+  companyTotalsCacheAt = now;
+  return companyTotalsCache;
+}
+
+// считает статистику по одному партнёру: продажи, что причитается, расходы, выплаты, остаток долга.
+// Работает для двух типов сделки:
+//   commission — партнёру причитается % от МАРЖИ (gross) или % от ЧИСТОЙ прибыли (net, за вычетом
+//                доли операционных расходов, пропорциональной его выручке)
+//   wholesale  — партнёру причитается себестоимость проданного его товара (это его цена, не наша).
+//                Если оплата "в кредит" (wholesale_payment_timing='on_sale') — есть срок оплаты
+//                (wholesale_credit_days от даты поступления товара) и штраф за просрочку в % в день.
 async function computePartnerStats(partnerId, partner, includeOrders) {
-  const [productRows] = await pool.query('SELECT id, name_ru, price, cost_price, stock, image_data, active FROM products WHERE partner_id = ?', [partnerId]);
+  const [productRows] = await pool.query(
+    'SELECT id, name_ru, price, cost_price, stock, image_data, active, received_at, created_at FROM products WHERE partner_id = ?',
+    [partnerId]
+  );
   const productIds = new Set(productRows.map(p => p.id));
-  const costById = {};
-  productRows.forEach(p => { costById[p.id] = Number(p.cost_price) || 0; });
+  const productById = {};
+  productRows.forEach(p => { productById[p.id] = p; });
 
-  const commissionRate = Number(partner.commission_percent) || 0;
   const isWholesale = partner.deal_type === 'wholesale';
-  const payImmediate = isWholesale && partner.wholesale_payment_timing === 'immediate';
+  const isCredit = isWholesale && partner.wholesale_payment_timing !== 'immediate';
+  const commissionRate = Number(partner.commission_percent) || 0;
+  const basis = partner.commission_basis === 'net' ? 'net' : 'gross';
 
-  const [orders] = await pool.query("SELECT id, created_at, status, customer_name, customer_phone, items FROM orders WHERE status IN ('done','progress')");
-  let revenue = 0;   // сумма продаж по розничной цене
-  let wholesaleBase = 0; // сумма по оптовой (себестоимость) цене — по факту ПРОДАЖ
+  const [orders] = await pool.query("SELECT id, created_at, status, customer_name, customer_phone, items FROM orders WHERE status = 'done'");
+  let revenue = 0;      // сумма продаж по розничной цене
+  let marginTotal = 0;  // сумма (цена - себестоимость) по всем проданным товарам этого партнёра
+  let costTotal = 0;    // сумма себестоимости проданного (это то, что причитается оптовому партнёру)
   let unitsSold = 0;
   let ordersCount = 0;
   const orderList = [];
-  const productStats = {}; // id -> { units, ordersSet, revenue, base }
-  productRows.forEach(p => { productStats[p.id] = { units: 0, orders: new Set(), revenue: 0, base: 0 }; });
+  const productStats = {};
+  productRows.forEach(p => { productStats[p.id] = { units: 0, orders: new Set(), revenue: 0, margin: 0, cost: 0 }; });
 
   for (const o of orders) {
-    if (o.status !== 'done') continue; // в общую статистику считаем только завершённые
     const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
-    let orderRevenue = 0;
-    let orderBase = 0;
-    let orderCost = 0;
+    let orderRevenue = 0, orderMargin = 0, orderCost = 0;
     const matchedItems = [];
     for (const item of items) {
       if (productIds.has(item.id)) {
         const qty = Number(item.qty) || 0;
         const priceSum = (Number(item.price) || 0) * qty;
-        const costSum = (costById[item.id] || 0) * qty;
-        revenue += priceSum;
-        wholesaleBase += costSum;
-        unitsSold += qty;
-        orderRevenue += priceSum;
-        orderCost += costSum;
-        orderBase += isWholesale ? costSum : priceSum;
+        const cost = Number(productById[item.id].cost_price) || 0;
+        const costSum = cost * qty;
+        const marginSum = priceSum - costSum;
+        revenue += priceSum; marginTotal += marginSum; costTotal += costSum; unitsSold += qty;
+        orderRevenue += priceSum; orderMargin += marginSum; orderCost += costSum;
         matchedItems.push(item);
-
         const ps = productStats[item.id];
-        ps.units += qty;
-        ps.orders.add(o.id);
-        ps.revenue += priceSum;
-        ps.base += isWholesale ? costSum : priceSum;
+        ps.units += qty; ps.orders.add(o.id); ps.revenue += priceSum; ps.margin += marginSum; ps.cost += costSum;
       }
     }
     if (matchedItems.length) {
@@ -778,27 +818,23 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
           id: o.id, date: o.created_at, status: o.status,
           customer_name: o.customer_name, customer_phone: o.customer_phone,
           items: matchedItems,
-          revenue: Math.round(orderRevenue * 100) / 100,
-          cost: Math.round(orderCost * 100) / 100,
-          // при "оплате сразу" деньги партнёру уже ушли на этапе закупки, а не тут
-          owed: payImmediate ? 0 : Math.round(orderBase * (1 - commissionRate / 100) * 100) / 100,
+          revenue: round2(orderRevenue), margin: round2(orderMargin), cost: round2(orderCost),
         });
       }
     }
   }
 
-  // при опте "оплата сразу" — база для расчёта берётся из закупок (сколько реально взяли товара), а не из продаж
-  let purchaseBase = 0;
-  if (payImmediate && productIds.size) {
-    const [purchRows] = await pool.query(
-      `SELECT qty, unit_price FROM purchases WHERE product_id IN (${[...productIds].join(',')})`
-    );
-    purchaseBase = purchRows.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unit_price) || 0), 0);
+  // сколько причитается партнёру от продаж — считается по-разному в зависимости от типа сделки
+  let owedFromSales = 0;
+  if (isWholesale) {
+    owedFromSales = costTotal; // оптовому партнёру причитается его себестоимость проданного
+  } else if (basis === 'net') {
+    const totals = await getCompanyTotalsAllTime();
+    const expenseShare = totals.totalRevenue > 0 ? (revenue / totals.totalRevenue) * totals.totalOperatingExpenses : 0;
+    owedFromSales = Math.max(0, marginTotal - expenseShare) * commissionRate / 100;
+  } else {
+    owedFromSales = marginTotal * commissionRate / 100;
   }
-
-  const base = payImmediate ? purchaseBase : (isWholesale ? wholesaleBase : revenue);
-  const commissionCut = base * commissionRate / 100;
-  const owedFromSales = base - commissionCut;
 
   const [[expenseRow]] = await pool.query(
     'SELECT COALESCE(SUM(amount * partner_share_percent / 100), 0) AS total FROM partner_expenses WHERE partner_id = ?',
@@ -810,16 +846,59 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
   );
   const expensesTotal = Number(expenseRow.total) || 0;
   const paidTotal = Number(payoutRow.total) || 0;
-  const balanceDue = owedFromSales - expensesTotal - paidTotal;
+
+  // штраф за просрочку — только для оптовых партнёров "в кредит"
+  let penaltyTotal = 0;
+  const overdueProducts = [];
+  if (isCredit) {
+    const creditDays = Number(partner.wholesale_credit_days) || 0;
+    const penaltyPctPerDay = Number(partner.wholesale_penalty_percent_per_day) || 0;
+    const today = new Date();
+
+    // долги по каждому товару, отсортированные по сроку — самые старые первыми
+    const debts = productRows
+      .map(p => ({ product: p, owed: productStats[p.id].cost }))
+      .filter(d => d.owed > 0)
+      .map(d => {
+        const receivedRaw = d.product.received_at || d.product.created_at;
+        const dueDate = new Date(receivedRaw);
+        dueDate.setDate(dueDate.getDate() + creditDays);
+        return { ...d, dueDate };
+      })
+      .sort((a, b) => a.dueDate - b.dueDate);
+
+    // выплаты гасят самый старый долг первым (FIFO)
+    let remainingPaid = paidTotal - expensesTotal;
+    for (const d of debts) {
+      let unpaid = d.owed;
+      if (remainingPaid > 0) {
+        const applied = Math.min(remainingPaid, unpaid);
+        unpaid -= applied;
+        remainingPaid -= applied;
+      }
+      if (unpaid > 0 && today > d.dueDate && penaltyPctPerDay > 0) {
+        const daysOverdue = Math.floor((today - d.dueDate) / (1000 * 60 * 60 * 24));
+        const penalty = unpaid * penaltyPctPerDay / 100 * daysOverdue;
+        penaltyTotal += penalty;
+        overdueProducts.push({
+          product_id: d.product.id, name_ru: d.product.name_ru,
+          unpaid: round2(unpaid), days_overdue: daysOverdue, penalty: round2(penalty),
+          due_date: d.dueDate,
+        });
+      }
+    }
+  }
+
+  const balanceDue = owedFromSales - expensesTotal - paidTotal + penaltyTotal;
 
   const productsWithStats = productRows.map(p => {
     const ps = productStats[p.id];
     return {
       id: p.id, name_ru: p.name_ru, price: p.price, cost_price: p.cost_price,
-      stock: p.stock, image_data: p.image_data, active: p.active,
+      stock: p.stock, image_data: p.image_data, active: p.active, received_at: p.received_at,
       units_sold: ps.units, orders_count: ps.orders.size,
-      revenue: Math.round(ps.revenue * 100) / 100,
-      owed: Math.round(ps.base * (1 - commissionRate / 100) * 100) / 100,
+      revenue: round2(ps.revenue),
+      owed: round2(isWholesale ? ps.cost : (basis === 'gross' ? ps.margin * commissionRate / 100 : 0)),
     };
   });
 
@@ -827,13 +906,16 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
     products_count: productRows.length,
     orders_count: ordersCount,
     units_sold: unitsSold,
-    revenue: Math.round(revenue * 100) / 100,
-    our_profit: Math.round((revenue - owedFromSales) * 100) / 100,
-    owed_from_sales: Math.round(owedFromSales * 100) / 100,
-    expenses_total: Math.round(expensesTotal * 100) / 100,
-    paid_total: Math.round(paidTotal * 100) / 100,
+    revenue: round2(revenue),
+    margin_total: round2(marginTotal),
+    our_profit: round2(revenue - owedFromSales),
+    owed_from_sales: round2(owedFromSales),
+    expenses_total: round2(expensesTotal),
+    paid_total: round2(paidTotal),
+    penalty_total: round2(penaltyTotal),
+    overdue_products: overdueProducts,
     products_stats: productsWithStats,
-    balance_due: Math.round(balanceDue * 100) / 100,
+    balance_due: round2(balanceDue),
     orders: includeOrders ? orderList : undefined,
   };
 }
@@ -865,13 +947,13 @@ app.get('/api/partners/:id', requireAuth, async (req, res) => {
 });
 
 app.post('/api/partners', requireAuth, async (req, res) => {
-  const { name, phone, telegram, deal_type, commission_percent, commission_basis, notes, wholesale_payment_timing } = req.body || {};
+  const { name, phone, telegram, deal_type, commission_percent, commission_basis, notes, wholesale_payment_timing, wholesale_credit_days, wholesale_penalty_percent_per_day } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Укажите имя партнёра' });
   try {
     const [result] = await pool.query(
-      `INSERT INTO partners (name, phone, telegram, deal_type, commission_percent, commission_basis, notes, wholesale_payment_timing, active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [name, phone || null, telegram || null, deal_type === 'wholesale' ? 'wholesale' : 'commission', commission_percent || 0, commission_basis === 'net' ? 'net' : 'gross', notes || null, wholesale_payment_timing === 'immediate' ? 'immediate' : 'on_sale']
+      `INSERT INTO partners (name, phone, telegram, deal_type, commission_percent, commission_basis, notes, wholesale_payment_timing, wholesale_credit_days, wholesale_penalty_percent_per_day, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [name, phone || null, telegram || null, deal_type === 'wholesale' ? 'wholesale' : 'commission', commission_percent || 0, commission_basis === 'net' ? 'net' : 'gross', notes || null, wholesale_payment_timing === 'immediate' ? 'immediate' : 'on_sale', wholesale_credit_days || null, wholesale_penalty_percent_per_day || 0]
     );
     res.json({ id: result.insertId });
   } catch (e) {
@@ -881,7 +963,7 @@ app.post('/api/partners', requireAuth, async (req, res) => {
 });
 
 app.patch('/api/partners/:id', requireAuth, async (req, res) => {
-  const allowed = ['name','phone','telegram','deal_type','commission_percent','commission_basis','notes','active','wholesale_payment_timing'];
+  const allowed = ['name','phone','telegram','deal_type','commission_percent','commission_basis','notes','active','wholesale_payment_timing','wholesale_credit_days','wholesale_penalty_percent_per_day'];
   const body = req.body || {};
   const sets = []; const values = [];
   for (const key of allowed) {
@@ -1514,7 +1596,7 @@ app.post('/api/products', requireAuth, async (req, res) => {
     bundle2_price, bundle3_price, bundle4_price,
     features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
     cost_price, stock, rating, rating_count, colors, sizes,
-    extra_images, seller_name, partner_id
+    extra_images, seller_name, partner_id, received_at
   } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
@@ -1527,8 +1609,8 @@ app.post('/api/products', requireAuth, async (req, res) => {
         bundle2_price, bundle3_price, bundle4_price,
         features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
         cost_price, stock, rating, rating_count, colors, sizes,
-        extra_images, seller_name, partner_id
-      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?, ?,?,?)`,
+        extra_images, seller_name, partner_id, received_at
+      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?, ?,?,?,?)`,
       [
         cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
         image_data || null, subtitle_ru || null, subtitle_tj || null,
@@ -1537,7 +1619,7 @@ app.post('/api/products', requireAuth, async (req, res) => {
         cost_price || null, stock == null ? null : stock, rating || null, rating_count || null,
         colors || null, sizes || null,
         (Array.isArray(extra_images) && extra_images.length) ? JSON.stringify(extra_images) : null,
-        seller_name || null, partner_id || null
+        seller_name || null, partner_id || null, received_at || null
       ]
     );
     res.json({ id: result.insertId });
@@ -1554,7 +1636,7 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
     bundle2_price, bundle3_price, bundle4_price,
     features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
     cost_price, stock, rating, rating_count, colors, sizes,
-    extra_images, seller_name, partner_id
+    extra_images, seller_name, partner_id, received_at
   } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
@@ -1567,7 +1649,7 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
         bundle2_price=?, bundle3_price=?, bundle4_price=?,
         features_ru=?, features_tj=?, delivery_ru=?, delivery_tj=?, warranty_ru=?, warranty_tj=?,
         cost_price=?, stock=?, rating=?, rating_count=?, colors=?, sizes=?,
-        extra_images=?, seller_name=?, partner_id=?
+        extra_images=?, seller_name=?, partner_id=?, received_at=?
        WHERE id=?`,
       [
         cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
@@ -1577,7 +1659,7 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
         cost_price || null, stock == null ? null : stock, rating || null, rating_count || null,
         colors || null, sizes || null,
         (Array.isArray(extra_images) && extra_images.length) ? JSON.stringify(extra_images) : null,
-        seller_name || null, partner_id || null,
+        seller_name || null, partner_id || null, received_at || null,
         req.params.id
       ]
     );
@@ -2148,6 +2230,11 @@ async function ensurePartnerTables() {
   // commission_basis: 'gross' — комиссия считается от валовой прибыли (цена - себестоимость) по товарам партнёра,
   //                    'net'   — комиссия считается от чистой прибыли: после вычета доли операционных расходов
   //                              (курьеры, реклама, общие расходы), пропорциональной выручке этого партнёра
+  await ensureColumn('partners', 'wholesale_credit_days', 'INT NULL');
+  await ensureColumn('partners', 'wholesale_penalty_percent_per_day', 'DECIMAL(6,3) NOT NULL DEFAULT 0');
+  // для оптовых партнёров с отсрочкой платежа (wholesale_payment_timing='on_sale'):
+  // wholesale_credit_days — сколько дней после поступления товара (products.received_at) есть на оплату,
+  // wholesale_penalty_percent_per_day — штраф в % в день от неоплаченного просроченного долга, если не успели
   await pool.query(`
     CREATE TABLE IF NOT EXISTS partner_expenses (
       id                    INT AUTO_INCREMENT PRIMARY KEY,
@@ -2260,6 +2347,9 @@ async function ensureProductColumns() {
   await ensureColumn('products', 'extra_images', 'JSON NULL');
   await ensureColumn('products', 'seller_name', 'VARCHAR(255) NULL');
   await ensureColumn('products', 'active', 'TINYINT(1) NOT NULL DEFAULT 1');
+  await ensureColumn('products', 'received_at', 'DATE NULL');
+  // received_at — дата, когда партнёр привёз эту партию товара; точка отсчёта срока оплаты
+  // для оптовых партнёров "в кредит". Если не заполнено вручную — считаем от даты создания товара.
 }
 
 // ----------------------------------------------------------------------------

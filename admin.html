@@ -408,6 +408,10 @@ function openProductModal(p){
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Партнёр</label>
         <select id="pm_partner_id" class="field"><option value="">Без партнёра</option>${partners.map(pn=>`<option value="${pn.id}" ${p&&p.partner_id==pn.id?'selected':''}>${esc(pn.name)}</option>`).join('')}</select></div>
       <div style="grid-column:1/-1">
+        <label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Дата поступления от партнёра (для срока оплаты у оптовых партнёров "в кредит")</label>
+        <input id="pm_received_at" type="date" class="field" value="${p&&p.received_at?String(p.received_at).slice(0,10):''}">
+      </div>
+      <div style="grid-column:1/-1">
         <label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Главное фото</label>
         <input type="file" accept="image/*" onchange="onPmImage(event)">
         <img id="pm_image_preview" src="${p&&p.image_data||''}" style="max-height:120px;border-radius:10px;margin-top:8px;display:${p&&p.image_data?'block':'none'}" onerror="this.style.display='none'">
@@ -465,6 +469,7 @@ function saveProduct(){
     delivery_ru:v('pm_delivery_ru'), delivery_tj:v('pm_delivery_tj'),
     warranty_ru:v('pm_warranty_ru'), warranty_tj:v('pm_warranty_tj'),
     seller_name:v('pm_seller_name'), partner_id:v('pm_partner_id')?Number(v('pm_partner_id')):null,
+    received_at:v('pm_received_at')||null,
     image_data: img.style.display!=='none'?img.src:null, extra_images:pmExtraImages };
   const req = pmEditId ? apiFetch('/api/products/'+pmEditId,{method:'PUT',body:JSON.stringify(payload)}) : apiFetch('/api/products',{method:'POST',body:JSON.stringify(payload)});
   req.then(()=>{ closeModal(); loadProducts(); flash('Товар сохранён'); }).catch(e=>{ document.getElementById('pmError').textContent=e.message; });
@@ -574,25 +579,60 @@ function openPartnerModal(p){
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3>${p?'Изменить партнёра':'Новый партнёр'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div style="display:flex;flex-direction:column;gap:10px">
       <input id="pt_name" class="field" placeholder="Имя *" value="${esc(p&&p.name)}"><input id="pt_phone" class="field" placeholder="Телефон" value="${esc(p&&p.phone)}">
-      <select id="pt_deal_type" class="field"><option value="commission" ${!p||p.deal_type==='commission'?'selected':''}>Комиссия</option><option value="wholesale" ${p&&p.deal_type==='wholesale'?'selected':''}>Опт</option></select>
-      <input id="pt_commission_percent" type="number" class="field" placeholder="Комиссия, %" value="${p&&p.commission_percent!=null?p.commission_percent:''}">
-      <div>
-        <label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">С чего считать комиссию</label>
-        <select id="pt_commission_basis" class="field">
-          <option value="gross" ${!p||p.commission_basis==='gross'?'selected':''}>От валовой прибыли (цена − себестоимость)</option>
-          <option value="net" ${p&&p.commission_basis==='net'?'selected':''}>От чистой прибыли (после всех расходов — курьеры, реклама и т.д.)</option>
-        </select>
+      <select id="pt_deal_type" class="field" onchange="renderPartnerDealFields()"><option value="commission" ${!p||p.deal_type==='commission'?'selected':''}>Комиссия</option><option value="wholesale" ${p&&p.deal_type==='wholesale'?'selected':''}>Опт</option></select>
+
+      <div id="pt_commission_fields">
+        <input id="pt_commission_percent" type="number" class="field" placeholder="Комиссия, %" value="${p&&p.commission_percent!=null?p.commission_percent:''}">
+        <div style="margin-top:10px">
+          <label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">С чего считать комиссию</label>
+          <select id="pt_commission_basis" class="field">
+            <option value="gross" ${!p||p.commission_basis==='gross'?'selected':''}>От валовой прибыли (цена − себестоимость)</option>
+            <option value="net" ${p&&p.commission_basis==='net'?'selected':''}>От чистой прибыли (после всех расходов — курьеры, реклама и т.д.)</option>
+          </select>
+        </div>
       </div>
+
+      <div id="pt_wholesale_fields">
+        <label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Оплата за товар</label>
+        <select id="pt_wholesale_payment_timing" class="field" onchange="renderPartnerDealFields()">
+          <option value="immediate" ${p&&p.wholesale_payment_timing==='immediate'?'selected':''}>Сразу, без сроков</option>
+          <option value="on_sale" ${!p||p.wholesale_payment_timing!=='immediate'?'selected':''}>В кредит — со сроком оплаты</option>
+        </select>
+        <div id="pt_credit_fields" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+          <input id="pt_credit_days" type="number" class="field" placeholder="Срок оплаты, дней" value="${p&&p.wholesale_credit_days!=null?p.wholesale_credit_days:''}">
+          <input id="pt_penalty_pct" type="number" step="0.01" class="field" placeholder="Штраф, % в день" value="${p&&p.wholesale_penalty_percent_per_day!=null?p.wholesale_penalty_percent_per_day:''}">
+        </div>
+        <p style="font-size:11.5px;color:#86868b;margin:8px 0 0">Отсчёт срока — от даты поступления товара (указывается в карточке товара). Штраф = 0, если партнёр его не берёт.</p>
+      </div>
+
       <textarea id="pt_notes" class="field" style="min-height:60px" placeholder="Заметки">${esc(p&&p.notes)}</textarea>
     </div>
     <div id="ptError" style="color:#ff3b30;font-size:12.5px;margin-top:12px"></div>
     <button class="btn btn-primary" style="width:100%;margin-top:18px;padding:12px" onclick="savePartner(${p?p.id:'null'})">Сохранить партнёра</button>
   </div></div>`;
+  renderPartnerDealFields();
+}
+function renderPartnerDealFields(){
+  const isWholesale = document.getElementById('pt_deal_type').value === 'wholesale';
+  document.getElementById('pt_commission_fields').style.display = isWholesale ? 'none' : 'block';
+  document.getElementById('pt_wholesale_fields').style.display = isWholesale ? 'block' : 'none';
+  if(isWholesale){
+    const isCredit = document.getElementById('pt_wholesale_payment_timing').value !== 'immediate';
+    document.getElementById('pt_credit_fields').style.display = isCredit ? 'grid' : 'none';
+  }
 }
 function savePartner(id){
   const name=document.getElementById('pt_name').value;
   if(!name){ document.getElementById('ptError').textContent='Укажите имя'; return; }
-  const payload={ name, phone:document.getElementById('pt_phone').value, deal_type:document.getElementById('pt_deal_type').value, commission_percent:Number(document.getElementById('pt_commission_percent').value||0), commission_basis:document.getElementById('pt_commission_basis').value, notes:document.getElementById('pt_notes').value };
+  const payload={
+    name, phone:document.getElementById('pt_phone').value, deal_type:document.getElementById('pt_deal_type').value,
+    commission_percent:Number(document.getElementById('pt_commission_percent').value||0),
+    commission_basis:document.getElementById('pt_commission_basis').value,
+    wholesale_payment_timing:document.getElementById('pt_wholesale_payment_timing').value,
+    wholesale_credit_days:document.getElementById('pt_credit_days').value?Number(document.getElementById('pt_credit_days').value):null,
+    wholesale_penalty_percent_per_day:Number(document.getElementById('pt_penalty_pct').value||0),
+    notes:document.getElementById('pt_notes').value
+  };
   const req = id ? apiFetch('/api/partners/'+id,{method:'PATCH',body:JSON.stringify(payload)}) : apiFetch('/api/partners',{method:'POST',body:JSON.stringify(payload)});
   req.then(()=>{ closeModal(); loadPartners(); }).catch(e=>document.getElementById('ptError').textContent=e.message);
 }
@@ -600,16 +640,26 @@ function openPartnerDetail(id){
   apiFetch('/api/partners/'+id).then(d=>renderPartnerDetail(d)).catch(e=>flash(e.message));
 }
 function renderPartnerDetail(pd){
+  const isWholesale = pd.deal_type === 'wholesale';
+  const isCredit = isWholesale && pd.wholesale_payment_timing !== 'immediate';
+  const dealSummary = isWholesale
+    ? (isCredit ? `Опт · в кредит на ${pd.wholesale_credit_days||0} дн. · штраф ${pd.wholesale_penalty_percent_per_day||0}%/день` : 'Опт · оплата сразу')
+    : `Комиссия · ${pd.commission_percent||0}% · ${pd.commission_basis==='net'?'от чистой прибыли':'от валовой прибыли'}`;
+  const overdue = (pd.stats&&pd.stats.overdue_products)||[];
   document.getElementById('modalRoot').innerHTML = `
   <div class="modal-backdrop"><div class="modal" style="max-width:640px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3>${esc(pd.name)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
-    <div style="font-size:12.5px;color:#6e6e73;margin-bottom:18px">${pd.deal_type==='wholesale'?'Опт':'Комиссия'} · ${pd.commission_percent||0}% · ${pd.commission_basis==='net'?'от чистой прибыли':'от валовой прибыли'} ${pd.phone?'· 📞 '+esc(pd.phone):''}</div>
-    <div class="grid4" style="margin-bottom:18px">
+    <div style="font-size:12.5px;color:#6e6e73;margin-bottom:18px">${dealSummary} ${pd.phone?'· 📞 '+esc(pd.phone):''}</div>
+    <div class="grid4" style="margin-bottom:${overdue.length?'10px':'18px'}">
       <div style="background:#f5f5f7;border-radius:12px;padding:12px"><div style="font-size:11px;color:#6e6e73">Выручка</div><b style="font-size:15px">${money(pd.stats&&pd.stats.revenue)}</b></div>
       <div style="background:#f5f5f7;border-radius:12px;padding:12px"><div style="font-size:11px;color:#6e6e73">Начислено</div><b style="font-size:15px">${money(pd.stats&&pd.stats.owed_from_sales)}</b></div>
       <div style="background:#f5f5f7;border-radius:12px;padding:12px"><div style="font-size:11px;color:#6e6e73">Выплачено</div><b style="font-size:15px">${money(pd.stats&&pd.stats.paid_total)}</b></div>
       <div style="background:#f5f5f7;border-radius:12px;padding:12px"><div style="font-size:11px;color:#6e6e73">К выплате</div><b style="font-size:15px;color:#ff3b30">${money(pd.stats&&pd.stats.balance_due)}</b></div>
     </div>
+    ${overdue.length ? `<div style="background:#fff1f0;border:1px solid #ffd6d3;border-radius:12px;padding:12px;margin-bottom:18px">
+      <b style="font-size:13px;color:#a04326">⚠️ Просрочка (штраф начислен: ${money(pd.stats.penalty_total)})</b>
+      ${overdue.map(o=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:#6e6e73;margin-top:6px"><span>${esc(o.name_ru)} — ${o.days_overdue} дн. просрочки</span><b style="color:#a04326">+${money(o.penalty)}</b></div>`).join('')}
+    </div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div><b style="font-size:13.5px">Расходы</b>
         ${(pd.expenses||[]).map(e=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f2;font-size:12.5px"><span>${esc(e.title)}</span><span style="display:flex;gap:6px"><b>${money(e.amount)}</b><button onclick="deletePartnerExpense(${e.id},${pd.id})" style="background:none;border:none;color:#ff3b30;cursor:pointer">✕</button></span></div>`).join('')}
