@@ -791,6 +791,7 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
   let ordersCount = 0;
   const orderList = [];
   const productStats = {};
+  const marginByDay = {}; // 'YYYY-MM-DD' -> { margin, revenue } — для расчёта комиссии "от чистой прибыли" по дням
   productRows.forEach(p => { productStats[p.id] = { units: 0, orders: new Set(), revenue: 0, margin: 0, cost: 0 }; });
 
   for (const o of orders) {
@@ -813,6 +814,10 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
     }
     if (matchedItems.length) {
       ordersCount += 1;
+      const dayKey = new Date(o.created_at).toISOString().slice(0, 10);
+      if (!marginByDay[dayKey]) marginByDay[dayKey] = { margin: 0, revenue: 0 };
+      marginByDay[dayKey].margin += orderMargin;
+      marginByDay[dayKey].revenue += orderRevenue;
       if (includeOrders) {
         orderList.push({
           id: o.id, date: o.created_at, status: o.status,
@@ -829,9 +834,46 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
   if (isWholesale) {
     owedFromSales = costTotal; // оптовому партнёру причитается его себестоимость проданного
   } else if (basis === 'net') {
-    const totals = await getCompanyTotalsAllTime();
-    const expenseShare = totals.totalRevenue > 0 ? (revenue / totals.totalRevenue) * totals.totalOperatingExpenses : 0;
-    owedFromSales = Math.max(0, marginTotal - expenseShare) * commissionRate / 100;
+    // считаем ПО КАЖДОМУ ДНЮ отдельно (а не скопом за всё время) — иначе старые тестовые
+    // расходы за прошлые дни "съедали" бы прибыль сегодняшних продаж и давали неверный 0.
+    // Расходы каждого дня сравниваются только с выручкой ЭТОГО ЖЕ дня.
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const [couriersForDay] = await pool.query('SELECT id, salary_type, salary_rate FROM couriers');
+    let netOwed = 0;
+    for (const [day, d] of Object.entries(marginByDay)) {
+      const [[compRevRow]] = await pool.query(
+        "SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE status = 'done' AND DATE(created_at) = ?", [day]
+      );
+      const companyRevenueDay = Number(compRevRow.total) || 0;
+
+      let courierSalaryDay = 0;
+      for (const c of couriersForDay) {
+        const [[dRow]] = await pool.query(
+          "SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' AND DATE(created_at) = ?", [c.id, day]
+        );
+        const deliveries = Number(dRow.cnt) || 0;
+        courierSalaryDay += c.salary_type === 'fixed' ? (Number(c.salary_rate) || 0) : deliveries * (Number(c.salary_rate) || 0);
+      }
+
+      const [[genRow]] = await pool.query('SELECT COALESCE(SUM(amount), 0) AS total FROM general_expenses WHERE expense_date = ?', [day]);
+      const generalExpensesDay = Number(genRow.total) || 0;
+
+      // расход из Meta Ads по дням истории недоступен через простые date_preset — считаем
+      // его только для сегодняшнего дня (данные за сегодня у нас есть в реальном времени)
+      let adExpensesDay = 0;
+      if (day === todayStr) {
+        try {
+          const m = await fetchMetaAdsSpend('today');
+          if (m.connected) adExpensesDay = Number(m.total_spend) || 0;
+        } catch (e) { /* Meta недоступна — не учитываем в этот день */ }
+      }
+
+      const companyExpensesDay = courierSalaryDay + generalExpensesDay + adExpensesDay;
+      const expenseShareDay = companyRevenueDay > 0 ? (d.revenue / companyRevenueDay) * companyExpensesDay : 0;
+      const netBaseDay = Math.max(0, d.margin - expenseShareDay);
+      netOwed += netBaseDay * commissionRate / 100;
+    }
+    owedFromSales = netOwed;
   } else {
     owedFromSales = marginTotal * commissionRate / 100;
   }
