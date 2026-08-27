@@ -552,6 +552,7 @@ function savePayout(id){
 
 /* ---------------- PARTNERS ---------------- */
 function loadPartners(){ apiFetch('/api/partners').then(d=>{ cache.partners=d; renderPartners(); }).catch(e=>flash(e.message)); }
+function findPartner(id){ return (cache.partners||[]).find(p=>p.id===id); }
 function renderPartners(){
   const partners=cache.partners||[];
   document.getElementById('content').innerHTML = `
@@ -567,25 +568,26 @@ function renderPartners(){
         <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#6e6e73;margin-top:6px"><span>К выплате</span><b style="color:#ff3b30">${money(p.stats&&p.stats.balance_due)}</b></div>
       </div>`).join('')}</div>`;
 }
-function openPartnerModal(){
+function openPartnerModal(p){
   document.getElementById('modalRoot').innerHTML = `
   <div class="modal-backdrop"><div class="modal" style="max-width:440px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3>Новый партнёр</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3>${p?'Изменить партнёра':'Новый партнёр'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div style="display:flex;flex-direction:column;gap:10px">
-      <input id="pt_name" class="field" placeholder="Имя *"><input id="pt_phone" class="field" placeholder="Телефон">
-      <select id="pt_deal_type" class="field"><option value="commission">Комиссия</option><option value="wholesale">Опт</option></select>
-      <input id="pt_commission_percent" type="number" class="field" placeholder="Комиссия, %">
-      <textarea id="pt_notes" class="field" style="min-height:60px" placeholder="Заметки"></textarea>
+      <input id="pt_name" class="field" placeholder="Имя *" value="${esc(p&&p.name)}"><input id="pt_phone" class="field" placeholder="Телефон" value="${esc(p&&p.phone)}">
+      <select id="pt_deal_type" class="field"><option value="commission" ${!p||p.deal_type==='commission'?'selected':''}>Комиссия</option><option value="wholesale" ${p&&p.deal_type==='wholesale'?'selected':''}>Опт</option></select>
+      <input id="pt_commission_percent" type="number" class="field" placeholder="Комиссия, %" value="${p&&p.commission_percent!=null?p.commission_percent:''}">
+      <textarea id="pt_notes" class="field" style="min-height:60px" placeholder="Заметки">${esc(p&&p.notes)}</textarea>
     </div>
     <div id="ptError" style="color:#ff3b30;font-size:12.5px;margin-top:12px"></div>
-    <button class="btn btn-primary" style="width:100%;margin-top:18px;padding:12px" onclick="savePartner()">Сохранить партнёра</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:18px;padding:12px" onclick="savePartner(${p?p.id:'null'})">Сохранить партнёра</button>
   </div></div>`;
 }
-function savePartner(){
+function savePartner(id){
   const name=document.getElementById('pt_name').value;
   if(!name){ document.getElementById('ptError').textContent='Укажите имя'; return; }
   const payload={ name, phone:document.getElementById('pt_phone').value, deal_type:document.getElementById('pt_deal_type').value, commission_percent:Number(document.getElementById('pt_commission_percent').value||0), notes:document.getElementById('pt_notes').value };
-  apiFetch('/api/partners',{method:'POST',body:JSON.stringify(payload)}).then(()=>{ closeModal(); loadPartners(); }).catch(e=>document.getElementById('ptError').textContent=e.message);
+  const req = id ? apiFetch('/api/partners/'+id,{method:'PATCH',body:JSON.stringify(payload)}) : apiFetch('/api/partners',{method:'POST',body:JSON.stringify(payload)});
+  req.then(()=>{ closeModal(); loadPartners(); }).catch(e=>document.getElementById('ptError').textContent=e.message);
 }
 function openPartnerDetail(id){
   apiFetch('/api/partners/'+id).then(d=>renderPartnerDetail(d)).catch(e=>flash(e.message));
@@ -593,7 +595,8 @@ function openPartnerDetail(id){
 function renderPartnerDetail(pd){
   document.getElementById('modalRoot').innerHTML = `
   <div class="modal-backdrop"><div class="modal" style="max-width:640px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3>${esc(pd.name)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3>${esc(pd.name)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div style="font-size:12.5px;color:#6e6e73;margin-bottom:18px">${pd.deal_type==='wholesale'?'Опт':'Комиссия'} · ${pd.commission_percent||0}% ${pd.phone?'· 📞 '+esc(pd.phone):''}</div>
     <div class="grid4" style="margin-bottom:18px">
       <div style="background:#f5f5f7;border-radius:12px;padding:12px"><div style="font-size:11px;color:#6e6e73">Выручка</div><b style="font-size:15px">${money(pd.stats&&pd.stats.revenue)}</b></div>
       <div style="background:#f5f5f7;border-radius:12px;padding:12px"><div style="font-size:11px;color:#6e6e73">Начислено</div><b style="font-size:15px">${money(pd.stats&&pd.stats.owed_from_sales)}</b></div>
@@ -618,8 +621,9 @@ function renderPartnerDetail(pd){
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:20px">
-      <button class="btn btn-secondary" style="flex:1;padding:10px" onclick="togglePartnerActive(${pd.id}, ${pd.active?0:1})">${pd.active?'Отключить партнёра':'Включить партнёра'}</button>
-      <button class="btn btn-danger" style="flex:1;padding:10px" onclick="deletePartner(${pd.id})">Удалить партнёра</button>
+      <button class="btn btn-secondary" style="flex:1;padding:10px" onclick="openPartnerModal(findPartner(${pd.id}))">Изменить условия</button>
+      <button class="btn btn-secondary" style="flex:1;padding:10px" onclick="togglePartnerActive(${pd.id}, ${pd.active?0:1})">${pd.active?'Отключить':'Включить'}</button>
+      <button class="btn btn-danger" style="flex:1;padding:10px" onclick="deletePartner(${pd.id})">Удалить</button>
     </div>
   </div></div>`;
 }
