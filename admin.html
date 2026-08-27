@@ -306,8 +306,8 @@ function renderOrders(){
       <tbody>${filtered.map(o=>`<tr>
         <td>#${o.id}</td><td>${fmtDate(o.created_at)}</td><td>${esc(o.customer_name)}</td><td>${esc(o.customer_phone)}</td><td style="font-weight:600">${money(o.total)}</td>
         <td><select style="padding:6px 10px;border-radius:8px;font-size:12.5px;border:1px solid #d2d2d7;background:#fff;min-width:140px" onchange="assignCourier(${o.id}, this.value)">
-          <option value="">${o.courier_name?esc(o.courier_name):'— выбрать курьера —'}</option>
-          ${(cache.couriers||[]).filter(c=>c.active!==0).map(c=>`<option value="${c.id}" ${o.courier_id===c.id?'selected':''}>${esc([c.first_name,c.last_name].filter(Boolean).join(' '))}</option>`).join('')}
+          ${!o.courier_id ? `<option value="">— выбрать курьера —</option>` : ''}
+          ${(cache.couriers||[]).filter(c=>c.active!==0 || c.id===o.courier_id).map(c=>`<option value="${c.id}" ${o.courier_id===c.id?'selected':''}>${esc([c.first_name,c.last_name].filter(Boolean).join(' '))}</option>`).join('')}
         </select></td>
         <td><select style="padding:6px 10px;border-radius:8px;font-size:12.5px;font-weight:600;border:1px solid ${STATUS_COLOR[o.status]};color:${STATUS_COLOR[o.status]};background:#fff" onchange="updateOrderStatus(${o.id}, this.value)">
           ${['new','progress','done','cancel'].map(st=>`<option value="${st}" ${o.status===st?'selected':''}>${STATUS_LABEL[st]}</option>`).join('')}

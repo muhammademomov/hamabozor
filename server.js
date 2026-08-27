@@ -164,7 +164,18 @@ app.patch('/api/orders/:id', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Недопустимый статус' });
   }
   try {
-    await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id]);
+    // если админ вручную закрывает заказ как "Выполнен" и на нём назначен курьер —
+    // одновременно проставляем delivery_status='delivered', иначе зарплата курьеру
+    // и расход в Финансах не посчитаются (они смотрят именно на delivery_status,
+    // а не на общий статус заказа — раньше эти два поля не были синхронизированы)
+    if (status === 'done') {
+      await pool.query(
+        "UPDATE orders SET status = ?, delivery_status = IF(courier_id IS NOT NULL, 'delivered', delivery_status) WHERE id = ?",
+        [status, req.params.id]
+      );
+    } else {
+      await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, req.params.id]);
+    }
     res.json({ ok: true });
 
     // при переводе в обработку — рассылаем заказ курьерам в Telegram (если ещё не отправляли)
@@ -187,10 +198,14 @@ app.post('/api/orders/:id/assign-courier', requireAuth, async (req, res) => {
     const [[courier]] = await pool.query('SELECT * FROM couriers WHERE id = ?', [courier_id]);
     if (!courier) return res.status(404).json({ error: 'Курьер не найден' });
 
-    await pool.query('UPDATE orders SET courier_id = ?, delivery_status = ? WHERE id = ?', [courier_id, 'in_transit', req.params.id]);
+    // если заказ уже отмечен как "Выполнен" (например, курьера назначили постфактум),
+    // сразу считаем доставку завершённой — иначе она выпадет из расчёта зарплаты/Финансов
+    const [[orderNow]] = await pool.query('SELECT status FROM orders WHERE id = ?', [req.params.id]);
+    const newDeliveryStatus = orderNow && orderNow.status === 'done' ? 'delivered' : 'in_transit';
+    await pool.query('UPDATE orders SET courier_id = ?, delivery_status = ? WHERE id = ?', [courier_id, newDeliveryStatus, req.params.id]);
     res.json({ ok: true });
 
-    if (courier.telegram_chat_id) {
+    if (courier.telegram_chat_id && newDeliveryStatus !== 'delivered') {
       const [[order]] = await pool.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
       const text = buildOrderMessage(order, '👤 Ин фармоиш ба шумо аз ҷониби администратор дода шуд.');
       tgCall('sendMessage', {
@@ -2251,6 +2266,16 @@ async function ensureSchema() {
       created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // одноразовое исправление: заказы, которые уже отмечены "Выполнен" и имеют курьера,
+  // но из-за старого бага остались с delivery_status != 'delivered' — досчитываем их
+  // задним числом, чтобы зарплата курьеров и расходы в Финансах сразу стали верными
+  const [fixResult] = await pool.query(
+    "UPDATE orders SET delivery_status = 'delivered' WHERE status = 'done' AND courier_id IS NOT NULL AND delivery_status <> 'delivered'"
+  );
+  if (fixResult.affectedRows > 0) {
+    console.log(`Исправлено заказов с несинхронизированным delivery_status: ${fixResult.affectedRows}`);
+  }
 
   console.log('Таблицы orders, products и banners готовы.');
 }
