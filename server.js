@@ -1139,21 +1139,26 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     );
     const courierPayouts = courierPayoutRows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-    // общие расходы (аренда, реклама и т.п.)
+    // общие расходы (аренда, реклама и т.п.) — вручную занесённые
     const [genExpRows] = await pool.query(`SELECT * FROM general_expenses WHERE 1=1 ${expDateFilter} ORDER BY expense_date DESC`);
     const generalExpenses = genExpRows.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const adExpenses = genExpRows.filter(e => e.category === 'Реклама').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const adExpensesManual = genExpRows.filter(e => e.category === 'Реклама').reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
-    // ОПиУ (начисленным методом): выручка - себестоимость - все расходы
+    // расход на рекламу из Meta Ads Manager — реальные данные по API, добавляется к расходам автоматически
+    const metaAds = await fetchMetaAdsSpend(period);
+    const adExpensesMeta = metaAds.connected ? Number(metaAds.total_spend) || 0 : 0;
+    const adExpenses = adExpensesManual + adExpensesMeta;
+
+    // ОПиУ (начисленным методом): выручка - себестоимость - все расходы (включая рекламу из Meta)
     const grossProfit = revenue - cogs;
-    const totalOperatingExpenses = partnerExpenses + courierSalaryAccrued + generalExpenses;
+    const totalOperatingExpenses = partnerExpenses + courierSalaryAccrued + generalExpenses + adExpensesMeta;
     const netProfit = grossProfit - totalOperatingExpenses;
     const avgCheck = orders.length ? revenue / orders.length : 0;
     const marketingPct = revenue ? (adExpenses / revenue * 100) : 0;
 
     // ОДДС (кассовым методом): реально полученные/потраченные деньги
     const cashIn = revenue; // считаем, что оплата приходит при завершении заказа
-    const cashOut = cogs + partnerPayouts + courierPayouts + generalExpenses;
+    const cashOut = cogs + partnerPayouts + courierPayouts + generalExpenses + adExpensesMeta;
     const netCashFlow = cashIn - cashOut;
 
     res.json({
@@ -1166,6 +1171,9 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
         courier_salary: round2(courierSalaryAccrued),
         general_expenses: round2(generalExpenses),
         ad_expenses: round2(adExpenses),
+        ad_expenses_manual: round2(adExpensesManual),
+        ad_expenses_meta: round2(adExpensesMeta),
+        meta_connected: metaAds.connected,
         avg_check: round2(avgCheck),
         marketing_pct: round2(marketingPct),
         margin_pct: revenue ? round2(netProfit / revenue * 100) : 0,
@@ -1178,6 +1186,7 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
         partner_payouts: round2(partnerPayouts),
         courier_payouts: round2(courierPayouts),
         general_expenses_paid: round2(generalExpenses),
+        ad_expenses_meta: round2(adExpensesMeta),
         cash_out: round2(cashOut),
         net_cash_flow: round2(netCashFlow),
       },
@@ -1199,15 +1208,13 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
 
 function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
 
-// --- реальный расход на рекламу из Meta Ads Manager (Marketing API) ---
-// требует переменные окружения META_ACCESS_TOKEN и META_AD_ACCOUNT_ID (см. Railway → Variables)
-app.get('/api/finance/meta-ads-spend', requireAuth, async (req, res) => {
+// вынесено в отдельную функцию — используется и отдельной карточкой, и общим расчётом Финансов
+async function fetchMetaAdsSpend(period) {
   const token = process.env.META_ACCESS_TOKEN;
   const adAccountId = process.env.META_AD_ACCOUNT_ID;
   if (!token || !adAccountId) {
-    return res.status(200).json({ connected: false, message: 'META_ACCESS_TOKEN или META_AD_ACCOUNT_ID не настроены в Railway' });
+    return { connected: false, message: 'META_ACCESS_TOKEN или META_AD_ACCOUNT_ID не настроены в Railway', total_spend: 0, by_campaign: [] };
   }
-  const period = req.query.period || 'today';
   const datePreset = period === 'today' ? 'today' : period === 'week' ? 'last_7d' : period === 'month' ? 'last_30d' : 'maximum';
   try {
     const url = `https://graph.facebook.com/v26.0/${adAccountId}/insights?fields=spend,campaign_name&level=campaign&date_preset=${datePreset}&access_token=${encodeURIComponent(token)}`;
@@ -1215,20 +1222,25 @@ app.get('/api/finance/meta-ads-spend', requireAuth, async (req, res) => {
     const data = await metaRes.json();
     if (data.error) {
       console.error('Ошибка Meta Ads API:', data.error);
-      return res.status(200).json({ connected: false, message: data.error.message || 'Ошибка Meta Ads API' });
+      return { connected: false, message: data.error.message || 'Ошибка Meta Ads API', total_spend: 0, by_campaign: [] };
     }
     const rows = data.data || [];
     const totalSpend = rows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
-    res.json({
-      connected: true,
-      period,
-      total_spend: round2(totalSpend),
+    return {
+      connected: true, period, total_spend: round2(totalSpend),
       by_campaign: rows.map(r => ({ name: r.campaign_name, spend: round2(Number(r.spend) || 0) })),
-    });
+    };
   } catch (e) {
     console.error('Ошибка запроса к Meta Ads API:', e);
-    res.status(200).json({ connected: false, message: 'Не удалось связаться с Meta Ads API' });
+    return { connected: false, message: 'Не удалось связаться с Meta Ads API', total_spend: 0, by_campaign: [] };
   }
+}
+
+// --- реальный расход на рекламу из Meta Ads Manager (Marketing API) ---
+// требует переменные окружения META_ACCESS_TOKEN и META_AD_ACCOUNT_ID (см. Railway → Variables)
+app.get('/api/finance/meta-ads-spend', requireAuth, async (req, res) => {
+  const result = await fetchMetaAdsSpend(req.query.period || 'today');
+  res.status(200).json(result);
 });
 
 // баланс — снимок на сегодня (не за период, как ОПиУ/ОДДС, а состояние прямо сейчас)
