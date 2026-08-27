@@ -474,6 +474,7 @@ function deleteProduct(id,name){ if(!confirm('Удалить товар «'+name
 
 /* ---------------- LOGISTICS / COURIERS ---------------- */
 function loadCouriers(){ apiFetch('/api/couriers').then(d=>{ cache.couriers=d; renderCouriers(); }).catch(e=>flash(e.message)); }
+function findCourier(id){ return (cache.couriers||[]).find(c=>c.id===id); }
 function renderCouriers(){
   const couriers=cache.couriers||[];
   document.getElementById('content').innerHTML = `
@@ -497,10 +498,11 @@ function renderCouriers(){
       <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:16px">
         <div><b style="font-size:14.5px">${esc([c.first_name,c.last_name].filter(Boolean).join(' ')||'Курьер')}</b>
           <div style="font-size:12.5px;color:#6e6e73;margin-top:4px">📞 ${esc(c.phone||'—')} · 🚗 ${esc(c.vehicle_type||'—')}</div>
-          <div style="font-size:12.5px;color:#6e6e73;margin-top:2px">📦 ${c.deliveries_count||0} доставок · к выплате <b style="color:#ff3b30">${money(c.balance_due)}</b></div>
+          <div style="font-size:12.5px;color:#6e6e73;margin-top:2px">📦 ${c.deliveries_count||0} доставок · ставка: ${c.salary_type==='fixed'?`${money(c.salary_rate)} фикс`:`${money(c.salary_rate)}/доставка`} · начислено ${money(c.salary_due)} · к выплате <b style="color:#ff3b30">${money(c.balance_due)}</b></div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <span class="badge" style="${c.active?'background:#e8f8ec;color:#1a7d3a':'background:#fdeeea;color:#a04326'}">${c.active?'Активен':'Отключён'}</span>
+          <button class="btn btn-secondary" style="padding:7px 12px;font-size:12px" onclick="openCourierModal(findCourier(${c.id}))">Изменить</button>
           <button class="btn btn-secondary" style="padding:7px 12px;font-size:12px" onclick="openPayoutModal(${c.id})">Выплата</button>
           <button class="btn btn-secondary" style="padding:7px 12px;font-size:12px" onclick="toggleCourier(${c.id}, ${c.active?0:1})">${c.active?'Отключить':'Включить'}</button>
           <button class="btn btn-danger" style="padding:7px 12px;font-size:12px" onclick="deleteCourier(${c.id})">Удалить</button>
@@ -509,25 +511,26 @@ function renderCouriers(){
 }
 function setupBot(){ document.getElementById('courierSetupResult').textContent='Подключаю...'; apiFetch('/api/telegram/set-webhook',{method:'POST'}).then(()=>document.getElementById('courierSetupResult').textContent='✅ Бот подключён.').catch(e=>document.getElementById('courierSetupResult').textContent='❌ '+e.message); }
 function sendBroadcast(){ const text=document.getElementById('courierBroadcastText').value; if(!text.trim()) return; document.getElementById('courierBroadcastResult').textContent='Отправляю...'; apiFetch('/api/couriers/broadcast',{method:'POST',body:JSON.stringify({text})}).then(r=>document.getElementById('courierBroadcastResult').textContent='✅ Отправлено: '+r.count).catch(e=>document.getElementById('courierBroadcastResult').textContent='❌ '+e.message); }
-function openCourierModal(){
+function openCourierModal(c){
   document.getElementById('modalRoot').innerHTML = `
   <div class="modal-backdrop"><div class="modal" style="max-width:440px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3>Новый курьер</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3>${c?'Изменить курьера':'Новый курьер'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <input id="cr_first_name" class="field" placeholder="Имя *"><input id="cr_last_name" class="field" placeholder="Фамилия">
-      <input id="cr_phone" class="field" placeholder="Телефон *"><input id="cr_vehicle_type" class="field" placeholder="Транспорт">
-      <select id="cr_salary_type" class="field"><option value="per_delivery">За доставку</option><option value="fixed">Фикс</option></select>
-      <input id="cr_salary_rate" type="number" class="field" placeholder="Ставка">
+      <input id="cr_first_name" class="field" placeholder="Имя *" value="${esc(c&&c.first_name)}"><input id="cr_last_name" class="field" placeholder="Фамилия" value="${esc(c&&c.last_name)}">
+      <input id="cr_phone" class="field" placeholder="Телефон *" value="${esc(c&&c.phone)}"><input id="cr_vehicle_type" class="field" placeholder="Транспорт" value="${esc(c&&c.vehicle_type)}">
+      <select id="cr_salary_type" class="field"><option value="per_delivery" ${!c||c.salary_type==='per_delivery'?'selected':''}>За доставку</option><option value="fixed" ${c&&c.salary_type==='fixed'?'selected':''}>Фикс</option></select>
+      <input id="cr_salary_rate" type="number" class="field" placeholder="Ставка" value="${c&&c.salary_rate!=null?c.salary_rate:''}">
     </div>
     <div id="crError" style="color:#ff3b30;font-size:12.5px;margin-top:12px"></div>
-    <button class="btn btn-primary" style="width:100%;margin-top:18px;padding:12px" onclick="saveCourier()">Сохранить курьера</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:18px;padding:12px" onclick="saveCourier(${c?c.id:'null'})">Сохранить курьера</button>
   </div></div>`;
 }
-function saveCourier(){
+function saveCourier(id){
   const first_name=document.getElementById('cr_first_name').value, phone=document.getElementById('cr_phone').value;
   if(!first_name||!phone){ document.getElementById('crError').textContent='Укажите имя и телефон'; return; }
   const payload={ first_name, last_name:document.getElementById('cr_last_name').value, phone, vehicle_type:document.getElementById('cr_vehicle_type').value, salary_type:document.getElementById('cr_salary_type').value, salary_rate:Number(document.getElementById('cr_salary_rate').value||0) };
-  apiFetch('/api/couriers',{method:'POST',body:JSON.stringify(payload)}).then(()=>{ closeModal(); loadCouriers(); }).catch(e=>document.getElementById('crError').textContent=e.message);
+  const req = id ? apiFetch('/api/couriers/'+id,{method:'PATCH',body:JSON.stringify(payload)}) : apiFetch('/api/couriers',{method:'POST',body:JSON.stringify(payload)});
+  req.then(()=>{ closeModal(); loadCouriers(); }).catch(e=>document.getElementById('crError').textContent=e.message);
 }
 function toggleCourier(id,active){ apiFetch('/api/couriers/'+id,{method:'PATCH',body:JSON.stringify({active})}).then(loadCouriers).catch(e=>flash(e.message)); }
 function deleteCourier(id){ if(!confirm('Удалить курьера?')) return; apiFetch('/api/couriers/'+id,{method:'DELETE'}).then(loadCouriers).catch(e=>flash(e.message)); }
