@@ -1101,25 +1101,68 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
   else if (period === 'month') purchDateFilter = 'AND purchase_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
 
   try {
-    // выручка — по завершённым заказам
-    const [orders] = await pool.query(`SELECT id, customer_name, total, created_at FROM orders WHERE status = 'done' ${df('orders')} ORDER BY created_at DESC`);
+    // выручка — по завершённым заказам (нужен и состав items, чтобы связать с себестоимостью товаров)
+    const [orders] = await pool.query(`SELECT id, customer_name, total, items, created_at FROM orders WHERE status = 'done' ${df('orders')} ORDER BY created_at DESC`);
     const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
 
-    // себестоимость закупленного за период (кассовый расход на товар)
+    // себестоимость проданных товаров — берём поле "Себестоимость" с самой карточки товара
+    // и умножаем на фактически проданное количество за период. Раньше себестоимость считалась
+    // только от отдельного журнала "Закупки" (его нужно вести вручную отдельно) — из-за этого
+    // партнёрские/консигнационные товары (себестоимость указана прямо в карточке, отдельной
+    // закупки для них никто не оформляет) вообще не попадали в расчёт и показывали 0.
+    const [costRows] = await pool.query('SELECT id, cost_price FROM products');
+    const costById = {};
+    costRows.forEach(p => { costById[p.id] = Number(p.cost_price) || 0; });
+    let cogs = 0;
+    for (const o of orders) {
+      const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+      for (const item of items) {
+        cogs += (costById[item.id] || 0) * (Number(item.qty) || 0);
+      }
+    }
+
+    // отдельно — реально потраченные деньги на закупку товара (журнал "Закупки"), это для ОДДС ниже:
+    // сколько денег живьём ушло из кассы за период, а не что списано в себестоимость проданного
     const [purchaseRows] = await pool.query(
       `SELECT p.id, p.qty, p.unit_price, p.purchase_date, p.supplier, pr.name_ru
        FROM purchases p LEFT JOIN products pr ON pr.id = p.product_id
        WHERE 1=1 ${purchDateFilter} ORDER BY p.purchase_date DESC`
     );
-    const cogs = purchaseRows.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unit_price) || 0), 0);
+    const purchasesCash = purchaseRows.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unit_price) || 0), 0);
 
-    // расходы по партнёрам (доля партнёра в расходах)
+    // расходы по партнёрам (доля партнёра в расходах) — это отдельные, вручную занесённые траты
+    // (например, партнёр оплатил часть аренды и т.п.), НЕ комиссия за проданный товар
     const [partnerExpRows] = await pool.query(
       `SELECT pe.id, pe.title, pe.amount, pe.partner_share_percent, pe.created_at, pt.name AS partner_name
        FROM partner_expenses pe LEFT JOIN partners pt ON pt.id = pe.partner_id
        WHERE 1=1 ${df('pe')} ORDER BY pe.created_at DESC`
     );
     const partnerExpenses = partnerExpRows.reduce((s, e) => s + (Number(e.amount) || 0) * (Number(e.partner_share_percent) || 0) / 100, 0);
+
+    // комиссия партнёру от факта продажи его товара — считается автоматически по каждой продаже:
+    // (цена продажи - себестоимость) × commission_percent партнёра. Начисляется только для товаров,
+    // привязанных к партнёру с типом сделки "комиссия" (deal_type='commission') — у оптовых
+    // партнёров (wholesale) себестоимость уже сама по себе является тем, что им причитается,
+    // и считается через cogs выше, повторно её начислять как комиссию не нужно.
+    const [partnersAll] = await pool.query('SELECT id, name, commission_percent, deal_type FROM partners');
+    const partnersById = {};
+    partnersAll.forEach(p => { partnersById[p.id] = p; });
+    const [productsForCommission] = await pool.query('SELECT id, partner_id, cost_price FROM products WHERE partner_id IS NOT NULL');
+    const productMetaById = {};
+    productsForCommission.forEach(p => { productMetaById[p.id] = p; });
+    let partnerCommissionAccrued = 0;
+    for (const o of orders) {
+      const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+      for (const item of items) {
+        const prodMeta = productMetaById[item.id];
+        if (!prodMeta) continue;
+        const partner = partnersById[prodMeta.partner_id];
+        if (!partner || partner.deal_type !== 'commission') continue;
+        const qty = Number(item.qty) || 0;
+        const margin = ((Number(item.price) || 0) - (Number(prodMeta.cost_price) || 0)) * qty;
+        partnerCommissionAccrued += margin * (Number(partner.commission_percent) || 0) / 100;
+      }
+    }
 
     const [partnerPayoutRows] = await pool.query(
       `SELECT pp.id, pp.amount, pp.note, pp.created_at, pt.name AS partner_name
@@ -1164,16 +1207,20 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     const adExpensesMeta = metaAds.connected ? Number(metaAds.total_spend) || 0 : 0;
     const adExpenses = adExpensesManual + adExpensesMeta;
 
-    // ОПиУ (начисленным методом): выручка - себестоимость - все расходы (включая рекламу из Meta)
+    // ОПиУ (начисленным методом): выручка - себестоимость - все расходы (включая рекламу из Meta
+    // и автоматическую комиссию партнёрам за проданный товар)
     const grossProfit = revenue - cogs;
-    const totalOperatingExpenses = partnerExpenses + courierSalaryAccrued + generalExpenses + adExpensesMeta;
+    const totalOperatingExpenses = partnerExpenses + partnerCommissionAccrued + courierSalaryAccrued + generalExpenses + adExpensesMeta;
     const netProfit = grossProfit - totalOperatingExpenses;
     const avgCheck = orders.length ? revenue / orders.length : 0;
     const marketingPct = revenue ? (adExpenses / revenue * 100) : 0;
 
-    // ОДДС (кассовым методом): реально полученные/потраченные деньги
+    // ОДДС (кассовым методом): реально полученные/потраченные деньги.
+    // Тут используем реальные закупки (purchasesCash), а не начисленную себестоимость (cogs) —
+    // это разные вещи: cogs — сколько стоил проданный товар, purchasesCash — сколько денег
+    // реально ушло из кассы на закупку за период (может не совпадать по времени с продажей).
     const cashIn = revenue; // считаем, что оплата приходит при завершении заказа
-    const cashOut = cogs + partnerPayouts + courierPayouts + generalExpenses + adExpensesMeta;
+    const cashOut = purchasesCash + partnerPayouts + courierPayouts + generalExpenses + adExpensesMeta;
     const netCashFlow = cashIn - cashOut;
 
     res.json({
@@ -1183,6 +1230,7 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
         cogs: round2(cogs),
         gross_profit: round2(grossProfit),
         partner_expenses: round2(partnerExpenses),
+        partner_commission: round2(partnerCommissionAccrued),
         courier_salary: round2(courierSalaryAccrued),
         general_expenses: round2(generalExpenses),
         ad_expenses: round2(adExpenses),
@@ -1197,7 +1245,7 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
       },
       cashflow: {
         cash_in: round2(cashIn),
-        cogs_paid: round2(cogs),
+        cogs_paid: round2(purchasesCash),
         partner_payouts: round2(partnerPayouts),
         courier_payouts: round2(courierPayouts),
         general_expenses_paid: round2(generalExpenses),

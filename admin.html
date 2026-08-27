@@ -700,7 +700,7 @@ function renderFinance(){
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Чистая прибыль</div><div style="font-size:22px;font-weight:600;margin-top:6px;color:#34c759">${money(fin.pnl.net_profit)}</div></div>
     </div>`;
   } else if(fin && state.financeTab==='pnl'){
-    const rows=[['Выручка',fin.pnl.revenue],['Себестоимость',fin.pnl.cogs],['Валовая прибыль',fin.pnl.gross_profit],['Расходы партнёров',fin.pnl.partner_expenses],['ЗП курьеров',fin.pnl.courier_salary],['Общие расходы',fin.pnl.general_expenses],['Итого расходы',fin.pnl.total_operating_expenses],['Чистая прибыль',fin.pnl.net_profit]];
+    const rows=[['Выручка',fin.pnl.revenue],['Себестоимость',fin.pnl.cogs],['Валовая прибыль',fin.pnl.gross_profit],['Расходы партнёров (прочее)',fin.pnl.partner_expenses],['Комиссия партнёрам (от продаж)',fin.pnl.partner_commission],['ЗП курьеров',fin.pnl.courier_salary],['Общие расходы',fin.pnl.general_expenses],['Итого расходы',fin.pnl.total_operating_expenses],['Чистая прибыль',fin.pnl.net_profit]];
     body = `<div class="card">${rows.map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f2;font-size:14px"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>`;
   } else if(fin && state.financeTab==='cashflow'){
     const rows=[['Поступления',fin.cashflow.cash_in],['Оплачено за товар',fin.cashflow.cogs_paid],['Выплаты партнёрам',fin.cashflow.partner_payouts],['Выплаты курьерам',fin.cashflow.courier_payouts],['Общие расходы',fin.cashflow.general_expenses_paid],['Чистый денежный поток',fin.cashflow.net_cash_flow]];
