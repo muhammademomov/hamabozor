@@ -170,7 +170,7 @@ app.patch('/api/orders/:id', requireAuth, async (req, res) => {
     // а не на общий статус заказа — раньше эти два поля не были синхронизированы)
     if (status === 'done') {
       await pool.query(
-        "UPDATE orders SET status = ?, delivery_status = IF(courier_id IS NOT NULL, 'delivered', delivery_status) WHERE id = ?",
+        "UPDATE orders SET status = ?, delivery_status = IF(courier_id IS NOT NULL, 'delivered', delivery_status), completed_at = NOW() WHERE id = ?",
         [status, req.params.id]
       );
     } else {
@@ -783,7 +783,7 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
   const commissionRate = Number(partner.commission_percent) || 0;
   const basis = partner.commission_basis === 'net' ? 'net' : 'gross';
 
-  const [orders] = await pool.query("SELECT id, created_at, status, customer_name, customer_phone, items FROM orders WHERE status = 'done'");
+  const [orders] = await pool.query("SELECT id, created_at, completed_at, status, customer_name, customer_phone, items FROM orders WHERE status = 'done'");
   let revenue = 0;      // сумма продаж по розничной цене
   let marginTotal = 0;  // сумма (цена - себестоимость) по всем проданным товарам этого партнёра
   let costTotal = 0;    // сумма себестоимости проданного (это то, что причитается оптовому партнёру)
@@ -814,7 +814,7 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
     }
     if (matchedItems.length) {
       ordersCount += 1;
-      const dayKey = new Date(o.created_at).toISOString().slice(0, 10);
+      const dayKey = new Date(o.completed_at || o.created_at).toISOString().slice(0, 10);
       if (!marginByDay[dayKey]) marginByDay[dayKey] = { margin: 0, revenue: 0 };
       marginByDay[dayKey].margin += orderMargin;
       marginByDay[dayKey].revenue += orderRevenue;
@@ -842,14 +842,14 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
     let netOwed = 0;
     for (const [day, d] of Object.entries(marginByDay)) {
       const [[compRevRow]] = await pool.query(
-        "SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE status = 'done' AND DATE(created_at) = ?", [day]
+        "SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE status = 'done' AND DATE(COALESCE(completed_at, created_at)) = ?", [day]
       );
       const companyRevenueDay = Number(compRevRow.total) || 0;
 
       let courierSalaryDay = 0;
       for (const c of couriersForDay) {
         const [[dRow]] = await pool.query(
-          "SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' AND DATE(created_at) = ?", [c.id, day]
+          "SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' AND DATE(COALESCE(completed_at, created_at)) = ?", [c.id, day]
         );
         const deliveries = Number(dRow.cnt) || 0;
         courierSalaryDay += c.salary_type === 'fixed' ? (Number(c.salary_rate) || 0) : deliveries * (Number(c.salary_rate) || 0);
@@ -1223,10 +1223,16 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
   if (period === 'today') purchDateFilter = 'AND purchase_date = CURDATE()';
   else if (period === 'week') purchDateFilter = 'AND purchase_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
   else if (period === 'month') purchDateFilter = 'AND purchase_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
+  // для выручки заказов фильтруем по ДАТЕ ЗАВЕРШЕНИЯ (completed_at), а не по дате создания —
+  // иначе заказ, оформленный вчера и доставленный сегодня, не попал бы в сегодняшний отчёт
+  let completedDateFilter = '';
+  if (period === 'today') completedDateFilter = 'AND DATE(COALESCE(completed_at, created_at)) = CURDATE()';
+  else if (period === 'week') completedDateFilter = 'AND COALESCE(completed_at, created_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+  else if (period === 'month') completedDateFilter = 'AND COALESCE(completed_at, created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
 
   try {
     // выручка — по завершённым заказам (нужен и состав items, чтобы связать с себестоимостью товаров)
-    const [orders] = await pool.query(`SELECT id, customer_name, total, items, created_at FROM orders WHERE status = 'done' ${df('orders')} ORDER BY created_at DESC`);
+    const [orders] = await pool.query(`SELECT id, customer_name, total, items, created_at, completed_at FROM orders WHERE status = 'done' ${completedDateFilter} ORDER BY created_at DESC`);
     const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
 
     // себестоимость проданных товаров — берём поле "Себестоимость" с самой карточки товара
@@ -1307,7 +1313,7 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     const courierSalaryRows = [];
     for (const c of couriers) {
       const [[dRow]] = await pool.query(
-        `SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' ${df('orders')}`,
+        `SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' ${completedDateFilter}`,
         [c.id]
       );
       const deliveries = Number(dRow.cnt) || 0;
@@ -2349,6 +2355,17 @@ async function ensureCourierTables() {
   await ensureColumn('orders', 'courier_id', 'INT NULL');
   await ensureColumn('orders', 'delivery_status', "ENUM('waiting','accepted','in_transit','delivered') NOT NULL DEFAULT 'waiting'");
   await ensureColumn('orders', 'telegram_broadcast', 'JSON NULL');
+  await ensureColumn('orders', 'completed_at', 'DATETIME NULL');
+  // completed_at — дата, когда заказ реально стал "Выполнен" (курьер доставил / админ закрыл вручную).
+  // Именно по этой дате, а не по дате СОЗДАНИЯ заказа (created_at), должна считаться выручка в
+  // Финансах — иначе заказ, оформленный вчера и доставленный сегодня, "проваливался" бы в отчёт
+  // за вчера и пропадал из сегодняшней выручки.
+  const [backfillResult] = await pool.query(
+    "UPDATE orders SET completed_at = created_at WHERE status = 'done' AND completed_at IS NULL"
+  );
+  if (backfillResult.affectedRows > 0) {
+    console.log(`Заполнена дата завершения (completed_at) для ${backfillResult.affectedRows} старых заказов`);
+  }
 }
 
 async function ensureModelMediaTable() {
