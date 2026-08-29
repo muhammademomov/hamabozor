@@ -1337,253 +1337,262 @@ app.delete('/api/owner-transactions/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/finance/summary', requireAuth, async (req, res) => {
-  const period = req.query.period || 'all';
-  // dateFilter содержит {{TBL}} — подставляем алиас нужной таблицы перед каждым запросом,
-  // чтобы не было ошибки "колонка created_at неоднозначна" при JOIN двух таблиц с одинаковым полем
-  let dateFilterTpl = '';
-  if (period === 'today') dateFilterTpl = 'AND DATE({{TBL}}.created_at) = CURDATE()';
-  else if (period === 'week') dateFilterTpl = 'AND {{TBL}}.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-  else if (period === 'month') dateFilterTpl = 'AND {{TBL}}.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
-  const df = (alias) => dateFilterTpl.replace(/{{TBL}}/g, alias);
-  let expDateFilter = '';
-  if (period === 'today') expDateFilter = 'AND expense_date = CURDATE()';
-  else if (period === 'week') expDateFilter = 'AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
-  else if (period === 'month') expDateFilter = 'AND expense_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
-  let purchDateFilter = '';
-  if (period === 'today') purchDateFilter = 'AND purchase_date = CURDATE()';
-  else if (period === 'week') purchDateFilter = 'AND purchase_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
-  else if (period === 'month') purchDateFilter = 'AND purchase_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
-  // для выручки заказов фильтруем по ДАТЕ ЗАВЕРШЕНИЯ (completed_at), а не по дате создания —
-  // иначе заказ, оформленный вчера и доставленный сегодня, не попал бы в сегодняшний отчёт
-  let completedDateFilter = '';
-  if (period === 'today') completedDateFilter = 'AND DATE(COALESCE(completed_at, created_at)) = CURDATE()';
-  else if (period === 'week') completedDateFilter = 'AND COALESCE(completed_at, created_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
-  else if (period === 'month') completedDateFilter = 'AND COALESCE(completed_at, created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+// основной расчёт ОПиУ/ОДДС за произвольный диапазон дат (fromStr/toStr в формате 'YYYY-MM-DD').
+// Вынесено в отдельную функцию, чтобы одну и ту же логику можно было посчитать как один раз
+// (обычная сводка Финансов), так и много раз подряд — по одному разу на каждый месяц для
+// таблицы "показатели по строкам / месяцы по столбцам", как в банковской форме ОПУ.
+async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
+  const between = (col) => `AND DATE(${col}) BETWEEN '${fromStr}' AND '${toStr}'`;
+  const completedCond = `AND DATE(COALESCE(completed_at, created_at)) BETWEEN '${fromStr}' AND '${toStr}'`;
 
-  try {
-    // выручка — по завершённым заказам (нужен и состав items, чтобы связать с себестоимостью товаров)
-    const [orders] = await pool.query(`SELECT id, customer_name, total, refunded_amount, items, created_at, completed_at FROM orders WHERE status = 'done' ${completedDateFilter} ORDER BY created_at DESC`);
-    // если по заказу оформлен возврат — вычитаем возвращённую сумму из выручки. При частичном
-    // возврате пропорционально уменьшаем и себестоимость этого заказа тем же коэффициентом,
-    // чтобы не задваивать и не терять учёт (см. п.26 ТЗ — "не создавать отрицательную прибыль
-    // из-за неправильного двойного списания")
-    const refundFactor = (o) => {
-      const total = Number(o.total) || 0;
-      if (total <= 0) return 1;
-      const refunded = Number(o.refunded_amount) || 0;
-      return Math.max(0, (total - refunded) / total);
-    };
-    const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0) * refundFactor(o), 0);
+  // выручка — по завершённым заказам (нужен и состав items, чтобы связать с себестоимостью товаров)
+  const [orders] = await pool.query(`SELECT id, customer_name, total, refunded_amount, items, created_at, completed_at FROM orders WHERE status = 'done' ${completedCond} ORDER BY created_at DESC`);
+  // если по заказу оформлен возврат — вычитаем возвращённую сумму из выручки. При частичном
+  // возврате пропорционально уменьшаем и себестоимость этого заказа тем же коэффициентом,
+  // чтобы не задваивать и не терять учёт (см. п.26 ТЗ — "не создавать отрицательную прибыль
+  // из-за неправильного двойного списания")
+  const refundFactor = (o) => {
+    const total = Number(o.total) || 0;
+    if (total <= 0) return 1;
+    const refunded = Number(o.refunded_amount) || 0;
+    return Math.max(0, (total - refunded) / total);
+  };
+  const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0) * refundFactor(o), 0);
 
-    // себестоимость проданных товаров — берём поле "Себестоимость" с самой карточки товара
-    // и умножаем на фактически проданное количество за период. Раньше себестоимость считалась
-    // только от отдельного журнала "Закупки" (его нужно вести вручную отдельно) — из-за этого
-    // партнёрские/консигнационные товары (себестоимость указана прямо в карточке, отдельной
-    // закупки для них никто не оформляет) вообще не попадали в расчёт и показывали 0.
-    const [costRows] = await pool.query('SELECT id, cost_price FROM products');
-    const costById = {};
-    costRows.forEach(p => { costById[p.id] = Number(p.cost_price) || 0; });
-    let cogs = 0;
-    for (const o of orders) {
-      const factor = refundFactor(o);
-      const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
-      for (const item of items) {
-        cogs += (costById[item.id] || 0) * (Number(item.qty) || 0) * factor;
-      }
+  // себестоимость проданных товаров — берём поле "Себестоимость" с самой карточки товара
+  const [costRows] = await pool.query('SELECT id, cost_price FROM products');
+  const costById = {};
+  costRows.forEach(p => { costById[p.id] = Number(p.cost_price) || 0; });
+  let cogs = 0;
+  for (const o of orders) {
+    const factor = refundFactor(o);
+    const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+    for (const item of items) {
+      cogs += (costById[item.id] || 0) * (Number(item.qty) || 0) * factor;
     }
+  }
 
-    // отдельно — реально потраченные деньги на закупку товара (журнал "Закупки"), это для ОДДС ниже:
-    // сколько денег живьём ушло из кассы за период, а не что списано в себестоимость проданного
-    const [purchaseRows] = await pool.query(
-      `SELECT p.id, p.qty, p.unit_price, p.purchase_date, p.supplier, pr.name_ru
-       FROM purchases p LEFT JOIN products pr ON pr.id = p.product_id
-       WHERE 1=1 ${purchDateFilter} ORDER BY p.purchase_date DESC`
-    );
-    const purchasesCash = purchaseRows.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unit_price) || 0), 0);
+  // реально потраченные деньги на закупку товара (журнал "Закупки") — для ОДДС
+  const [purchaseRows] = await pool.query(
+    `SELECT p.id, p.qty, p.unit_price, p.purchase_date, p.supplier, pr.name_ru
+     FROM purchases p LEFT JOIN products pr ON pr.id = p.product_id
+     WHERE 1=1 ${between('p.purchase_date')} ORDER BY p.purchase_date DESC`
+  );
+  const purchasesCash = purchaseRows.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unit_price) || 0), 0);
 
-    // расходы по партнёрам (доля партнёра в расходах) — это отдельные, вручную занесённые траты
-    // (например, партнёр оплатил часть аренды и т.п.), НЕ комиссия за проданный товар
-    const [partnerExpRows] = await pool.query(
-      `SELECT pe.id, pe.title, pe.amount, pe.partner_share_percent, pe.created_at, pt.name AS partner_name
-       FROM partner_expenses pe LEFT JOIN partners pt ON pt.id = pe.partner_id
-       WHERE 1=1 ${df('pe')} ORDER BY pe.created_at DESC`
-    );
-    const partnerExpenses = partnerExpRows.reduce((s, e) => s + (Number(e.amount) || 0) * (Number(e.partner_share_percent) || 0) / 100, 0);
+  // расходы по партнёрам (доля партнёра в расходах) — ручные разовые траты, не комиссия с продажи
+  const [partnerExpRows] = await pool.query(
+    `SELECT pe.id, pe.title, pe.amount, pe.partner_share_percent, pe.created_at, pt.name AS partner_name
+     FROM partner_expenses pe LEFT JOIN partners pt ON pt.id = pe.partner_id
+     WHERE 1=1 ${between('pe.created_at')} ORDER BY pe.created_at DESC`
+  );
+  const partnerExpenses = partnerExpRows.reduce((s, e) => s + (Number(e.amount) || 0) * (Number(e.partner_share_percent) || 0) / 100, 0);
 
-    // комиссия партнёру от факта продажи его товара — считается автоматически по каждой продаже.
-    // У каждого партнёра можно выбрать базу для расчёта (настраивается в карточке партнёра):
-    //   'gross' — комиссия от валовой прибыли: (цена продажи - себестоимость) × commission_percent
-    //   'net'   — комиссия от чистой прибыли: сначала из валовой прибыли по товарам этого партнёра
-    //             вычитается его доля операционных расходов периода (курьеры, реклама, общие расходы),
-    //             пропорциональная его доле в общей выручке, и только потом берётся % от остатка
-    // Начисляется только для товаров, привязанных к партнёру с типом сделки "комиссия" — у оптовых
-    // партнёров (wholesale) себестоимость уже сама по себе является тем, что им причитается (через cogs).
-    const [partnersAll] = await pool.query('SELECT id, name, commission_percent, commission_basis, deal_type FROM partners');
-    const partnersById = {};
-    partnersAll.forEach(p => { partnersById[p.id] = p; });
-    const [productsForCommission] = await pool.query('SELECT id, partner_id, cost_price FROM products WHERE partner_id IS NOT NULL');
-    const productMetaById = {};
-    productsForCommission.forEach(p => { productMetaById[p.id] = p; });
-    const partnerSalesById = {}; // partnerId -> { revenue, margin }
-    for (const o of orders) {
-      const factor = refundFactor(o);
-      const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
-      for (const item of items) {
-        const prodMeta = productMetaById[item.id];
-        if (!prodMeta) continue;
-        const partner = partnersById[prodMeta.partner_id];
-        if (!partner || partner.deal_type !== 'commission') continue;
-        const qty = Number(item.qty) || 0;
-        const lineRevenue = (Number(item.price) || 0) * qty * factor;
-        const lineMargin = lineRevenue - (Number(prodMeta.cost_price) || 0) * qty * factor;
-        if (!partnerSalesById[partner.id]) partnerSalesById[partner.id] = { revenue: 0, margin: 0 };
-        partnerSalesById[partner.id].revenue += lineRevenue;
-        partnerSalesById[partner.id].margin += lineMargin;
-      }
+  // комиссия партнёру от факта продажи его товара
+  const [partnersAll] = await pool.query('SELECT id, name, commission_percent, commission_basis, deal_type FROM partners');
+  const partnersById = {};
+  partnersAll.forEach(p => { partnersById[p.id] = p; });
+  const [productsForCommission] = await pool.query('SELECT id, partner_id, cost_price FROM products WHERE partner_id IS NOT NULL');
+  const productMetaById = {};
+  productsForCommission.forEach(p => { productMetaById[p.id] = p; });
+  const partnerSalesById = {};
+  for (const o of orders) {
+    const factor = refundFactor(o);
+    const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+    for (const item of items) {
+      const prodMeta = productMetaById[item.id];
+      if (!prodMeta) continue;
+      const partner = partnersById[prodMeta.partner_id];
+      if (!partner || partner.deal_type !== 'commission') continue;
+      const qty = Number(item.qty) || 0;
+      const lineRevenue = (Number(item.price) || 0) * qty * factor;
+      const lineMargin = lineRevenue - (Number(prodMeta.cost_price) || 0) * qty * factor;
+      if (!partnerSalesById[partner.id]) partnerSalesById[partner.id] = { revenue: 0, margin: 0 };
+      partnerSalesById[partner.id].revenue += lineRevenue;
+      partnerSalesById[partner.id].margin += lineMargin;
     }
+  }
 
-    const [partnerPayoutRows] = await pool.query(
-      `SELECT pp.id, pp.amount, pp.note, pp.created_at, pt.name AS partner_name
-       FROM partner_payouts pp LEFT JOIN partners pt ON pt.id = pp.partner_id
-       WHERE 1=1 ${df('pp')} ORDER BY pp.created_at DESC`
+  const [partnerPayoutRows] = await pool.query(
+    `SELECT pp.id, pp.amount, pp.note, pp.created_at, pt.name AS partner_name
+     FROM partner_payouts pp LEFT JOIN partners pt ON pt.id = pp.partner_id
+     WHERE 1=1 ${between('pp.created_at')} ORDER BY pp.created_at DESC`
+  );
+  const partnerPayouts = partnerPayoutRows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+  // зарплата курьерам — начислено (по факту доставок за период) и выплачено
+  const [couriers] = await pool.query('SELECT id, first_name, last_name, salary_type, salary_rate FROM couriers');
+  let courierSalaryAccrued = 0;
+  const courierSalaryRows = [];
+  for (const c of couriers) {
+    const [[dRow]] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' ${completedCond}`,
+      [c.id]
     );
-    const partnerPayouts = partnerPayoutRows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-
-    // зарплата курьерам — начислено (по факту доставок за период) и выплачено
-    const [couriers] = await pool.query('SELECT id, first_name, last_name, salary_type, salary_rate FROM couriers');
-    let courierSalaryAccrued = 0;
-    const courierSalaryRows = [];
-    for (const c of couriers) {
-      const [[dRow]] = await pool.query(
-        `SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' ${completedDateFilter}`,
-        [c.id]
-      );
-      const deliveries = Number(dRow.cnt) || 0;
-      const accrued = c.salary_type === 'fixed' ? Number(c.salary_rate) || 0 : deliveries * (Number(c.salary_rate) || 0);
-      if (accrued > 0) {
-        courierSalaryRows.push({
-          courier_name: [c.first_name, c.last_name].filter(Boolean).join(' '),
-          deliveries, salary_type: c.salary_type, salary_rate: c.salary_rate, accrued: round2(accrued),
-        });
-      }
-      courierSalaryAccrued += accrued;
-    }
-    const [courierPayoutRows] = await pool.query(
-      `SELECT cp.id, cp.amount, cp.note, cp.created_at, c.first_name, c.last_name
-       FROM courier_payouts cp LEFT JOIN couriers c ON c.id = cp.courier_id
-       WHERE 1=1 ${df('cp')} ORDER BY cp.created_at DESC`
-    );
-    const courierPayouts = courierPayoutRows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-
-    // общие расходы (аренда, реклама и т.п.) — вручную занесённые
-    const [genExpRows] = await pool.query(`SELECT * FROM general_expenses WHERE 1=1 ${expDateFilter} ORDER BY expense_date DESC`);
-    const generalExpenses = genExpRows.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const adExpensesManual = genExpRows.filter(e => e.category === 'Реклама').reduce((s, e) => s + (Number(e.amount) || 0), 0);
-
-    // расход на рекламу из Meta Ads Manager — реальные данные по API, добавляется к расходам автоматически
-    const metaAds = await fetchMetaAdsSpend(period);
-    const adExpensesMeta = metaAds.connected ? Number(metaAds.total_spend) || 0 : 0;
-    const adExpenses = adExpensesManual + adExpensesMeta;
-
-    // теперь, когда известны все операционные расходы периода, считаем комиссию каждому партнёру
-    // по выбранной для него базе (пул расходов для 'net' — курьеры + реклама + общие расходы;
-    // себестоимость сюда не входит, она уже вычтена в margin, а ручные partnerExpenses не берём,
-    // чтобы не создавать циклическую зависимость комиссии от самой себя)
-    const operatingExpensePool = courierSalaryAccrued + generalExpenses + adExpensesMeta;
-    let partnerCommissionAccrued = 0;
-    const partnerCommissionRows = [];
-    for (const [partnerId, sales] of Object.entries(partnerSalesById)) {
-      const partner = partnersById[partnerId];
-      const pct = (Number(partner.commission_percent) || 0) / 100;
-      let base = sales.margin;
-      if (partner.commission_basis === 'net') {
-        const expenseShare = revenue > 0 ? (sales.revenue / revenue) * operatingExpensePool : 0;
-        base = Math.max(0, sales.margin - expenseShare);
-      }
-      const commission = base * pct;
-      partnerCommissionAccrued += commission;
-      partnerCommissionRows.push({
-        partner_name: partner.name, basis: partner.commission_basis, revenue: round2(sales.revenue),
-        margin: round2(sales.margin), commission: round2(commission),
+    const deliveries = Number(dRow.cnt) || 0;
+    const accrued = c.salary_type === 'fixed' ? Number(c.salary_rate) || 0 : deliveries * (Number(c.salary_rate) || 0);
+    if (accrued > 0) {
+      courierSalaryRows.push({
+        courier_name: [c.first_name, c.last_name].filter(Boolean).join(' '),
+        deliveries, salary_type: c.salary_type, salary_rate: c.salary_rate, accrued: round2(accrued),
       });
     }
+    courierSalaryAccrued += accrued;
+  }
+  const [courierPayoutRows] = await pool.query(
+    `SELECT cp.id, cp.amount, cp.note, cp.created_at, c.first_name, c.last_name
+     FROM courier_payouts cp LEFT JOIN couriers c ON c.id = cp.courier_id
+     WHERE 1=1 ${between('cp.created_at')} ORDER BY cp.created_at DESC`
+  );
+  const courierPayouts = courierPayoutRows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-    // ОПиУ (начисленным методом): выручка - себестоимость - все расходы (включая рекламу из Meta
-    // и автоматическую комиссию партнёрам за проданный товар)
-    const grossProfit = revenue - cogs;
-    const totalOperatingExpenses = partnerExpenses + partnerCommissionAccrued + courierSalaryAccrued + generalExpenses + adExpensesMeta;
-    const netProfit = grossProfit - totalOperatingExpenses;
-    const avgCheck = orders.length ? revenue / orders.length : 0;
-    const marketingPct = revenue ? (adExpenses / revenue * 100) : 0;
+  // общие расходы (аренда, реклама и т.п.) — вручную занесённые
+  const [genExpRows] = await pool.query(`SELECT * FROM general_expenses WHERE 1=1 ${between('expense_date')} ORDER BY expense_date DESC`);
+  const generalExpenses = genExpRows.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const adExpensesManual = genExpRows.filter(e => e.category === 'Реклама').reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
-    // ОДДС (кассовым методом): реально полученные/потраченные деньги.
-    // Тут используем реальные закупки (purchasesCash), а не начисленную себестоимость (cogs) —
-    // это разные вещи: cogs — сколько стоил проданный товар, purchasesCash — сколько денег
-    // реально ушло из кассы на закупку за период (может не совпадать по времени с продажей).
-    const cashIn = revenue; // считаем, что оплата приходит при завершении заказа
-    const cashOut = purchasesCash + partnerPayouts + courierPayouts + generalExpenses + adExpensesMeta;
-    const netCashFlow = cashIn - cashOut;
+  // расход на рекламу из Meta Ads Manager — за явный диапазон дат (для отчёта за прошлые месяцы)
+  const metaAds = await fetchMetaAdsSpend(periodLabel, fromStr, toStr);
+  const adExpensesMeta = metaAds.connected ? Number(metaAds.total_spend) || 0 : 0;
+  const adExpenses = adExpensesManual + adExpensesMeta;
 
-    res.json({
-      period,
-      pnl: {
-        revenue: round2(revenue),
-        cogs: round2(cogs),
-        gross_profit: round2(grossProfit),
-        partner_expenses: round2(partnerExpenses),
-        partner_commission: round2(partnerCommissionAccrued),
-        courier_salary: round2(courierSalaryAccrued),
-        general_expenses: round2(generalExpenses),
-        ad_expenses: round2(adExpenses),
-        ad_expenses_manual: round2(adExpensesManual),
-        ad_expenses_meta: round2(adExpensesMeta),
-        meta_connected: metaAds.connected,
-        avg_check: round2(avgCheck),
-        marketing_pct: round2(marketingPct),
-        margin_pct: revenue ? round2(netProfit / revenue * 100) : 0,
-        total_operating_expenses: round2(totalOperatingExpenses),
-        net_profit: round2(netProfit),
-      },
-      cashflow: {
-        cash_in: round2(cashIn),
-        cogs_paid: round2(purchasesCash),
-        partner_payouts: round2(partnerPayouts),
-        courier_payouts: round2(courierPayouts),
-        general_expenses_paid: round2(generalExpenses),
-        ad_expenses_meta: round2(adExpensesMeta),
-        cash_out: round2(cashOut),
-        net_cash_flow: round2(netCashFlow),
-      },
-      details: {
-        orders,
-        purchases: purchaseRows,
-        partner_expenses: partnerExpRows,
-        partner_commission_by_partner: partnerCommissionRows,
-        partner_payouts: partnerPayoutRows,
-        courier_salary: courierSalaryRows,
-        courier_payouts: courierPayoutRows,
-        general_expenses: genExpRows,
-      },
+  // комиссия каждому партнёру по его базе (gross/net)
+  const operatingExpensePool = courierSalaryAccrued + generalExpenses + adExpensesMeta;
+  let partnerCommissionAccrued = 0;
+  const partnerCommissionRows = [];
+  for (const [partnerId, sales] of Object.entries(partnerSalesById)) {
+    const partner = partnersById[partnerId];
+    const pct = (Number(partner.commission_percent) || 0) / 100;
+    let base = sales.margin;
+    if (partner.commission_basis === 'net') {
+      const expenseShare = revenue > 0 ? (sales.revenue / revenue) * operatingExpensePool : 0;
+      base = Math.max(0, sales.margin - expenseShare);
+    }
+    const commission = base * pct;
+    partnerCommissionAccrued += commission;
+    partnerCommissionRows.push({
+      partner_name: partner.name, basis: partner.commission_basis, revenue: round2(sales.revenue),
+      margin: round2(sales.margin), commission: round2(commission),
     });
+  }
+
+  const grossProfit = revenue - cogs;
+  const totalOperatingExpenses = partnerExpenses + partnerCommissionAccrued + courierSalaryAccrued + generalExpenses + adExpensesMeta;
+  const netProfit = grossProfit - totalOperatingExpenses;
+  const avgCheck = orders.length ? revenue / orders.length : 0;
+  const marketingPct = revenue ? (adExpenses / revenue * 100) : 0;
+
+  const cashIn = revenue;
+  const cashOut = purchasesCash + partnerPayouts + courierPayouts + generalExpenses + adExpensesMeta;
+  const netCashFlow = cashIn - cashOut;
+
+  return {
+    from: fromStr, to: toStr,
+    pnl: {
+      revenue: round2(revenue),
+      cogs: round2(cogs),
+      gross_profit: round2(grossProfit),
+      partner_expenses: round2(partnerExpenses),
+      partner_commission: round2(partnerCommissionAccrued),
+      courier_salary: round2(courierSalaryAccrued),
+      general_expenses: round2(generalExpenses),
+      ad_expenses: round2(adExpenses),
+      ad_expenses_manual: round2(adExpensesManual),
+      ad_expenses_meta: round2(adExpensesMeta),
+      meta_connected: metaAds.connected,
+      avg_check: round2(avgCheck),
+      marketing_pct: round2(marketingPct),
+      margin_pct: revenue ? round2(netProfit / revenue * 100) : 0,
+      total_operating_expenses: round2(totalOperatingExpenses),
+      net_profit: round2(netProfit),
+    },
+    cashflow: {
+      cash_in: round2(cashIn),
+      cogs_paid: round2(purchasesCash),
+      partner_payouts: round2(partnerPayouts),
+      courier_payouts: round2(courierPayouts),
+      general_expenses_paid: round2(generalExpenses),
+      ad_expenses_meta: round2(adExpensesMeta),
+      cash_out: round2(cashOut),
+      net_cash_flow: round2(netCashFlow),
+    },
+    details: {
+      orders,
+      purchases: purchaseRows,
+      partner_expenses: partnerExpRows,
+      partner_commission_by_partner: partnerCommissionRows,
+      partner_payouts: partnerPayoutRows,
+      courier_salary: courierSalaryRows,
+      courier_payouts: courierPayoutRows,
+      general_expenses: genExpRows,
+    },
+  };
+}
+
+function resolvePeriodToDates(period) {
+  const today = new Date();
+  const to = today.toISOString().slice(0, 10);
+  let from;
+  if (period === 'today') from = to;
+  else if (period === 'week') { const d = new Date(today); d.setDate(d.getDate() - 7); from = d.toISOString().slice(0, 10); }
+  else if (period === 'month') { const d = new Date(today); d.setDate(d.getDate() - 30); from = d.toISOString().slice(0, 10); }
+  else from = '2000-01-01'; // 'all'
+  return { from, to };
+}
+
+app.get('/api/finance/summary', requireAuth, async (req, res) => {
+  const period = req.query.period || 'all';
+  try {
+    const { from, to } = resolvePeriodToDates(period);
+    const result = await computeFinanceSummaryForRange(from, to, period);
+    res.json({ period, ...result });
   } catch (e) {
     console.error('Ошибка расчёта финансовой сводки:', e);
     res.status(500).json({ error: 'Не удалось рассчитать финансы' });
   }
 });
 
+// ОПиУ по месяцам одной таблицей — показатели строками, месяцы столбцами (как в банковской
+// форме финансового анализа): ?months=6 — последние 6 календарных месяцев, включая текущий
+app.get('/api/finance/monthly', requireAuth, async (req, res) => {
+  const months = Math.min(24, Math.max(1, Number(req.query.months) || 6));
+  try {
+    const results = [];
+    const today = new Date();
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      const isCurrentMonth = (i === 0);
+      const from = monthStart.toISOString().slice(0, 10);
+      const to = (isCurrentMonth ? today : monthEnd).toISOString().slice(0, 10);
+      const label = monthStart.toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' });
+      const r = await computeFinanceSummaryForRange(from, to, 'month');
+      results.push({ label, from, to, pnl: r.pnl });
+    }
+    res.json({ months: results });
+  } catch (e) {
+    console.error('Ошибка расчёта помесячного отчёта:', e);
+    res.status(500).json({ error: 'Не удалось рассчитать отчёт по месяцам' });
+  }
+});
+
 function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
 
-// вынесено в отдельную функцию — используется и отдельной карточкой, и общим расчётом Финансов
-async function fetchMetaAdsSpend(period) {
+// вынесено в отдельную функцию — используется и отдельной карточкой, и общим расчётом Финансов.
+// Если переданы явные даты (fromStr/toStr) — используем их (нужно для отчёта по месяцам за
+// прошлые периоды); иначе — обычные пресеты Meta (today/last_7d/last_30d/maximum).
+async function fetchMetaAdsSpend(period, fromStr, toStr) {
   const token = process.env.META_ACCESS_TOKEN;
   const adAccountId = process.env.META_AD_ACCOUNT_ID;
   if (!token || !adAccountId) {
     return { connected: false, message: 'META_ACCESS_TOKEN или META_AD_ACCOUNT_ID не настроены в Railway', total_spend: 0, by_campaign: [] };
   }
-  const datePreset = period === 'today' ? 'today' : period === 'week' ? 'last_7d' : period === 'month' ? 'last_30d' : 'maximum';
+  const rangePart = fromStr && toStr
+    ? `time_range=${encodeURIComponent(JSON.stringify({ since: fromStr, until: toStr }))}`
+    : `date_preset=${period === 'today' ? 'today' : period === 'week' ? 'last_7d' : period === 'month' ? 'last_30d' : 'maximum'}`;
   try {
-    const url = `https://graph.facebook.com/v26.0/${adAccountId}/insights?fields=spend,campaign_name&level=campaign&date_preset=${datePreset}&access_token=${encodeURIComponent(token)}`;
+    const url = `https://graph.facebook.com/v26.0/${adAccountId}/insights?fields=spend,campaign_name&level=campaign&${rangePart}&access_token=${encodeURIComponent(token)}`;
     const metaRes = await fetch(url);
     const data = await metaRes.json();
     if (data.error) {

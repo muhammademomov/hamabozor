@@ -808,11 +808,22 @@ function loadFinance(){
   apiFetch('/api/finance/meta-ads-spend?period='+state.financePeriod).then(m=>{ cache.metaAds=m; renderFinance(); }).catch(()=>{});
 }
 function setFinancePeriod(p){ state.financePeriod=p; loadFinance(); }
-function setFinanceTab(t){ state.financeTab=t; if(t==='balance'&&!cache.financeBalance) loadFinance(); else renderFinance(); }
+function setFinanceTab(t){
+  state.financeTab=t;
+  if(t==='balance'&&!cache.financeBalance) loadFinance();
+  else if(t==='monthly') loadMonthlyFinance();
+  else renderFinance();
+}
+function loadMonthlyFinance(months){
+  const n = months || state.financeMonths || 6;
+  state.financeMonths = n;
+  document.getElementById('content') && renderFinance(); // сразу покажем "Загрузка..."
+  apiFetch('/api/finance/monthly?months='+n).then(d=>{ cache.financeMonthly=d.months; renderFinance(); }).catch(e=>flash(e.message));
+}
 function renderFinance(){
   const fin=cache.financeData, bal=cache.financeBalance, ge=cache.generalExpenses||[], ot=cache.ownerTx||[];
   const periodTabs=['today','week','month','all'].map(p=>`<button class="btn ${state.financePeriod===p?'btn-primary':'btn-secondary'}" onclick="setFinancePeriod('${p}')">${p==='today'?'Сегодня':p==='week'?'7 дней':p==='month'?'30 дней':'Всё время'}</button>`).join('');
-  const tabs=[['overview','Обзор'],['pnl','ОПиУ'],['cashflow','ОДДС'],['balance','Баланс']].map(([id,label])=>`<button onclick="setFinanceTab('${id}')" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;color:${state.financeTab===id?'#16A34A':'#6e6e73'};border-bottom:2px solid ${state.financeTab===id?'#16A34A':'transparent'}">${label}</button>`).join('');
+  const tabs=[['overview','Обзор'],['pnl','ОПиУ'],['cashflow','ОДДС'],['balance','Баланс'],['monthly','По месяцам']].map(([id,label])=>`<button onclick="setFinanceTab('${id}')" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;color:${state.financeTab===id?'#16A34A':'#6e6e73'};border-bottom:2px solid ${state.financeTab===id?'#16A34A':'transparent'}">${label}</button>`).join('');
   let body='';
   if(fin && state.financeTab==='overview'){
     body = `<div class="grid4">
@@ -834,13 +845,40 @@ function renderFinance(){
       <div class="card"><b style="font-size:14px">Обязательства</b>${[['Партнёрам',bal.liabilities.payable_to_partners],['Курьерам',bal.liabilities.payable_to_couriers],['Итого',bal.liabilities.total]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>
       <div class="card"><b style="font-size:14px">Капитал</b>${[['Вложено владельцем',bal.equity.owner_net],['Накопленная прибыль',bal.equity.retained_earnings],['Итого',bal.equity.total]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>
     </div>`;
+  } else if(state.financeTab==='monthly'){
+    const rows = cache.financeMonthly;
+    if(!rows) body = '<div style="color:#86868b">Загрузка...</div>';
+    else {
+      const lines = [
+        ['Выручка','revenue'],['Себестоимость','cogs'],['Валовая прибыль','gross_profit'],
+        ['Расходы партнёров (прочее)','partner_expenses'],['Комиссия партнёрам (от продаж)','partner_commission'],
+        ['ЗП курьеров','courier_salary'],['Общие расходы','general_expenses'],['Реклама','ad_expenses'],
+        ['Итого расходы','total_operating_expenses'],['Чистая прибыль','net_profit'],
+      ];
+      body = `
+        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+          <span style="font-size:12.5px;color:#6e6e73">Показать за:</span>
+          ${[3,6,12].map(n=>`<button class="btn ${state.financeMonths===n?'btn-primary':'btn-secondary'}" style="padding:6px 12px;font-size:12.5px" onclick="loadMonthlyFinance(${n})">${n} мес.</button>`).join('')}
+        </div>
+        <div class="card" style="padding:0;overflow-x:auto">
+          <table style="min-width:${300+rows.length*110}px">
+            <thead><tr><th style="position:sticky;left:0;background:#fff;text-align:left">Показатель</th>${rows.map(r=>`<th style="text-align:right">${r.label}</th>`).join('')}</tr></thead>
+            <tbody>
+              ${lines.map(([label,key])=>`<tr style="${key==='net_profit'||key==='gross_profit'?'font-weight:700':''}">
+                <td style="position:sticky;left:0;background:#fff">${label}</td>
+                ${rows.map(r=>`<td style="text-align:right;${key==='net_profit'?(r.pnl[key]>=0?'color:#16A34A':'color:#ff3b30'):''}">${money(r.pnl[key])}</td>`).join('')}
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
   }
   document.getElementById('content').innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:14px">${periodTabs}</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">${state.financeTab==='monthly'?'':periodTabs}</div>
     <div style="display:flex;gap:20px;border-bottom:1px solid #e5e5e7;margin-bottom:22px">${tabs}</div>
-    ${renderMetaAdsCard()}
+    ${state.financeTab==='monthly'?'':renderMetaAdsCard()}
     ${body}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:26px">
+    ${state.financeTab==='monthly'?'':`<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:26px">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b style="font-size:14.5px">🧾 Общие расходы</b><button class="btn btn-primary" style="padding:7px 14px;font-size:12px" onclick="openExpenseModal()">+ Добавить</button></div>
         ${ge.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13px">
@@ -856,7 +894,7 @@ function renderFinance(){
         </div>
         ${ot.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13px"><span>${t.type==='contribution'?'Внёс':'Забрал'} <span style="color:#a1a1a6">· ${fmtDate(t.transaction_date)}</span></span><span style="display:flex;align-items:center;gap:8px"><b>${money(t.amount)}</b><button onclick="deleteOwnerTx(${t.id})" style="background:none;border:none;color:#ff3b30;cursor:pointer">✕</button></span></div>`).join('')}
       </div>
-    </div>`;
+    </div>`}`;
 }
 function renderMetaAdsCard(){
   const m = cache.metaAds;
