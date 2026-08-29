@@ -349,8 +349,10 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
 
   try {
     // --- выручка / заказы / средний чек за период ---
+    // считаем по дате ЗАВЕРШЕНИЯ заказа (completed_at), а не создания — иначе заказ,
+    // оформленный вчера и доставленный сегодня, не попадёт в сегодняшний дашборд
     const [ordersInRange] = await pool.query(
-      "SELECT * FROM orders WHERE status = 'done' AND DATE(created_at) BETWEEN ? AND ? ORDER BY created_at ASC",
+      "SELECT * FROM orders WHERE status = 'done' AND DATE(COALESCE(completed_at, created_at)) BETWEEN ? AND ? ORDER BY COALESCE(completed_at, created_at) ASC",
       [from, to]
     );
     const revenue = ordersInRange.reduce((s,o) => s + (Number(o.total)||0), 0);
@@ -376,7 +378,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
     const dayMap = {};
     const addDay = (dateStr) => { if(!dayMap[dateStr]) dayMap[dateStr] = { sales:0, expenses:0 }; return dayMap[dateStr]; };
     for (const o of ordersInRange) {
-      const key = new Date(o.created_at).toISOString().slice(0,10);
+      const key = new Date(o.completed_at || o.created_at).toISOString().slice(0,10);
       addDay(key).sales += Number(o.total) || 0;
     }
     for (const e of genExpAll) {
