@@ -191,6 +191,39 @@ app.patch('/api/orders/:id', requireAuth, async (req, res) => {
   }
 });
 
+// --- возврат по заказу ---
+// Возврат уменьшает "эффективную" сумму заказа (orders.refunded_amount), а не удаляет сам заказ.
+// Везде, где считается выручка/себестоимость/комиссия партнёру — используется (total - refunded_amount)
+// вместо total, поэтому возврат автоматически и корректно пересчитывает всю цепочку без двойного учёта.
+app.post('/api/orders/:id/refund', requireAuth, async (req, res) => {
+  const { amount, reason } = req.body || {};
+  try {
+    const [[order]] = await pool.query('SELECT total, refunded_amount FROM orders WHERE id = ?', [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    const already = Number(order.refunded_amount) || 0;
+    const maxRefundable = Number(order.total) - already;
+    const refundAmount = amount != null ? Number(amount) : maxRefundable; // без суммы — считаем возврат полным
+    if (refundAmount <= 0 || refundAmount > maxRefundable + 0.01) {
+      return res.status(400).json({ error: `Сумма возврата должна быть от 0 до ${round2(maxRefundable)} смн` });
+    }
+    await pool.query('INSERT INTO refunds (order_id, amount, reason) VALUES (?, ?, ?)', [req.params.id, refundAmount, reason || null]);
+    await pool.query('UPDATE orders SET refunded_amount = refunded_amount + ? WHERE id = ?', [refundAmount, req.params.id]);
+    res.json({ ok: true, refunded_amount: round2(already + refundAmount) });
+  } catch (e) {
+    console.error('Ошибка оформления возврата:', e);
+    res.status(500).json({ error: 'Не удалось оформить возврат' });
+  }
+});
+
+app.get('/api/orders/:id/refunds', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM refunds WHERE order_id = ? ORDER BY created_at DESC', [req.params.id]);
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Не удалось получить возвраты' });
+  }
+});
+
 // ручное назначение курьера на заказ (админ выбирает сам, без рассылки всем)
 app.post('/api/orders/:id/assign-courier', requireAuth, async (req, res) => {
   const { courier_id } = req.body || {};
@@ -355,7 +388,11 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
       "SELECT * FROM orders WHERE status = 'done' AND DATE(COALESCE(completed_at, created_at)) BETWEEN ? AND ? ORDER BY COALESCE(completed_at, created_at) ASC",
       [from, to]
     );
-    const revenue = ordersInRange.reduce((s,o) => s + (Number(o.total)||0), 0);
+    const revenue = ordersInRange.reduce((s,o) => {
+      const total = Number(o.total)||0;
+      const refunded = Number(o.refunded_amount)||0;
+      return s + Math.max(0, total - refunded);
+    }, 0);
     const ordersCount = ordersInRange.length;
     const avgCheck = ordersCount ? round2(revenue / ordersCount) : 0;
 
@@ -785,7 +822,7 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
   const commissionRate = Number(partner.commission_percent) || 0;
   const basis = partner.commission_basis === 'net' ? 'net' : 'gross';
 
-  const [orders] = await pool.query("SELECT id, created_at, completed_at, status, customer_name, customer_phone, items FROM orders WHERE status = 'done'");
+  const [orders] = await pool.query("SELECT id, created_at, completed_at, status, total, refunded_amount, customer_name, customer_phone, items FROM orders WHERE status = 'done'");
   let revenue = 0;      // сумма продаж по розничной цене
   let marginTotal = 0;  // сумма (цена - себестоимость) по всем проданным товарам этого партнёра
   let costTotal = 0;    // сумма себестоимости проданного (это то, что причитается оптовому партнёру)
@@ -798,15 +835,16 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
   productRows.forEach(p => { productStats[p.id] = { units: 0, orders: new Set(), revenue: 0, margin: 0, cost: 0 }; });
 
   for (const o of orders) {
+    const refundFactor = (Number(o.total) || 0) > 0 ? Math.max(0, ((Number(o.total) || 0) - (Number(o.refunded_amount) || 0)) / (Number(o.total) || 1)) : 1;
     const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
     let orderRevenue = 0, orderMargin = 0, orderCost = 0;
     const matchedItems = [];
     for (const item of items) {
       if (productIds.has(item.id)) {
         const qty = Number(item.qty) || 0;
-        const priceSum = (Number(item.price) || 0) * qty;
+        const priceSum = (Number(item.price) || 0) * qty * refundFactor;
         const cost = Number(productById[item.id].cost_price) || 0;
-        const costSum = cost * qty;
+        const costSum = cost * qty * refundFactor;
         const marginSum = priceSum - costSum;
         revenue += priceSum; marginTotal += marginSum; costTotal += costSum; unitsSold += qty;
         orderRevenue += priceSum; orderMargin += marginSum; orderCost += costSum;
@@ -1206,17 +1244,48 @@ app.get('/api/general-expenses', requireAuth, async (req, res) => {
 });
 
 app.post('/api/general-expenses', requireAuth, async (req, res) => {
-  const { title, category, amount, expense_date, note } = req.body || {};
+  const { title, category, subcategory, amount, expense_date, note, payment_method, status, responsible } = req.body || {};
   if (!title || !amount || !expense_date) return res.status(400).json({ error: 'Заполните название, сумму и дату' });
   try {
     await pool.query(
-      'INSERT INTO general_expenses (title, category, amount, expense_date, note) VALUES (?, ?, ?, ?, ?)',
-      [title, category || null, amount, expense_date, note || null]
+      `INSERT INTO general_expenses (title, category, subcategory, amount, expense_date, note, payment_method, status, responsible)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, category || null, subcategory || null, amount, expense_date, note || null,
+       ['cash','card','transfer','other'].includes(payment_method) ? payment_method : 'cash',
+       status === 'unpaid' ? 'unpaid' : 'paid', responsible || null]
     );
     res.json({ ok: true });
   } catch (e) {
     console.error('Ошибка добавления расхода:', e);
     res.status(500).json({ error: 'Не удалось добавить расход' });
+  }
+});
+
+// --- категории расходов (редактируемый справочник, можно добавлять свои) ---
+app.get('/api/expense-categories', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM expense_categories ORDER BY parent_id IS NULL DESC, parent_id, name');
+    const roots = rows.filter(r => !r.parent_id);
+    const result = roots.map(r => ({
+      id: r.id, name: r.name,
+      subcategories: rows.filter(s => s.parent_id === r.id).map(s => ({ id: s.id, name: s.name })),
+    }));
+    res.json(result);
+  } catch (e) {
+    console.error('Ошибка получения категорий расходов:', e);
+    res.status(500).json({ error: 'Не удалось получить категории' });
+  }
+});
+
+app.post('/api/expense-categories', requireAuth, async (req, res) => {
+  const { name, parent_id } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Укажите название категории' });
+  try {
+    const [result] = await pool.query('INSERT INTO expense_categories (name, parent_id) VALUES (?, ?)', [name, parent_id || null]);
+    res.json({ id: result.insertId });
+  } catch (e) {
+    console.error('Ошибка добавления категории:', e);
+    res.status(500).json({ error: 'Не удалось добавить категорию' });
   }
 });
 
@@ -1294,8 +1363,18 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
 
   try {
     // выручка — по завершённым заказам (нужен и состав items, чтобы связать с себестоимостью товаров)
-    const [orders] = await pool.query(`SELECT id, customer_name, total, items, created_at, completed_at FROM orders WHERE status = 'done' ${completedDateFilter} ORDER BY created_at DESC`);
-    const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    const [orders] = await pool.query(`SELECT id, customer_name, total, refunded_amount, items, created_at, completed_at FROM orders WHERE status = 'done' ${completedDateFilter} ORDER BY created_at DESC`);
+    // если по заказу оформлен возврат — вычитаем возвращённую сумму из выручки. При частичном
+    // возврате пропорционально уменьшаем и себестоимость этого заказа тем же коэффициентом,
+    // чтобы не задваивать и не терять учёт (см. п.26 ТЗ — "не создавать отрицательную прибыль
+    // из-за неправильного двойного списания")
+    const refundFactor = (o) => {
+      const total = Number(o.total) || 0;
+      if (total <= 0) return 1;
+      const refunded = Number(o.refunded_amount) || 0;
+      return Math.max(0, (total - refunded) / total);
+    };
+    const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0) * refundFactor(o), 0);
 
     // себестоимость проданных товаров — берём поле "Себестоимость" с самой карточки товара
     // и умножаем на фактически проданное количество за период. Раньше себестоимость считалась
@@ -1307,9 +1386,10 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     costRows.forEach(p => { costById[p.id] = Number(p.cost_price) || 0; });
     let cogs = 0;
     for (const o of orders) {
+      const factor = refundFactor(o);
       const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
       for (const item of items) {
-        cogs += (costById[item.id] || 0) * (Number(item.qty) || 0);
+        cogs += (costById[item.id] || 0) * (Number(item.qty) || 0) * factor;
       }
     }
 
@@ -1347,6 +1427,7 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
     productsForCommission.forEach(p => { productMetaById[p.id] = p; });
     const partnerSalesById = {}; // partnerId -> { revenue, margin }
     for (const o of orders) {
+      const factor = refundFactor(o);
       const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
       for (const item of items) {
         const prodMeta = productMetaById[item.id];
@@ -1354,8 +1435,8 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
         const partner = partnersById[prodMeta.partner_id];
         if (!partner || partner.deal_type !== 'commission') continue;
         const qty = Number(item.qty) || 0;
-        const lineRevenue = (Number(item.price) || 0) * qty;
-        const lineMargin = lineRevenue - (Number(prodMeta.cost_price) || 0) * qty;
+        const lineRevenue = (Number(item.price) || 0) * qty * factor;
+        const lineMargin = lineRevenue - (Number(prodMeta.cost_price) || 0) * qty * factor;
         if (!partnerSalesById[partner.id]) partnerSalesById[partner.id] = { revenue: 0, margin: 0 };
         partnerSalesById[partner.id].revenue += lineRevenue;
         partnerSalesById[partner.id].margin += lineMargin;
@@ -2308,6 +2389,59 @@ async function ensureFinanceTables() {
       expense_date   DATE NOT NULL,
       note           VARCHAR(255),
       created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await ensureColumn('general_expenses', 'subcategory', 'VARCHAR(100) NULL');
+  await ensureColumn('general_expenses', 'payment_method', "ENUM('cash','card','transfer','other') NOT NULL DEFAULT 'cash'");
+  await ensureColumn('general_expenses', 'status', "ENUM('paid','unpaid') NOT NULL DEFAULT 'paid'");
+  await ensureColumn('general_expenses', 'responsible', 'VARCHAR(255) NULL');
+
+  // категории и подкатегории расходов — редактируемый пользователем справочник (не жёстко
+  // зашитый список), чтобы можно было добавлять свои категории прямо из формы расхода
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS expense_categories (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      name       VARCHAR(100) NOT NULL,
+      parent_id  INT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (parent_id) REFERENCES expense_categories(id) ON DELETE CASCADE
+    )
+  `);
+  const [[catCountRow]] = await pool.query('SELECT COUNT(*) AS cnt FROM expense_categories');
+  if (Number(catCountRow.cnt) === 0) {
+    // заполняем стандартный набор категорий один раз, при первом запуске на пустой таблице
+    const defaultCats = {
+      'Реклама': ['Instagram Ads', 'Facebook Ads', 'TikTok Ads', 'Блогеры', 'Другие рекламные расходы'],
+      'Логистика': ['Доставка', 'Транспорт', 'Склад', 'Другие логистические расходы'],
+      'Курьеры': [],
+      'Зарплаты': ['SMM', 'Менеджеры', 'Оператор', 'Дизайнер', 'Другие сотрудники'],
+      'Упаковка': [],
+      'Аренда': [],
+      'Комиссии': [],
+      'Возвраты': [],
+      'Прочее': [],
+    };
+    for (const [name, subs] of Object.entries(defaultCats)) {
+      const [r] = await pool.query('INSERT INTO expense_categories (name, parent_id) VALUES (?, NULL)', [name]);
+      for (const sub of subs) {
+        await pool.query('INSERT INTO expense_categories (name, parent_id) VALUES (?, ?)', [sub, r.insertId]);
+      }
+    }
+    console.log('Заполнены стандартные категории расходов');
+  }
+
+  // возвраты — отдельный журнал (для истории), плюс сумма возврата хранится прямо на заказе
+  // (orders.refunded_amount), чтобы выручку/себестоимость/комиссию партнёра было просто
+  // пересчитать везде одной формулой: "total - refunded_amount" вместо "total"
+  await ensureColumn('orders', 'refunded_amount', 'DECIMAL(10,2) NOT NULL DEFAULT 0');
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS refunds (
+      id         INT AUTO_INCREMENT PRIMARY KEY,
+      order_id   INT NOT NULL,
+      amount     DECIMAL(10,2) NOT NULL,
+      reason     VARCHAR(255) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
     )
   `);
   await pool.query(`

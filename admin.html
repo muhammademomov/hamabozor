@@ -302,9 +302,10 @@ function renderOrders(){
       <div style="margin-left:auto;font-size:13px;color:#86868b">${filtered.length} из ${orders.length}</div>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
-      <table><thead><tr><th>№</th><th>Дата</th><th>Клиент</th><th>Телефон</th><th>Сумма</th><th>Курьер</th><th>Статус</th></tr></thead>
+      <table><thead><tr><th>№</th><th>Дата</th><th>Клиент</th><th>Телефон</th><th>Сумма</th><th>Курьер</th><th>Статус</th><th></th></tr></thead>
       <tbody>${filtered.map(o=>`<tr>
-        <td>#${o.id}</td><td>${fmtDate(o.created_at)}</td><td>${esc(o.customer_name)}</td><td>${esc(o.customer_phone)}</td><td style="font-weight:600">${money(o.total)}</td>
+        <td>#${o.id}</td><td>${fmtDate(o.created_at)}</td><td>${esc(o.customer_name)}</td><td>${esc(o.customer_phone)}</td>
+        <td style="font-weight:600">${money(o.total)}${Number(o.refunded_amount)>0?`<div style="font-size:11px;color:#ff3b30;font-weight:600">возврат ${money(o.refunded_amount)}</div>`:''}</td>
         <td><select style="padding:6px 10px;border-radius:8px;font-size:12.5px;border:1px solid #d2d2d7;background:#fff;min-width:140px" onchange="assignCourier(${o.id}, this.value)">
           ${!o.courier_id ? `<option value="">— выбрать курьера —</option>` : ''}
           ${(cache.couriers||[]).filter(c=>c.active!==0 || c.id===o.courier_id).map(c=>`<option value="${c.id}" ${o.courier_id===c.id?'selected':''}>${esc([c.first_name,c.last_name].filter(Boolean).join(' '))}</option>`).join('')}
@@ -312,8 +313,31 @@ function renderOrders(){
         <td><select style="padding:6px 10px;border-radius:8px;font-size:12.5px;font-weight:600;border:1px solid ${STATUS_COLOR[o.status]};color:${STATUS_COLOR[o.status]};background:#fff" onchange="updateOrderStatus(${o.id}, this.value)">
           ${['new','progress','done','cancel'].map(st=>`<option value="${st}" ${o.status===st?'selected':''}>${STATUS_LABEL[st]}</option>`).join('')}
         </select></td>
+        <td>${o.status==='done' && Number(o.refunded_amount||0) < Number(o.total) ? `<button class="btn btn-secondary" style="padding:6px 10px;font-size:11.5px" onclick="openRefundModal(${o.id})">Возврат</button>` : ''}</td>
       </tr>`).join('')}</tbody></table>
     </div>`;
+}
+function openRefundModal(orderId){
+  const o = (cache.orders||[]).find(x=>x.id===orderId);
+  if(!o) return;
+  const maxRefund = round2(Number(o.total) - Number(o.refunded_amount||0));
+  document.getElementById('modalRoot').innerHTML = `
+  <div class="modal-backdrop"><div class="modal" style="max-width:380px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3>Возврат по заказу #${o.id}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <p style="font-size:12.5px;color:#6e6e73;margin:0 0 12px">Доступно к возврату: <b>${money(maxRefund)}</b></p>
+    <input id="rf_amount" type="number" class="field" placeholder="Сумма возврата" value="${maxRefund}" style="margin-bottom:10px">
+    <input id="rf_reason" class="field" placeholder="Причина (необязательно)">
+    <div id="rfError" style="color:#ff3b30;font-size:12.5px;margin-top:12px"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px;padding:12px" onclick="saveRefund(${o.id})">Оформить возврат</button>
+  </div></div>`;
+}
+function saveRefund(orderId){
+  const amount = Number(document.getElementById('rf_amount').value||0);
+  const reason = document.getElementById('rf_reason').value;
+  if(amount<=0){ document.getElementById('rfError').textContent='Укажите сумму возврата'; return; }
+  apiFetch(`/api/orders/${orderId}/refund`,{method:'POST',body:JSON.stringify({amount,reason})})
+    .then(()=>{ closeModal(); flash('Возврат оформлен'); loadOrders(); })
+    .catch(e=>document.getElementById('rfError').textContent=e.message);
 }
 
 /* ---------------- PRODUCTS ---------------- */
@@ -776,8 +800,8 @@ function deletePurchase(id){ if(!confirm('Удалить закупку?')) retu
 
 /* ---------------- FINANCE ---------------- */
 function loadFinance(){
-  Promise.all([apiFetch('/api/finance/summary?period='+state.financePeriod), apiFetch('/api/general-expenses'), apiFetch('/api/owner-transactions')])
-    .then(([fin,ge,ot])=>{ cache.financeData=fin; cache.generalExpenses=ge; cache.ownerTx=ot;
+  Promise.all([apiFetch('/api/finance/summary?period='+state.financePeriod), apiFetch('/api/general-expenses'), apiFetch('/api/owner-transactions'), apiFetch('/api/expense-categories').catch(()=>[])])
+    .then(([fin,ge,ot,cats])=>{ cache.financeData=fin; cache.generalExpenses=ge; cache.ownerTx=ot; cache.expenseCategories=cats;
       if(state.financeTab==='balance') apiFetch('/api/finance/balance').then(b=>{ cache.financeBalance=b; renderFinance(); }).catch(()=>renderFinance());
       else renderFinance();
     }).catch(e=>flash(e.message));
@@ -819,7 +843,10 @@ function renderFinance(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:26px">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b style="font-size:14.5px">🧾 Общие расходы</b><button class="btn btn-primary" style="padding:7px 14px;font-size:12px" onclick="openExpenseModal()">+ Добавить</button></div>
-        ${ge.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13px"><span>${esc(e.title)} <span style="color:#a1a1a6">· ${fmtDate(e.expense_date)}</span></span><span style="display:flex;align-items:center;gap:8px"><b>${money(e.amount)}</b><button onclick="deleteExpense(${e.id})" style="background:none;border:none;color:#ff3b30;cursor:pointer">✕</button></span></div>`).join('')}
+        ${ge.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13px">
+          <span>${esc(e.title)} <span style="color:#a1a1a6">· ${esc(e.category||'без категории')}${e.subcategory?' / '+esc(e.subcategory):''} · ${fmtDate(e.expense_date)}</span> ${e.status==='unpaid'?'<span class="badge" style="background:#fff3cd;color:#8a6d1f">не оплачено</span>':''}</span>
+          <span style="display:flex;align-items:center;gap:8px"><b>${money(e.amount)}</b><button onclick="deleteExpense(${e.id})" style="background:none;border:none;color:#ff3b30;cursor:pointer">✕</button></span>
+        </div>`).join('')}
       </div>
       <div class="card">
         <b style="font-size:14.5px">🏦 Взносы и изъятия</b>
@@ -855,21 +882,79 @@ function renderMetaAdsCard(){
   </div>`;
 }
 function openExpenseModal(){
+  const cats = cache.expenseCategories||[];
   document.getElementById('modalRoot').innerHTML = `
-  <div class="modal-backdrop"><div class="modal" style="max-width:400px">
+  <div class="modal-backdrop"><div class="modal" style="max-width:420px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3>Общий расход</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div style="display:flex;flex-direction:column;gap:10px">
-      <input id="ex_title" class="field" placeholder="Название"><input id="ex_category" class="field" placeholder="Категория">
-      <input id="ex_amount" type="number" class="field" placeholder="Сумма"><input id="ex_date" type="date" class="field" value="${new Date().toISOString().slice(0,10)}">
+      <input id="ex_title" class="field" placeholder="Название">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <select id="ex_category" class="field" onchange="onExpenseCategoryChange()">
+          <option value="">Без категории</option>
+          ${cats.map(c=>`<option value="${esc(c.name)}" data-id="${c.id}">${esc(c.name)}</option>`).join('')}
+          <option value="__new__">+ Новая категория...</option>
+        </select>
+        <select id="ex_subcategory" class="field"><option value="">—</option></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <input id="ex_amount" type="number" class="field" placeholder="Сумма">
+        <input id="ex_date" type="date" class="field" value="${new Date().toISOString().slice(0,10)}">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <select id="ex_payment_method" class="field">
+          <option value="cash">Наличные</option><option value="card">Карта</option>
+          <option value="transfer">Банковский перевод</option><option value="other">Другое</option>
+        </select>
+        <select id="ex_status" class="field"><option value="paid">Оплачено</option><option value="unpaid">Не оплачено</option></select>
+      </div>
+      <input id="ex_responsible" class="field" placeholder="Ответственный (необязательно)">
+      <input id="ex_note" class="field" placeholder="Комментарий (необязательно)">
     </div>
     <div id="exError" style="color:#ff3b30;font-size:12.5px;margin-top:12px"></div>
     <button class="btn btn-primary" style="width:100%;margin-top:18px;padding:12px" onclick="saveExpense()">Сохранить расход</button>
   </div></div>`;
 }
+function onExpenseCategoryChange(){
+  const sel = document.getElementById('ex_category');
+  if(sel.value === '__new__'){
+    const name = prompt('Название новой категории:');
+    if(name){
+      apiFetch('/api/expense-categories',{method:'POST',body:JSON.stringify({name})}).then(()=>{
+        apiFetch('/api/expense-categories').then(cats=>{ cache.expenseCategories=cats; openExpenseModal(); document.getElementById('ex_category').value=name; onExpenseCategoryChange(); });
+      }).catch(e=>flash(e.message));
+    } else { sel.value=''; }
+    return;
+  }
+  const cats = cache.expenseCategories||[];
+  const cat = cats.find(c=>c.name===sel.value);
+  const subSel = document.getElementById('ex_subcategory');
+  const subs = (cat&&cat.subcategories)||[];
+  subSel.innerHTML = '<option value="">—</option>' + subs.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('') + '<option value="__new__">+ Новая подкатегория...</option>';
+  subSel.onchange = () => {
+    if(subSel.value==='__new__'){
+      const name = prompt('Название новой подкатегории:');
+      if(name && cat){
+        apiFetch('/api/expense-categories',{method:'POST',body:JSON.stringify({name,parent_id:cat.id})}).then(()=>{
+          apiFetch('/api/expense-categories').then(cs=>{ cache.expenseCategories=cs; });
+        }).catch(e=>flash(e.message));
+        const opt = document.createElement('option'); opt.value=name; opt.textContent=name; opt.selected=true;
+        subSel.insertBefore(opt, subSel.lastElementChild);
+      } else { subSel.value=''; }
+    }
+  };
+}
 function saveExpense(){
   const title=document.getElementById('ex_title').value, amount=document.getElementById('ex_amount').value, expense_date=document.getElementById('ex_date').value;
   if(!title||!amount||!expense_date){ document.getElementById('exError').textContent='Заполните название, сумму и дату'; return; }
-  apiFetch('/api/general-expenses',{method:'POST',body:JSON.stringify({title,category:document.getElementById('ex_category').value,amount:Number(amount),expense_date})}).then(()=>{ closeModal(); loadFinance(); }).catch(e=>document.getElementById('exError').textContent=e.message);
+  const category = document.getElementById('ex_category').value;
+  apiFetch('/api/general-expenses',{method:'POST',body:JSON.stringify({
+    title, category: category==='__new__'?'':category, subcategory: document.getElementById('ex_subcategory').value,
+    amount:Number(amount), expense_date,
+    payment_method: document.getElementById('ex_payment_method').value,
+    status: document.getElementById('ex_status').value,
+    responsible: document.getElementById('ex_responsible').value,
+    note: document.getElementById('ex_note').value,
+  })}).then(()=>{ closeModal(); loadFinance(); }).catch(e=>document.getElementById('exError').textContent=e.message);
 }
 function deleteExpense(id){ apiFetch('/api/general-expenses/'+id,{method:'DELETE'}).then(loadFinance).catch(e=>flash(e.message)); }
 function openOwnerTxModal(type){
