@@ -677,12 +677,49 @@ function renderPartnerDetail(pd){
         </div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:20px">
+    <div class="card" style="margin-top:20px;padding:16px">
+      <b style="font-size:13.5px">🔍 Сравнить способы расчёта за период</b>
+      <p style="font-size:11.5px;color:#86868b;margin:4px 0 10px">Показывает все три варианта сразу, независимо от того, что сейчас настроено у партнёра — чтобы свериться самому.</p>
+      <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+        <div><label style="display:block;font-size:11px;color:#6e6e73;margin-bottom:4px">С даты</label><input id="cmp_from" type="date" class="field" style="padding:8px 10px"></div>
+        <div><label style="display:block;font-size:11px;color:#6e6e73;margin-bottom:4px">По дату</label><input id="cmp_to" type="date" class="field" style="padding:8px 10px"></div>
+        <button class="btn btn-primary" style="padding:9px 16px" onclick="comparePartnerMethods(${pd.id})">Сравнить</button>
+      </div>
+      <div id="cmp_result" style="margin-top:14px"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
       <button class="btn btn-secondary" style="flex:1;padding:10px" onclick="openPartnerModal(findPartner(${pd.id}))">Изменить условия</button>
       <button class="btn btn-secondary" style="flex:1;padding:10px" onclick="togglePartnerActive(${pd.id}, ${pd.active?0:1})">${pd.active?'Отключить':'Включить'}</button>
       <button class="btn btn-danger" style="flex:1;padding:10px" onclick="deletePartner(${pd.id})">Удалить</button>
     </div>
   </div></div>`;
+}
+function comparePartnerMethods(id){
+  const from = document.getElementById('cmp_from').value;
+  const to = document.getElementById('cmp_to').value;
+  if(!from || !to){ document.getElementById('cmp_result').innerHTML = '<p style="color:#ff3b30;font-size:12.5px">Укажите обе даты</p>'; return; }
+  document.getElementById('cmp_result').innerHTML = '<p style="font-size:12.5px;color:#86868b">Считаю...</p>';
+  apiFetch(`/api/partners/${id}/compare?from=${from}&to=${to}`).then(c=>{
+    const rows = [
+      ['По опту (себестоимость проданного)', c.by_wholesale, c.current_basis==='wholesale'],
+      [`По валовой прибыли (${c.commission_percent}% от маржи)`, c.by_gross, c.current_basis==='gross'],
+      [`По чистой прибыли (${c.commission_percent}% от маржи минус доставка)`, c.by_net, c.current_basis==='net'],
+    ];
+    document.getElementById('cmp_result').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;font-size:12px">
+        <div style="background:#f5f5f7;border-radius:10px;padding:10px"><div style="color:#6e6e73">Выручка</div><b>${money(c.revenue)}</b></div>
+        <div style="background:#f5f5f7;border-radius:10px;padding:10px"><div style="color:#6e6e73">Себестоимость</div><b>${money(c.cost)}</b></div>
+        <div style="background:#f5f5f7;border-radius:10px;padding:10px"><div style="color:#6e6e73">Маржа</div><b>${money(c.margin)}</b></div>
+        <div style="background:#f5f5f7;border-radius:10px;padding:10px"><div style="color:#6e6e73">Доставка (этих заказов)</div><b>${money(c.delivery_cost)}</b></div>
+        <div style="background:#f5f5f7;border-radius:10px;padding:10px;grid-column:span 2"><div style="color:#6e6e73">Общие расходы бизнеса за период (справочно, в расчёт не входят)</div><b>${money(c.general_expenses_period)}</b></div>
+      </div>
+      ${rows.map(([label,val,isCurrent])=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;margin-bottom:6px;background:${isCurrent?'#e8f8ec':'#fff'};border:1px solid ${isCurrent?'#16A34A':'#e5e5e7'}">
+          <span style="font-size:12.5px">${label} ${isCurrent?'<b style=\"color:#16A34A\">← сейчас так настроено</b>':''}</span>
+          <b style="font-size:15px">${money(val)}</b>
+        </div>`).join('')}
+    `;
+  }).catch(e=>{ document.getElementById('cmp_result').innerHTML = `<p style="color:#ff3b30;font-size:12.5px">${e.message}</p>`; });
 }
 function addPartnerExpense(id){ const title=document.getElementById('pe_title').value, amount=document.getElementById('pe_amount').value; if(!title||!amount) return; apiFetch('/api/partners/'+id+'/expenses',{method:'POST',body:JSON.stringify({title,amount:Number(amount),partner_share_percent:100})}).then(()=>openPartnerDetail(id)).catch(e=>flash(e.message)); }
 function deletePartnerExpense(eid,pid){ apiFetch('/api/partner-expenses/'+eid,{method:'DELETE'}).then(()=>openPartnerDetail(pid)).catch(e=>flash(e.message)); }

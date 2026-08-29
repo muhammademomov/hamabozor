@@ -791,7 +791,8 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
   let ordersCount = 0;
   const orderList = [];
   const productStats = {};
-  const marginByDay = {}; // 'YYYY-MM-DD' -> { margin, revenue } — для расчёта комиссии "от чистой прибыли" по дням
+  const marginByDay = {}; // 'YYYY-MM-DD' -> { margin, revenue } — для истории, оставлено на будущее
+  const matchedOrderIds = []; // все заказы этого партнёра — нужны, чтобы узнать доставку по каждому
   productRows.forEach(p => { productStats[p.id] = { units: 0, orders: new Set(), revenue: 0, margin: 0, cost: 0 }; });
 
   for (const o of orders) {
@@ -814,6 +815,7 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
     }
     if (matchedItems.length) {
       ordersCount += 1;
+      matchedOrderIds.push(o.id);
       const dayKey = new Date(o.completed_at || o.created_at).toISOString().slice(0, 10);
       if (!marginByDay[dayKey]) marginByDay[dayKey] = { margin: 0, revenue: 0 };
       marginByDay[dayKey].margin += orderMargin;
@@ -834,46 +836,26 @@ async function computePartnerStats(partnerId, partner, includeOrders) {
   if (isWholesale) {
     owedFromSales = costTotal; // оптовому партнёру причитается его себестоимость проданного
   } else if (basis === 'net') {
-    // считаем ПО КАЖДОМУ ДНЮ отдельно (а не скопом за всё время) — иначе старые тестовые
-    // расходы за прошлые дни "съедали" бы прибыль сегодняшних продаж и давали неверный 0.
-    // Расходы каждого дня сравниваются только с выручкой ЭТОГО ЖЕ дня.
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const [couriersForDay] = await pool.query('SELECT id, salary_type, salary_rate FROM couriers');
-    let netOwed = 0;
-    for (const [day, d] of Object.entries(marginByDay)) {
-      const [[compRevRow]] = await pool.query(
-        "SELECT COALESCE(SUM(total), 0) AS total FROM orders WHERE status = 'done' AND DATE(COALESCE(completed_at, created_at)) = ?", [day]
+    // "чистая прибыль" здесь = выручка партнёра - себестоимость его товара - доставка ЕГО заказов.
+    // Реклама и общие расходы бизнеса сюда НЕ входят — по договорённости комиссия считается
+    // только от прямой прибыли по товару, а не от общих трат магазина.
+    let deliveryCostForPartner = 0;
+    if (matchedOrderIds.length) {
+      const [deliveryRows] = await pool.query(
+        `SELECT o.id, o.delivery_status, c.salary_type, c.salary_rate
+         FROM orders o LEFT JOIN couriers c ON c.id = o.courier_id
+         WHERE o.id IN (${matchedOrderIds.map(() => '?').join(',')})`,
+        matchedOrderIds
       );
-      const companyRevenueDay = Number(compRevRow.total) || 0;
-
-      let courierSalaryDay = 0;
-      for (const c of couriersForDay) {
-        const [[dRow]] = await pool.query(
-          "SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' AND DATE(COALESCE(completed_at, created_at)) = ?", [c.id, day]
-        );
-        const deliveries = Number(dRow.cnt) || 0;
-        courierSalaryDay += c.salary_type === 'fixed' ? (Number(c.salary_rate) || 0) : deliveries * (Number(c.salary_rate) || 0);
+      for (const row of deliveryRows) {
+        if (row.delivery_status === 'delivered' && row.salary_type === 'per_delivery') {
+          deliveryCostForPartner += Number(row.salary_rate) || 0;
+        }
+        // курьеров с фиксированной (не за доставку) ставкой сюда не включаем — их зарплату
+        // нельзя честно разделить между конкретными заказами
       }
-
-      const [[genRow]] = await pool.query('SELECT COALESCE(SUM(amount), 0) AS total FROM general_expenses WHERE expense_date = ?', [day]);
-      const generalExpensesDay = Number(genRow.total) || 0;
-
-      // расход из Meta Ads по дням истории недоступен через простые date_preset — считаем
-      // его только для сегодняшнего дня (данные за сегодня у нас есть в реальном времени)
-      let adExpensesDay = 0;
-      if (day === todayStr) {
-        try {
-          const m = await fetchMetaAdsSpend('today');
-          if (m.connected) adExpensesDay = Number(m.total_spend) || 0;
-        } catch (e) { /* Meta недоступна — не учитываем в этот день */ }
-      }
-
-      const companyExpensesDay = courierSalaryDay + generalExpensesDay + adExpensesDay;
-      const expenseShareDay = companyRevenueDay > 0 ? (d.revenue / companyRevenueDay) * companyExpensesDay : 0;
-      const netBaseDay = Math.max(0, d.margin - expenseShareDay);
-      netOwed += netBaseDay * commissionRate / 100;
     }
-    owedFromSales = netOwed;
+    owedFromSales = Math.max(0, marginTotal - deliveryCostForPartner) * commissionRate / 100;
   } else {
     owedFromSales = marginTotal * commissionRate / 100;
   }
@@ -985,6 +967,84 @@ app.get('/api/partners/:id', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Ошибка получения партнёра:', e);
     res.status(500).json({ error: 'Не удалось получить партнёра' });
+  }
+});
+
+// сравнение всех трёх способов расчёта комиссии за произвольный период (от даты до даты) —
+// чтобы видеть сразу все варианты и свериться самостоятельно, независимо от того, какой
+// способ сейчас реально настроен у партнёра
+app.get('/api/partners/:id/compare', requireAuth, async (req, res) => {
+  try {
+    const [[partner]] = await pool.query('SELECT * FROM partners WHERE id = ?', [req.params.id]);
+    if (!partner) return res.status(404).json({ error: 'Партнёр не найден' });
+
+    const from = req.query.from, to = req.query.to;
+    if (!from || !to) return res.status(400).json({ error: 'Укажите даты from и to' });
+
+    const [productRows] = await pool.query('SELECT id, name_ru, price, cost_price FROM products WHERE partner_id = ?', [req.params.id]);
+    const productIds = new Set(productRows.map(p => p.id));
+    const costById = {};
+    productRows.forEach(p => { costById[p.id] = Number(p.cost_price) || 0; });
+
+    const [orders] = await pool.query(
+      "SELECT id, items FROM orders WHERE status = 'done' AND DATE(COALESCE(completed_at, created_at)) BETWEEN ? AND ?",
+      [from, to]
+    );
+
+    let revenue = 0, cost = 0, margin = 0;
+    const matchedOrderIds = [];
+    for (const o of orders) {
+      const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+      let matched = false;
+      for (const item of items) {
+        if (productIds.has(item.id)) {
+          matched = true;
+          const qty = Number(item.qty) || 0;
+          const priceSum = (Number(item.price) || 0) * qty;
+          const costSum = (costById[item.id] || 0) * qty;
+          revenue += priceSum; cost += costSum; margin += (priceSum - costSum);
+        }
+      }
+      if (matched) matchedOrderIds.push(o.id);
+    }
+
+    // доставка по заказам именно этого партнёра — нужна для расчёта "по чистой прибыли"
+    let deliveryCost = 0;
+    if (matchedOrderIds.length) {
+      const [deliveryRows] = await pool.query(
+        `SELECT o.id, o.delivery_status, c.salary_type, c.salary_rate
+         FROM orders o LEFT JOIN couriers c ON c.id = o.courier_id
+         WHERE o.id IN (${matchedOrderIds.map(() => '?').join(',')})`,
+        matchedOrderIds
+      );
+      for (const row of deliveryRows) {
+        if (row.delivery_status === 'delivered' && row.salary_type === 'per_delivery') {
+          deliveryCost += Number(row.salary_rate) || 0;
+        }
+      }
+    }
+
+    // общие расходы бизнеса за этот же период — показываем для справки (в расчёт "по чистой"
+    // сейчас НЕ входят, только доставка — так решили: комиссия не должна зависеть от рекламы и т.п.)
+    const [[genRow]] = await pool.query('SELECT COALESCE(SUM(amount), 0) AS total FROM general_expenses WHERE expense_date BETWEEN ? AND ?', [from, to]);
+    const generalExpensesPeriod = Number(genRow.total) || 0;
+
+    const pct = Number(partner.commission_percent) || 0;
+
+    res.json({
+      from, to,
+      revenue: round2(revenue), cost: round2(cost), margin: round2(margin),
+      delivery_cost: round2(deliveryCost),
+      general_expenses_period: round2(generalExpensesPeriod),
+      commission_percent: pct,
+      by_wholesale: round2(cost),
+      by_gross: round2(margin * pct / 100),
+      by_net: round2(Math.max(0, margin - deliveryCost) * pct / 100),
+      current_basis: partner.deal_type === 'wholesale' ? 'wholesale' : partner.commission_basis,
+    });
+  } catch (e) {
+    console.error('Ошибка сравнения расчёта партнёра:', e);
+    res.status(500).json({ error: 'Не удалось посчитать сравнение' });
   }
 });
 
