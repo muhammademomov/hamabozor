@@ -834,10 +834,12 @@ function renderFinance(){
     </div>`;
   } else if(fin && state.financeTab==='pnl'){
     const rows=[['Выручка',fin.pnl.revenue],['Себестоимость',fin.pnl.cogs],['Валовая прибыль',fin.pnl.gross_profit],['Расходы партнёров (прочее)',fin.pnl.partner_expenses],['Комиссия партнёрам (от продаж)',fin.pnl.partner_commission],['ЗП курьеров',fin.pnl.courier_salary],['Общие расходы',fin.pnl.general_expenses],['Итого расходы',fin.pnl.total_operating_expenses],['Чистая прибыль',fin.pnl.net_profit]];
-    body = `<div class="card">${rows.map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f2;font-size:14px"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>`;
+    body = `${renderSingleBarChart('Выручка',fin.pnl.revenue,'Расходы',fin.pnl.total_operating_expenses,'Прибыль',fin.pnl.net_profit)}
+      <div class="card">${rows.map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f2;font-size:14px"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>`;
   } else if(fin && state.financeTab==='cashflow'){
     const rows=[['Поступления',fin.cashflow.cash_in],['Оплачено за товар',fin.cashflow.cogs_paid],['Выплаты партнёрам',fin.cashflow.partner_payouts],['Выплаты курьерам',fin.cashflow.courier_payouts],['Общие расходы',fin.cashflow.general_expenses_paid],['Чистый денежный поток',fin.cashflow.net_cash_flow]];
-    body = `<div class="card">${rows.map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f2;font-size:14px"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>`;
+    body = `${renderSingleBarChart('Поступления',fin.cashflow.cash_in,'Расходы',fin.cashflow.cash_out,'Чистый поток',fin.cashflow.net_cash_flow)}
+      <div class="card">${rows.map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f2;font-size:14px"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>`;
   } else if(state.financeTab==='balance'){
     if(!bal) body='<div style="color:#86868b">Загрузка...</div>';
     else body = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
@@ -859,6 +861,14 @@ function renderFinance(){
         <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
           <span style="font-size:12.5px;color:#6e6e73">Показать за:</span>
           ${[3,6,12].map(n=>`<button class="btn ${state.financeMonths===n?'btn-primary':'btn-secondary'}" style="padding:6px 12px;font-size:12.5px" onclick="loadMonthlyFinance(${n})">${n} мес.</button>`).join('')}
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div style="display:flex;gap:16px;margin-bottom:14px;font-size:12px">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#16A34A;margin-right:5px"></span>Выручка</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#FF9500;margin-right:5px"></span>Расходы</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#5A7DFF;margin-right:5px"></span>Прибыль</span>
+          </div>
+          ${renderMonthlyChart(rows)}
         </div>
         <div class="card" style="padding:0;overflow-x:auto">
           <table style="min-width:${300+rows.length*110}px">
@@ -895,6 +905,46 @@ function renderFinance(){
         ${ot.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13px"><span>${t.type==='contribution'?'Внёс':'Забрал'} <span style="color:#a1a1a6">· ${fmtDate(t.transaction_date)}</span></span><span style="display:flex;align-items:center;gap:8px"><b>${money(t.amount)}</b><button onclick="deleteOwnerTx(${t.id})" style="background:none;border:none;color:#ff3b30;cursor:pointer">✕</button></span></div>`).join('')}
       </div>
     </div>`}`;
+}
+function renderSingleBarChart(l1,v1,l2,v2,l3,v3){
+  const items = [[l1,v1,'#16A34A'],[l2,v2,'#FF9500'],[l3,v3,v3>=0?'#5A7DFF':'#ff3b30']];
+  const maxVal = Math.max(1, ...items.map(([,v])=>Math.abs(v)));
+  return `<div class="card" style="margin-bottom:16px">
+    ${items.map(([label,v,color])=>`
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px"><span style="color:#6e6e73">${label}</span><b>${money(v)}</b></div>
+        <div style="background:#f0f0f2;border-radius:6px;height:10px;overflow:hidden">
+          <div style="width:${Math.min(100,Math.abs(v)/maxVal*100)}%;height:100%;background:${color};border-radius:6px"></div>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+function renderMonthlyChart(rows){
+  if(!rows || !rows.length) return '';
+  const W = 720, H = 220, padL = 10, padB = 26, padT = 10;
+  const groupW = (W - padL*2) / rows.length;
+  const barW = Math.min(22, groupW/5);
+  const maxVal = Math.max(1, ...rows.flatMap(r=>[r.pnl.revenue, r.pnl.total_operating_expenses, Math.abs(r.pnl.net_profit)]));
+  const scale = (H - padT - padB) / maxVal;
+  const zeroY = H - padB;
+  const bars = rows.map((r,i)=>{
+    const cx = padL + groupW*i + groupW/2;
+    const vals = [
+      { v:r.pnl.revenue, color:'#16A34A' },
+      { v:r.pnl.total_operating_expenses, color:'#FF9500' },
+      { v:r.pnl.net_profit, color: r.pnl.net_profit>=0 ? '#5A7DFF' : '#ff3b30' },
+    ];
+    return vals.map((item,j)=>{
+      const h = Math.abs(item.v) * scale;
+      const x = cx - (barW*1.5) + j*(barW+4);
+      const y = item.v>=0 ? zeroY - h : zeroY;
+      return `<rect x="${x}" y="${y}" width="${barW}" height="${Math.max(1,h)}" rx="3" fill="${item.color}"><title>${money(item.v)}</title></rect>`;
+    }).join('') + `<text x="${cx}" y="${H-8}" text-anchor="middle" font-size="10" fill="#6e6e73">${r.label}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:220px">
+    <line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="#e5e5e7" stroke-width="1"/>
+    ${bars}
+  </svg>`;
 }
 function renderMetaAdsCard(){
   const m = cache.metaAds;
