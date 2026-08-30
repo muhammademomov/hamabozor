@@ -1262,6 +1262,26 @@ app.post('/api/general-expenses', requireAuth, async (req, res) => {
 });
 
 // --- категории расходов (редактируемый справочник, можно добавлять свои) ---
+// --- настройки (сейчас только курс USD → смн, для конвертации расхода из Meta Ads) ---
+app.get('/api/settings/usd-rate', requireAuth, async (req, res) => {
+  try {
+    const [[row]] = await pool.query("SELECT value FROM app_settings WHERE `key` = 'usd_to_tjs_rate'");
+    res.json({ rate: row ? Number(row.value) : 9.27 });
+  } catch (e) {
+    res.status(500).json({ error: 'Не удалось получить курс' });
+  }
+});
+app.put('/api/settings/usd-rate', requireAuth, async (req, res) => {
+  const rate = Number(req.body && req.body.rate);
+  if (!rate || rate <= 0) return res.status(400).json({ error: 'Укажите корректный курс' });
+  try {
+    await pool.query("INSERT INTO app_settings (`key`, value) VALUES ('usd_to_tjs_rate', ?) ON DUPLICATE KEY UPDATE value = ?", [String(rate), String(rate)]);
+    res.json({ ok: true, rate });
+  } catch (e) {
+    res.status(500).json({ error: 'Не удалось сохранить курс' });
+  }
+});
+
 app.get('/api/expense-categories', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM expense_categories ORDER BY parent_id IS NULL DESC, parent_id, name');
@@ -1579,6 +1599,22 @@ app.get('/api/finance/monthly', requireAuth, async (req, res) => {
 
 function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
 
+// кэшируем валюту рекламного кабинета на 10 минут — она не меняется часто, незачем
+// запрашивать при каждом обновлении страницы Финансов
+let adAccountCurrencyCache = null;
+let adAccountCurrencyCacheAt = 0;
+async function getAdAccountCurrency(token, adAccountId) {
+  const now = Date.now();
+  if (adAccountCurrencyCache && (now - adAccountCurrencyCacheAt) < 600000) return adAccountCurrencyCache;
+  try {
+    const res = await fetch(`https://graph.facebook.com/v26.0/${adAccountId}?fields=currency&access_token=${encodeURIComponent(token)}`);
+    const data = await res.json();
+    adAccountCurrencyCache = data.currency || null;
+    adAccountCurrencyCacheAt = now;
+  } catch (e) { /* не удалось узнать валюту — просто не будем конвертировать */ }
+  return adAccountCurrencyCache;
+}
+
 // вынесено в отдельную функцию — используется и отдельной карточкой, и общим расчётом Финансов.
 // Если переданы явные даты (fromStr/toStr) — используем их (нужно для отчёта по месяцам за
 // прошлые периоды); иначе — обычные пресеты Meta (today/last_7d/last_30d/maximum).
@@ -1600,10 +1636,25 @@ async function fetchMetaAdsSpend(period, fromStr, toStr) {
       return { connected: false, message: data.error.message || 'Ошибка Meta Ads API', total_spend: 0, by_campaign: [] };
     }
     const rows = data.data || [];
-    const totalSpend = rows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
+
+    // ВАЖНО: Meta отдаёт "spend" в валюте самого рекламного кабинета (часто это USD),
+    // а не автоматически в сомони — если кабинет не в TJS, конвертируем по курсу,
+    // который задаётся в настройках (по умолчанию 9.27, можно поменять в админке)
+    const currency = await getAdAccountCurrency(token, adAccountId);
+    let rate = 1;
+    if (currency && currency !== 'TJS') {
+      try {
+        const [[rateRow]] = await pool.query("SELECT value FROM app_settings WHERE `key` = 'usd_to_tjs_rate'");
+        rate = rateRow ? Number(rateRow.value) : 9.27;
+      } catch (e) { rate = 9.27; }
+    }
+
+    const totalSpendRaw = rows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
+    const totalSpend = totalSpendRaw * rate;
     return {
       connected: true, period, total_spend: round2(totalSpend),
-      by_campaign: rows.map(r => ({ name: r.campaign_name, spend: round2(Number(r.spend) || 0) })),
+      currency: currency || 'TJS', exchange_rate: rate, total_spend_raw: round2(totalSpendRaw),
+      by_campaign: rows.map(r => ({ name: r.campaign_name, spend: round2((Number(r.spend) || 0) * rate) })),
     };
   } catch (e) {
     console.error('Ошибка запроса к Meta Ads API:', e);
@@ -2407,6 +2458,20 @@ async function ensureFinanceTables() {
 
   // категории и подкатегории расходов — редактируемый пользователем справочник (не жёстко
   // зашитый список), чтобы можно было добавлять свои категории прямо из формы расхода
+  // простые настройки приложения (ключ-значение) — сейчас нужны для курса USD→смн,
+  // чтобы правильно конвертировать расход из Meta Ads (там кабинет считает в USD, а
+  // не в сомони — курс нужно иногда обновлять вручную, поэтому не жёстко зашит в код)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      \`key\`   VARCHAR(100) PRIMARY KEY,
+      value    VARCHAR(255) NOT NULL
+    )
+  `);
+  const [[rateRow]] = await pool.query("SELECT value FROM app_settings WHERE \`key\` = 'usd_to_tjs_rate'");
+  if (!rateRow) {
+    await pool.query("INSERT INTO app_settings (\`key\`, value) VALUES ('usd_to_tjs_rate', '9.27')");
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS expense_categories (
       id         INT AUTO_INCREMENT PRIMARY KEY,
