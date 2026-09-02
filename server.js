@@ -1708,20 +1708,28 @@ app.get('/api/finance/balance', requireAuth, async (req, res) => {
     // --- обязательства: сколько должны партнёрам и курьерам прямо сейчас (только положительный остаток) ---
     const [partners] = await pool.query('SELECT * FROM partners');
     let payableToPartners = 0;
+    const payableToPartnersBreakdown = [];
     for (const p of partners) {
       const stats = await computePartnerStats(p.id, p, false);
-      if (stats.balance_due > 0) payableToPartners += stats.balance_due;
+      if (stats.balance_due > 0) {
+        payableToPartners += stats.balance_due;
+        payableToPartnersBreakdown.push({ id: p.id, name: p.name, amount: round2(stats.balance_due) });
+      }
     }
 
     const [couriers] = await pool.query('SELECT * FROM couriers');
     let payableToCouriers = 0;
+    const payableToCouriersBreakdown = [];
     for (const c of couriers) {
       const [[dRow]] = await pool.query("SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered'", [c.id]);
       const deliveries = Number(dRow.cnt) || 0;
       const accrued = c.salary_type === 'fixed' ? Number(c.salary_rate) || 0 : deliveries * (Number(c.salary_rate) || 0);
       const [[paidRow]] = await pool.query('SELECT COALESCE(SUM(amount), 0) AS total FROM courier_payouts WHERE courier_id = ?', [c.id]);
       const balanceDue = accrued - (Number(paidRow.total) || 0);
-      if (balanceDue > 0) payableToCouriers += balanceDue;
+      if (balanceDue > 0) {
+        payableToCouriers += balanceDue;
+        payableToCouriersBreakdown.push({ id: c.id, name: [c.first_name, c.last_name].filter(Boolean).join(' '), amount: round2(balanceDue) });
+      }
     }
 
     const assets = cash + inventoryValue + receivables;
@@ -1749,7 +1757,9 @@ app.get('/api/finance/balance', requireAuth, async (req, res) => {
       },
       liabilities: {
         payable_to_partners: round2(payableToPartners),
+        payable_to_partners_breakdown: payableToPartnersBreakdown,
         payable_to_couriers: round2(payableToCouriers),
+        payable_to_couriers_breakdown: payableToCouriersBreakdown,
         total: round2(liabilities),
       },
       equity: {

@@ -844,7 +844,13 @@ function renderFinance(){
     if(!bal) body='<div style="color:#86868b">Загрузка...</div>';
     else body = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
       <div class="card"><b style="font-size:14px">Активы</b>${[['Касса',bal.assets.cash],['Склад',bal.assets.inventory_value],['Дебиторка',bal.assets.receivables],['Итого',bal.assets.total]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>
-      <div class="card"><b style="font-size:14px">Обязательства</b>${[['Партнёрам',bal.liabilities.payable_to_partners],['Курьерам',bal.liabilities.payable_to_couriers],['Итого',bal.liabilities.total]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>
+      <div class="card"><b style="font-size:14px">Обязательства</b>
+        <div onclick="toggleBalanceBreakdown('partners')" style="cursor:pointer;display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>Партнёрам ${bal.liabilities.payable_to_partners_breakdown.length?'▾':''}</span><b>${money(bal.liabilities.payable_to_partners)}</b></div>
+        <div id="breakdown_partners" style="display:none;padding:4px 0 4px 10px;border-bottom:1px solid #f0f0f2">${bal.liabilities.payable_to_partners_breakdown.map(x=>`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#6e6e73"><span>${esc(x.name)}</span><span>${money(x.amount)}</span></div>`).join('') || '<div style="font-size:12px;color:#a1a1a6;padding:5px 0">Никому не должны</div>'}</div>
+        <div onclick="toggleBalanceBreakdown('couriers')" style="cursor:pointer;display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>Курьерам ${bal.liabilities.payable_to_couriers_breakdown.length?'▾':''}</span><b>${money(bal.liabilities.payable_to_couriers)}</b></div>
+        <div id="breakdown_couriers" style="display:none;padding:4px 0 4px 10px;border-bottom:1px solid #f0f0f2">${bal.liabilities.payable_to_couriers_breakdown.map(x=>`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#6e6e73"><span>${esc(x.name)}</span><span>${money(x.amount)}</span></div>`).join('') || '<div style="font-size:12px;color:#a1a1a6;padding:5px 0">Никому не должны</div>'}</div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px"><span>Итого</span><b>${money(bal.liabilities.total)}</b></div>
+      </div>
       <div class="card"><b style="font-size:14px">Капитал</b>${[['Вложено владельцем',bal.equity.owner_net],['Накопленная прибыль',bal.equity.retained_earnings],['Итого',bal.equity.total]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>
     </div>`;
   } else if(state.financeTab==='monthly'){
@@ -953,6 +959,10 @@ function saveUsdRate(){
     .then(()=>{ flash('Курс сохранён'); loadFinance(); })
     .catch(e=>flash(e.message));
 }
+function toggleBalanceBreakdown(kind){
+  const el = document.getElementById('breakdown_'+kind);
+  if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
 function renderMetaAdsCard(){
   const m = cache.metaAds;
   if(!m) return ''; // ещё грузится
@@ -968,8 +978,8 @@ function renderMetaAdsCard(){
       <div>
         <div style="font-size:12px;font-weight:600;color:#6e6e73;text-transform:uppercase">📣 Реклама (Meta Ads, из кабинета)</div>
         <div style="font-size:26px;font-weight:600;margin-top:6px">${money(m.total_spend)}</div>
-        <div style="font-size:11.5px;color:#16A34A;margin-top:4px;font-weight:600">✓ уже учтено в «Итого расходы» и «Чистая прибыль» ниже</div>
-        ${isForeignCurrency ? `<div style="font-size:11.5px;color:#a1a1a6;margin-top:4px">кабинет считает в ${esc(m.currency)}: ${m.total_spend_raw} ${esc(m.currency)} · курс <input id="usdRateInput" type="number" step="0.01" value="${m.exchange_rate}" style="width:52px;border:1px solid #d2d2d7;border-radius:6px;padding:1px 4px;font-size:11px"> смн за 1 ${esc(m.currency)} <button onclick="saveUsdRate()" style="border:none;background:none;color:#16A34A;font-weight:700;cursor:pointer;font-size:11px">сохранить</button></div>` : ''}
+        ${isForeignCurrency ? `<div style="font-size:12.5px;color:#3a3a3c;margin-top:4px">$${m.total_spend_raw} × курс <input id="usdRateInput" type="number" step="0.01" value="${m.exchange_rate}" style="width:52px;border:1px solid #d2d2d7;border-radius:6px;padding:1px 4px;font-size:12px"> = ${money(m.total_spend)} <button onclick="saveUsdRate()" style="border:none;background:none;color:#16A34A;font-weight:700;cursor:pointer;font-size:11.5px">сохранить курс</button></div>` : ''}
+        <div style="font-size:11.5px;color:#16A34A;margin-top:4px;font-weight:600">✓ уже учтено в разделе Финансы</div>
       </div>
       <div style="width:34px;height:34px;border-radius:10px;background:#EEE9FE;display:flex;align-items:center;justify-content:center;font-size:16px">📣</div>
     </div>
@@ -1082,6 +1092,7 @@ function loadMarketingTab(t){
   if(t==='bloggers') reqs.push(apiFetch('/api/marketing/bloggers')); else reqs.push(Promise.resolve(cache.bloggers||[]));
   if(t==='audience') reqs.push(apiFetch('/api/marketing/audience')); else reqs.push(Promise.resolve(cache.audience||null));
   Promise.all(reqs).then(([promo,camp,blog,aud])=>{ cache.promoCodes=promo; cache.campaigns=camp; cache.bloggers=blog; cache.audience=aud; renderMarketing(); }).catch(e=>flash(e.message));
+  apiFetch('/api/finance/meta-ads-spend?period=today').then(m=>{ cache.metaAds=m; renderMarketing(); }).catch(()=>{});
 }
 function renderMarketing(){
   const t=state.marketingTab;
@@ -1116,7 +1127,7 @@ function renderMarketing(){
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Заказов на клиента</div><div style="font-size:22px;font-weight:600;margin-top:6px">${a.avg_orders_per_customer}</div></div>
     </div>` : '';
   }
-  document.getElementById('content').innerHTML = `<div style="display:flex;gap:20px;border-bottom:1px solid #e5e5e7;margin-bottom:22px">${tabs}</div>${body}`;
+  document.getElementById('content').innerHTML = `${renderMetaAdsCard()}<div style="display:flex;gap:20px;border-bottom:1px solid #e5e5e7;margin-bottom:22px">${tabs}</div>${body}`;
 }
 function openPromoModal(){
   document.getElementById('modalRoot').innerHTML = `
