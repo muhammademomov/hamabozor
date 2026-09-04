@@ -91,10 +91,10 @@ const STATUS_LABEL={new:'Новый',progress:'В обработке',done:'Вы
 const STATUS_COLOR={new:'#ff9500',progress:'#16A34A',done:'#34c759',cancel:'#ff3b30'};
 const CAT_LABEL={electronics:'Электроника',clothing:'Одежда',bags:'Сумки'};
 const NAV=[
-  {label:'Главное',items:[['dashboard','Дашборд'],['orders','Заказы'],['products','Товары'],['hr','Кадры'],['logistics','Курьеры']]},
+  {label:'Главное',items:[['dashboard','Дашборд'],['analytics','Аналитика'],['orders','Заказы'],['products','Товары'],['hr','Кадры'],['logistics','Курьеры']]},
   {label:'Инструменты',items:[['marketing','Маркетинг'],['finance','Финансы'],['purchasing','Закупки'],['partners','Партнёры'],['banners','Баннеры']]},
 ];
-const TITLES={dashboard:'Дашборд',orders:'Заказы',products:'Товары',hr:'Кадры',logistics:'Курьеры',marketing:'Маркетинг',finance:'Финансы',purchasing:'Закупки',partners:'Партнёры',banners:'Баннеры'};
+const TITLES={dashboard:'Дашборд',analytics:'Аналитика',orders:'Заказы',products:'Товары',hr:'Кадры',logistics:'Курьеры',marketing:'Маркетинг',finance:'Финансы',purchasing:'Закупки',partners:'Партнёры',banners:'Баннеры'};
 function money(n){ return (Math.round((Number(n)||0)*100)/100).toLocaleString('ru-RU')+' смн'; }
 function fmtDate(s){ if(!s) return '—'; try{ return new Date(s).toLocaleDateString('ru-RU'); }catch(e){ return s; } }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -203,6 +203,7 @@ function loadSection(section){
   const c=document.getElementById('content');
   c.innerHTML='<div style="color:#86868b;padding:40px;text-align:center">Загрузка…</div>';
   if(section==='dashboard') loadDashboard();
+  else if(section==='analytics') loadAnalytics();
   else if(section==='orders') loadOrders();
   else if(section==='products') loadProducts();
   else if(section==='logistics') loadCouriers();
@@ -262,6 +263,128 @@ function renderDashboard(d){
         <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;margin-top:6px"><span>📣 Маркетинг ROI</span><b>${roi}%</b></div>
       </div>
     </div>`;
+}
+
+/* ---------------- ANALYTICS ---------------- */
+function loadAnalytics(){
+  apiFetch('/api/analytics/summary?period='+(state.analyticsPeriod||'month')).then(d=>{ cache.analytics=d; renderAnalytics(d); }).catch(e=>flash(e.message));
+}
+function setAnalyticsPeriod(p){ state.analyticsPeriod=p; loadAnalytics(); }
+function pctBadge(pct){
+  const up = pct>0, flat = pct===0;
+  const color = flat? '#86868b' : (up? '#16A34A' : '#ff3b30');
+  const arrow = flat? '·' : (up? '▲' : '▼');
+  return `<span style="font-size:12.5px;font-weight:700;color:${color}">${arrow} ${Math.abs(pct)}%</span>`;
+}
+function compareCard(label, value, pct){
+  return `<div class="card">
+    <div style="font-size:12px;font-weight:600;color:#6e6e73;text-transform:uppercase">${label}</div>
+    <div style="font-size:24px;font-weight:600;margin-top:6px">${value}</div>
+    <div style="margin-top:6px">${pctBadge(pct)} <span style="font-size:11.5px;color:#86868b">к прошлому периоду</span></div>
+  </div>`;
+}
+const ABC_COLOR={A:'#16A34A',B:'#e58e0f',C:'#ff3b30'};
+const TURNOVER_LABEL={ok:'В норме',slow:'Медленно',dead:'Мёртвый товар'};
+const TURNOVER_COLOR={ok:'#16A34A',slow:'#e58e0f',dead:'#ff3b30'};
+function renderAnalytics(d){
+  const cmp=d.compare||{};
+  const abc=d.abc||[]; const abcA=abc.filter(r=>r.grade==='A').length, abcB=abc.filter(r=>r.grade==='B').length, abcC=abc.filter(r=>r.grade==='C').length;
+  const turnover=d.turnover||[]; const problems=turnover.filter(t=>t.status!=='ok').slice(0,10);
+  const disc=d.discount_effectiveness||{};
+  const rfm=d.rfm||{segments:[]};
+  const geo=d.geo||[];
+  const heat=(d.heatmap&&d.heatmap.grid)||[]; const peak=(d.heatmap&&d.heatmap.peak)||{};
+  const days=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const maxHeat=Math.max(1,...heat.flat());
+  document.getElementById('content').innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:24px">
+      ${['today','week','month'].map(p=>`<button class="btn ${((state.analyticsPeriod||'month')===p)?'btn-primary':'btn-secondary'}" onclick="setAnalyticsPeriod('${p}')">${p==='today'?'Сегодня':p==='week'?'7 дней':'Месяц'}</button>`).join('')}
+    </div>
+
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px">📊 Сравнение периодов</div>
+    <div class="grid3" style="margin-bottom:26px">
+      ${compareCard('Выручка', money(cmp.revenue), cmp.revenue_pct||0)}
+      ${compareCard('Заказов', cmp.orders_count||0, cmp.orders_pct||0)}
+      ${compareCard('Средний чек', money(cmp.avg_check), cmp.avg_check_pct||0)}
+    </div>
+
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px">🎯 ABC-анализ товаров (по выручке за период)</div>
+    <div class="card" style="margin-bottom:26px;padding:0;overflow:hidden">
+      <div style="display:flex;gap:0;padding:14px 18px;border-bottom:1px solid #f0f0f2;font-size:12.5px;color:#6e6e73">
+        <span style="color:${ABC_COLOR.A};font-weight:700;margin-right:14px">● A — ${abcA} товаров (дают 80% выручки)</span>
+        <span style="color:${ABC_COLOR.B};font-weight:700;margin-right:14px">● B — ${abcB} товаров (15%)</span>
+        <span style="color:${ABC_COLOR.C};font-weight:700">● C — ${abcC} товаров (5%)</span>
+      </div>
+      <table><thead><tr><th>Товар</th><th>Продано</th><th>Выручка</th><th>Доля</th><th>Накопл. %</th><th>Группа</th></tr></thead>
+      <tbody>${abc.slice(0,15).map(r=>`<tr>
+        <td>${esc(r.name)}</td><td>${r.qty}</td><td style="font-weight:600">${money(r.revenue)}</td>
+        <td>${r.share_pct}%</td><td>${r.cum_pct}%</td>
+        <td><span class="badge" style="background:${ABC_COLOR[r.grade]}22;color:${ABC_COLOR[r.grade]}">${r.grade}</span></td>
+      </tr>`).join('') || '<tr><td colspan="6" style="color:#86868b;text-align:center;padding:20px">Нет продаж за период</td></tr>'}</tbody></table>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:20px;margin-bottom:26px">
+      <div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px">📦 Оборачиваемость склада — что зависло</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table><thead><tr><th>Товар</th><th>Остаток</th><th>Продано за период</th><th>Дней на продажу</th><th>Статус</th></tr></thead>
+          <tbody>${problems.map(t=>`<tr>
+            <td>${esc(t.name)}</td><td>${t.stock}</td><td>${t.sold_in_period}</td>
+            <td>${t.days_to_sell!=null?t.days_to_sell:'—'}</td>
+            <td><span class="badge" style="background:${TURNOVER_COLOR[t.status]}22;color:${TURNOVER_COLOR[t.status]}">${TURNOVER_LABEL[t.status]}</span></td>
+          </tr>`).join('') || '<tr><td colspan="5" style="color:#86868b;text-align:center;padding:20px">Проблемных товаров не найдено</td></tr>'}</tbody></table>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px">🏷 Эффективность скидок</div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13.5px"><span>Товаров со скидкой</span><b>${disc.discounted_count||0}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13.5px"><span>Продаж/день на товар (со скидкой)</span><b>${disc.discounted_avg_daily_per_item||0}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13.5px"><span>Продаж/день на товар (без скидки)</span><b>${disc.regular_avg_daily_per_item||0}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:9px 0;font-size:13.5px"><span>Прирост от скидки</span><b>${pctBadge(disc.uplift_pct||0)}</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:26px">
+      <div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px">👥 RFM-сегментация клиентов</div>
+        <div class="card">
+          ${(rfm.segments||[]).map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f2">
+            <span style="font-size:13.5px">${s.label}</span>
+            <span><b style="font-size:14px">${s.count}</b> <span style="font-size:12px;color:#86868b">(${s.pct}%)</span></span>
+          </div>`).join('')}
+          <div style="font-size:12px;color:#86868b;margin-top:10px">Всего клиентов: ${rfm.total_customers||0}</div>
+          ${(rfm.dormant_top&&rfm.dormant_top.length)?`<div style="margin-top:14px;padding-top:14px;border-top:1px solid #f0f0f2">
+            <div style="font-size:12.5px;font-weight:700;color:#ff3b30;margin-bottom:8px">Пора напомнить о себе:</div>
+            ${rfm.dormant_top.slice(0,5).map(c=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0"><span>${esc(c.name)} · ${esc(c.phone)}</span><span style="color:#86868b">${c.recency_days} дн. назад</span></div>`).join('')}
+          </div>`:''}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px">📍 География заказов</div>
+        <div class="card">
+          ${geo.map(g=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13.5px">
+            <span>${esc(g.district)}</span><b>${g.customers} клиент(ов) · ${money(g.revenue)}</b>
+          </div>`).join('') || '<div style="color:#86868b;font-size:13px">Нет данных</div>'}
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px">🕒 Тепловая карта нагрузки (за 90 дней)</div>
+    <div class="card" style="margin-bottom:10px;overflow-x:auto">
+      <div style="display:flex;flex-direction:column;gap:3px;min-width:640px">
+        <div style="display:flex;gap:3px;padding-left:34px">
+          ${Array.from({length:24},(_,h)=>`<div style="flex:1;font-size:9.5px;color:#a1a1a6;text-align:center">${h%3===0?h:''}</div>`).join('')}
+        </div>
+        ${days.map((label,di)=>`<div style="display:flex;gap:3px;align-items:center">
+          <div style="width:30px;font-size:11px;color:#6e6e73;font-weight:600">${label}</div>
+          ${(heat[di]||[]).map(cnt=>{ const op=cnt? (0.15+0.85*cnt/maxHeat) : 0.06; return `<div title="${label}, ${cnt} зак." style="flex:1;aspect-ratio:1;border-radius:3px;background:rgba(22,163,74,${op})"></div>`; }).join('')}
+        </div>`).join('')}
+      </div>
+      <div style="font-size:12px;color:#86868b;margin-top:12px">Пик нагрузки: <b>${days[peak.day]||''}, ${peak.hour!=null?peak.hour+':00':''}</b> — ${peak.count||0} заказ(ов). Ориентируйтесь на это время при планировании рекламы и смен курьеров.</div>
+    </div>
+  `;
 }
 
 /* ---------------- ORDERS ---------------- */

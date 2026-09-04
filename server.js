@@ -540,6 +540,214 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
+// АНАЛИТИКА — ABC-анализ, оборачиваемость, скидки, RFM, география, тепловая
+// карта нагрузки, сравнение периодов
+// ----------------------------------------------------------------------------
+
+// предыдущий период той же длины, что и выбранный (для сравнения "период к периоду")
+function resolvePrevRange(from, to) {
+  const fromD = new Date(from + 'T00:00:00');
+  const toD = new Date(to + 'T00:00:00');
+  const days = Math.max(1, Math.round((toD - fromD) / 86400000) + 1);
+  const prevTo = new Date(fromD); prevTo.setDate(prevTo.getDate() - 1);
+  const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - (days - 1));
+  return { prev_from: prevFrom.toISOString().slice(0, 10), prev_to: prevTo.toISOString().slice(0, 10), days };
+}
+
+// грубое распознавание района/города по свободному тексту адреса (Душанбе + крупные города РТ)
+const GEO_KEYWORDS = [
+  ['Сино', /син[оo]/i],
+  ['И. Сомони', /сомон[иi]/i],
+  ['Фирдавси', /фирдавс/i],
+  ['Шохмансур', /шо[хx]мансур|шохмансур/i],
+  ['Восе', /вос[еe]/i],
+  ['Худжанд', /худжанд|хуҷанд/i],
+  ['Куляб', /куляб|кӯлоб/i],
+  ['Бохтар', /бохтар/i],
+  ['Турсунзаде', /турсунзад/i],
+  ['Гиссар', /гиссар|ҳисор/i],
+  ['Вахдат', /вахдат/i],
+];
+function detectDistrict(address) {
+  const a = (address || '').trim();
+  if (!a) return 'Не указан';
+  for (const [label, re] of GEO_KEYWORDS) { if (re.test(a)) return label; }
+  return 'Другое';
+}
+
+app.get('/api/analytics/summary', requireAuth, async (req, res) => {
+  const period = req.query.period || 'month';
+  const { from, to } = resolveDateRange(period, req.query.from, req.query.to);
+  const { prev_from, prev_to, days } = resolvePrevRange(from, to);
+
+  try {
+    // -------- заказы за период и за предыдущий период (для сравнения и ABC/скидок) --------
+    const [ordersInRange] = await pool.query(
+      "SELECT * FROM orders WHERE status = 'done' AND DATE(COALESCE(completed_at, created_at)) BETWEEN ? AND ?",
+      [from, to]
+    );
+    const [ordersPrevRange] = await pool.query(
+      "SELECT * FROM orders WHERE status = 'done' AND DATE(COALESCE(completed_at, created_at)) BETWEEN ? AND ?",
+      [prev_from, prev_to]
+    );
+    const sumRevenue = (rows) => rows.reduce((s, o) => s + Math.max(0, (Number(o.total) || 0) - (Number(o.refunded_amount) || 0)), 0);
+    const revenue = sumRevenue(ordersInRange);
+    const prevRevenue = sumRevenue(ordersPrevRange);
+    const ordersCount = ordersInRange.length;
+    const prevOrdersCount = ordersPrevRange.length;
+    const avgCheck = ordersCount ? round2(revenue / ordersCount) : 0;
+    const prevAvgCheck = prevOrdersCount ? round2(prevRevenue / prevOrdersCount) : 0;
+    const pctChange = (cur, prev) => (prev ? round2((cur - prev) / prev * 100) : (cur ? 100 : 0));
+
+    // -------- товары --------
+    const [allProducts] = await pool.query('SELECT id, name_ru, price, old_price, cost_price, stock, active FROM products');
+    const productById = {}; allProducts.forEach(p => { productById[p.id] = p; });
+
+    // qty/revenue по товарам за выбранный период
+    const salesInRange = {};
+    for (const o of ordersInRange) {
+      const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+      for (const it of items) {
+        if (!salesInRange[it.id]) salesInRange[it.id] = { qty: 0, revenue: 0 };
+        salesInRange[it.id].qty += Number(it.qty) || 0;
+        salesInRange[it.id].revenue += (Number(it.price) || 0) * (Number(it.qty) || 0);
+      }
+    }
+
+    // ---- 1) ABC-анализ (по выручке за период) ----
+    const abcRows = Object.keys(salesInRange).map(id => ({
+      id: Number(id),
+      name: (productById[id] && productById[id].name_ru) || `Товар #${id}`,
+      qty: salesInRange[id].qty,
+      revenue: round2(salesInRange[id].revenue),
+    })).sort((a, b) => b.revenue - a.revenue);
+    const abcTotalRevenue = abcRows.reduce((s, r) => s + r.revenue, 0);
+    let abcCum = 0;
+    const abc = abcRows.map(r => {
+      abcCum += r.revenue;
+      const cumPct = abcTotalRevenue ? round2(abcCum / abcTotalRevenue * 100) : 0;
+      const grade = cumPct <= 80 ? 'A' : cumPct <= 95 ? 'B' : 'C';
+      return { ...r, share_pct: abcTotalRevenue ? round2(r.revenue / abcTotalRevenue * 100) : 0, cum_pct: cumPct, grade };
+    });
+
+    // ---- 2) Оборачиваемость склада ("мёртвый товар") ----
+    const turnover = allProducts.filter(p => p.active !== 0 && p.stock != null).map(p => {
+      const sold = (salesInRange[p.id] && salesInRange[p.id].qty) || 0;
+      const avgDaily = sold / days;
+      const stock = Number(p.stock) || 0;
+      const daysToSell = avgDaily > 0 ? Math.round(stock / avgDaily) : null;
+      let status = 'ok';
+      if (stock > 0 && sold === 0) status = 'dead';
+      else if (daysToSell != null && daysToSell > 45) status = 'slow';
+      else if (daysToSell != null && daysToSell > 14) status = 'ok';
+      else if (daysToSell == null) status = stock > 0 ? 'dead' : 'ok';
+      return { id: p.id, name: p.name_ru, stock, sold_in_period: sold, avg_daily_sales: round2(avgDaily), days_to_sell: daysToSell, status };
+    }).sort((a, b) => (b.days_to_sell || 9999) - (a.days_to_sell || 9999));
+
+    // ---- 3) Эффективность скидок ----
+    const discounted = allProducts.filter(p => p.active !== 0 && Number(p.old_price) > Number(p.price));
+    const regular = allProducts.filter(p => p.active !== 0 && !(Number(p.old_price) > Number(p.price)));
+    const avgDailyOf = (list) => {
+      if (!list.length) return 0;
+      const totalQty = list.reduce((s, p) => s + ((salesInRange[p.id] && salesInRange[p.id].qty) || 0), 0);
+      return round2((totalQty / days) / list.length);
+    };
+    const discountedAvgDaily = avgDailyOf(discounted);
+    const regularAvgDaily = avgDailyOf(regular);
+    const discountEffectiveness = {
+      discounted_count: discounted.length,
+      regular_count: regular.length,
+      discounted_avg_daily_per_item: discountedAvgDaily,
+      regular_avg_daily_per_item: regularAvgDaily,
+      uplift_pct: regularAvgDaily ? round2((discountedAvgDaily - regularAvgDaily) / regularAvgDaily * 100) : (discountedAvgDaily ? 100 : 0),
+    };
+
+    // ---- 4) RFM-сегментация (по всем заказам "Выполнен", человеческим языком) ----
+    const [allDone] = await pool.query(
+      "SELECT customer_name, customer_phone, customer_address, total, COALESCE(completed_at, created_at) AS done_at FROM orders WHERE status = 'done'"
+    );
+    const custMap = {};
+    for (const o of allDone) {
+      const phone = (o.customer_phone || '').replace(/\D/g, '');
+      if (!phone) continue;
+      if (!custMap[phone]) custMap[phone] = { name: o.customer_name, phone, orders: 0, total: 0, lastDate: null, address: o.customer_address };
+      const c = custMap[phone];
+      c.orders += 1;
+      c.total += Number(o.total) || 0;
+      const d = new Date(o.done_at);
+      if (!c.lastDate || d > c.lastDate) { c.lastDate = d; c.address = o.customer_address || c.address; }
+    }
+    const now = new Date();
+    const segments = { new: [], loyal: [], active: [], dormant: [] };
+    Object.values(custMap).forEach(c => {
+      const recencyDays = c.lastDate ? Math.floor((now - c.lastDate) / 86400000) : 9999;
+      c.recency_days = recencyDays;
+      if (recencyDays > 60) segments.dormant.push(c);
+      else if (c.orders >= 3) segments.loyal.push(c);
+      else if (c.orders === 1 && recencyDays <= 30) segments.new.push(c);
+      else segments.active.push(c);
+    });
+    const totalCust = Object.keys(custMap).length || 1;
+    const rfm = {
+      total_customers: Object.keys(custMap).length,
+      segments: [
+        { key: 'new', label: 'Новенькие', count: segments.new.length, pct: round2(segments.new.length / totalCust * 100) },
+        { key: 'loyal', label: 'Постоянные клиенты', count: segments.loyal.length, pct: round2(segments.loyal.length / totalCust * 100) },
+        { key: 'active', label: 'Активные', count: segments.active.length, pct: round2(segments.active.length / totalCust * 100) },
+        { key: 'dormant', label: 'Давно не покупали (>60 дн.)', count: segments.dormant.length, pct: round2(segments.dormant.length / totalCust * 100) },
+      ],
+      dormant_top: segments.dormant.sort((a, b) => b.total - a.total).slice(0, 10)
+        .map(c => ({ name: c.name, phone: c.phone, orders: c.orders, total: round2(c.total), recency_days: c.recency_days })),
+      loyal_top: segments.loyal.sort((a, b) => b.total - a.total).slice(0, 10)
+        .map(c => ({ name: c.name, phone: c.phone, orders: c.orders, total: round2(c.total), recency_days: c.recency_days })),
+    };
+
+    // ---- 5) География ----
+    const geoMap = {};
+    Object.values(custMap).forEach(c => {
+      const key = detectDistrict(c.address);
+      if (!geoMap[key]) geoMap[key] = { district: key, customers: 0, orders: 0, revenue: 0 };
+      geoMap[key].customers += 1; geoMap[key].orders += c.orders; geoMap[key].revenue += c.total;
+    });
+    const geo = Object.values(geoMap).map(g => ({ ...g, revenue: round2(g.revenue) })).sort((a, b) => b.revenue - a.revenue);
+
+    // ---- 6) Тепловая карта нагрузки (день недели x час), последние 90 дней, все заказы кроме отменённых ----
+    const [heatRows] = await pool.query(
+      "SELECT DAYOFWEEK(created_at) AS dow, HOUR(created_at) AS hr, COUNT(*) AS cnt FROM orders " +
+      "WHERE status != 'cancel' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) GROUP BY dow, hr"
+    );
+    // DAYOFWEEK: 1=вс..7=сб -> переводим в 0=пн..6=вс
+    const heatmap = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0));
+    let peak = { day: 0, hour: 0, cnt: 0 };
+    for (const r of heatRows) {
+      const day = (Number(r.dow) + 5) % 7; // 1(вс)->6, 2(пн)->0, ... 7(сб)->5
+      const hour = Number(r.hr);
+      heatmap[day][hour] = Number(r.cnt);
+      if (Number(r.cnt) > peak.cnt) peak = { day, hour, cnt: Number(r.cnt) };
+    }
+
+    res.json({
+      period, from, to, days,
+      compare: {
+        prev_from, prev_to,
+        revenue: round2(revenue), prev_revenue: round2(prevRevenue), revenue_pct: pctChange(revenue, prevRevenue),
+        orders_count: ordersCount, prev_orders_count: prevOrdersCount, orders_pct: pctChange(ordersCount, prevOrdersCount),
+        avg_check: avgCheck, prev_avg_check: prevAvgCheck, avg_check_pct: pctChange(avgCheck, prevAvgCheck),
+      },
+      abc,
+      turnover,
+      discount_effectiveness: discountEffectiveness,
+      rfm,
+      geo,
+      heatmap: { grid: heatmap, peak: { day: peak.day, hour: peak.hour, count: peak.cnt } },
+    });
+  } catch (e) {
+    console.error('Ошибка расчёта аналитики:', e);
+    res.status(500).json({ error: 'Не удалось рассчитать аналитику' });
+  }
+});
+
+// ----------------------------------------------------------------------------
 // МАРКЕТИНГ — промокоды, рекламные кампании, блогеры, аудитория
 // ----------------------------------------------------------------------------
 
