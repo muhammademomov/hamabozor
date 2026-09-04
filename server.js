@@ -726,6 +726,35 @@ app.get('/api/analytics/summary', requireAuth, async (req, res) => {
       if (Number(r.cnt) > peak.cnt) peak = { day, hour, cnt: Number(r.cnt) };
     }
 
+    // ---- 7) Воронка продаж: просмотр → корзина → оформили заказ → оплатили/забрали ----
+    const [[viewRow]] = await pool.query(
+      "SELECT COUNT(*) AS cnt FROM funnel_events WHERE event_type='view' AND DATE(created_at) BETWEEN ? AND ?", [from, to]
+    );
+    const [[cartRow]] = await pool.query(
+      "SELECT COUNT(*) AS cnt FROM funnel_events WHERE event_type='cart' AND DATE(created_at) BETWEEN ? AND ?", [from, to]
+    );
+    const [[ordersCreatedRow]] = await pool.query(
+      "SELECT COUNT(*) AS cnt FROM orders WHERE DATE(created_at) BETWEEN ? AND ?", [from, to]
+    );
+    const [[ordersPaidRow]] = await pool.query(
+      "SELECT COUNT(*) AS cnt FROM orders WHERE DATE(created_at) BETWEEN ? AND ? AND status='done'", [from, to]
+    );
+    const funnelCounts = [
+      { key: 'view', label: 'Просмотр товара', count: Number(viewRow.cnt) || 0 },
+      { key: 'cart', label: 'Добавили в корзину', count: Number(cartRow.cnt) || 0 },
+      { key: 'order', label: 'Оформили заказ', count: Number(ordersCreatedRow.cnt) || 0 },
+      { key: 'paid', label: 'Оплатили / забрали', count: Number(ordersPaidRow.cnt) || 0 },
+    ];
+    const firstCount = funnelCounts[0].count || 0;
+    let prevCount = null;
+    const funnel = funnelCounts.map(s => {
+      const pctOfFirst = firstCount ? round2(s.count / firstCount * 100) : 0;
+      const convFromPrev = (prevCount != null && prevCount > 0) ? round2(s.count / prevCount * 100) : null;
+      prevCount = s.count;
+      return { ...s, pct_of_first: pctOfFirst, conv_from_prev_pct: convFromPrev };
+    });
+    const funnelHasData = funnelCounts.some(s => s.count > 0);
+
     res.json({
       period, from, to, days,
       compare: {
@@ -734,6 +763,7 @@ app.get('/api/analytics/summary', requireAuth, async (req, res) => {
         orders_count: ordersCount, prev_orders_count: prevOrdersCount, orders_pct: pctChange(ordersCount, prevOrdersCount),
         avg_check: avgCheck, prev_avg_check: prevAvgCheck, avg_check_pct: pctChange(avgCheck, prevAvgCheck),
       },
+      funnel: { steps: funnel, has_data: funnelHasData },
       abc,
       turnover,
       discount_effectiveness: discountEffectiveness,
@@ -2051,10 +2081,24 @@ app.patch('/api/products/:id/active', requireAuth, async (req, res) => {
 app.post('/api/products/:id/view', async (req, res) => {
   try {
     await pool.query('UPDATE products SET views = views + 1 WHERE id = ?', [req.params.id]);
+    pool.query('INSERT INTO funnel_events (event_type, product_id) VALUES (?, ?)', ['view', req.params.id]).catch(()=>{});
     res.json({ ok: true });
   } catch (e) {
     console.error('Ошибка увеличения счётчика просмотров:', e);
     res.status(500).json({ error: 'Не удалось обновить просмотры' });
+  }
+});
+
+// публичный — событие воронки продаж: добавление товара в корзину (для аналитики "Воронка продаж")
+app.post('/api/track-event', async (req, res) => {
+  const type = req.body && req.body.type;
+  if (!['cart', 'checkout'].includes(type)) return res.status(400).json({ error: 'Неизвестный тип события' });
+  try {
+    await pool.query('INSERT INTO funnel_events (event_type, product_id) VALUES (?, ?)', [type, (req.body && req.body.product_id) || null]);
+    res.json({ ok: true });
+  } catch (e) {
+    // событие воронки не критично — не должно ломать пользовательский опыт
+    res.json({ ok: false });
   }
 });
 
@@ -2608,6 +2652,17 @@ async function ensureVisitsTable() {
       id          INT AUTO_INCREMENT PRIMARY KEY,
       created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_visits_date (created_at)
+    )
+  `);
+  // события воронки продаж: просмотр товара / добавление в корзину / начало оформления —
+  // нужны для раздела "Аналитика → Воронка продаж", чтобы видеть, где отваливаются клиенты
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS funnel_events (
+      id           INT AUTO_INCREMENT PRIMARY KEY,
+      event_type   ENUM('view','cart','checkout') NOT NULL,
+      product_id   INT NULL,
+      created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_funnel_type_date (event_type, created_at)
     )
   `);
 }

@@ -1348,6 +1348,9 @@ function copyHomePromoCode(){
 }
 
 /* ---------- сабад / корзина ---------- */
+function trackFunnelEvent(type, productId){
+  fetch('/api/track-event', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, product_id: productId }) }).catch(()=>{});
+}
 function addToCart(id){
   cart[id] = (cart[id]||0) + 1;
   delete cartPriceOverride[id]; // обычное добавление — сбрасываем пакетную цену
@@ -1355,6 +1358,7 @@ function addToCart(id){
   updateCartUI();
   showToast(I18N[lang].added);
   renderProducts();
+  trackFunnelEvent('cart', id);
 }
 function changeQty(id, delta){
   cart[id] = (cart[id]||0) + delta;
@@ -1880,6 +1884,7 @@ function ppAddToCart(){
   updateCartUI();
   showToast(I18N[lang].added);
   updatePpAddBtnLabel();
+  trackFunnelEvent('cart', ppCurrentId);
 }
 
 /* ---------- drawer / overlay ---------- */
