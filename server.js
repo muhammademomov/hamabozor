@@ -13,6 +13,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN; // токен бота для курьеров (из BotFather)
+const OWNER_TELEGRAM_CHAT_ID = process.env.OWNER_TELEGRAM_CHAT_ID; // chat_id владельца — получает ежедневную сводку по "мёртвому" товару и спящим клиентам
+const DIGEST_HOUR = Number(process.env.DIGEST_HOUR || 9); // час отправки сводки (0-23, по времени сервера — задайте TZ=Asia/Dushanbe в Railway)
 
 if (!JWT_SECRET || !ADMIN_EMAIL || !ADMIN_PASSWORD_HASH) {
   console.warn(
@@ -56,7 +58,8 @@ function requireAuth(req, res, next) {
 // учёт посещения сайта (вызывается с главной страницы один раз за сессию)
 app.post('/api/track-visit', async (req, res) => {
   try {
-    await pool.query('INSERT INTO site_visits (created_at) VALUES (NOW())');
+    const { visitor_id, utm_source } = req.body || {};
+    await pool.query('INSERT INTO site_visits (created_at, visitor_id, utm_source) VALUES (NOW(), ?, ?)', [visitor_id || null, utm_source || null]);
     res.json({ ok: true });
   } catch (e) {
     res.json({ ok: false }); // не мешаем сайту работать, если это не удалось
@@ -64,7 +67,7 @@ app.post('/api/track-visit', async (req, res) => {
 });
 
 app.post('/api/orders', async (req, res) => {
-  const { customer_name, customer_phone, customer_address, comment, items, total, channel, promo_code } = req.body || {};
+  const { customer_name, customer_phone, customer_address, comment, items, total, channel, promo_code, utm_source, utm_medium, utm_campaign } = req.body || {};
 
   if (!customer_name || !customer_phone || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Не хватает обязательных полей заказа' });
@@ -90,9 +93,9 @@ app.post('/api/orders', async (req, res) => {
     }
 
     const [result] = await pool.query(
-      `INSERT INTO orders (customer_name, customer_phone, customer_address, comment, items, total, status, channel, promo_code, discount_amount)
-       VALUES (?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)`,
-      [customer_name, customer_phone, customer_address || null, comment || null, JSON.stringify(items), finalTotal, channel || null, usedCode, discountAmount]
+      `INSERT INTO orders (customer_name, customer_phone, customer_address, comment, items, total, status, channel, promo_code, discount_amount, utm_source, utm_medium, utm_campaign)
+       VALUES (?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)`,
+      [customer_name, customer_phone, customer_address || null, comment || null, JSON.stringify(items), finalTotal, channel || null, usedCode, discountAmount, utm_source || null, utm_medium || null, utm_campaign || null]
     );
     res.json({ id: result.insertId, total: finalTotal, discount_amount: discountAmount });
   } catch (e) {
@@ -397,9 +400,11 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
     const avgCheck = ordersCount ? round2(revenue / ordersCount) : 0;
 
     // --- трафик и конверсия ---
-    const [[visitRow]] = await pool.query('SELECT COUNT(*) AS cnt FROM site_visits WHERE DATE(created_at) BETWEEN ? AND ?', [from, to]);
+    const [[visitRow]] = await pool.query('SELECT COUNT(*) AS cnt, COUNT(DISTINCT visitor_id) AS uniq FROM site_visits WHERE DATE(created_at) BETWEEN ? AND ?', [from, to]);
     const traffic = Number(visitRow.cnt) || 0;
-    const conversion = traffic ? round2(ordersCount / traffic * 100) : 0;
+    const uniqueVisitors = Number(visitRow.uniq) || 0;
+    // конверсия считается от уникальных посетителей — точнее, чем от общего числа заходов
+    const conversion = uniqueVisitors ? round2(ordersCount / uniqueVisitors * 100) : (traffic ? round2(ordersCount / traffic * 100) : 0);
     const [[visitYestRow]] = await pool.query(
       'SELECT COUNT(*) AS cnt FROM site_visits WHERE DATE(created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)'
     );
@@ -519,7 +524,7 @@ app.get('/api/dashboard/summary', requireAuth, async (req, res) => {
     res.json({
       period, from, to,
       revenue: round2(revenue), orders_count: ordersCount, avg_check: avgCheck,
-      traffic, conversion, traffic_diff: trafficDiff, traffic_diff_pct: trafficDiffPct,
+      traffic, unique_visitors: uniqueVisitors, conversion, traffic_diff: trafficDiff, traffic_diff_pct: trafficDiffPct,
       chart: { by_day: salesByDay, forecast, forecast_pct: forecastPct },
       customers: {
         repeat_rate: repeatRate, new_rate: newRate, avg_ltv: avgLtv, vip_customers: vipCustomers,
@@ -726,12 +731,15 @@ app.get('/api/analytics/summary', requireAuth, async (req, res) => {
       if (Number(r.cnt) > peak.cnt) peak = { day, hour, cnt: Number(r.cnt) };
     }
 
-    // ---- 7) Воронка продаж: просмотр → корзина → оформили заказ → оплатили/забрали ----
+    // ---- 7) Воронка продаж: просмотр → корзина → начали оформление → оформили заказ → оплатили/забрали ----
     const [[viewRow]] = await pool.query(
       "SELECT COUNT(*) AS cnt FROM funnel_events WHERE event_type='view' AND DATE(created_at) BETWEEN ? AND ?", [from, to]
     );
     const [[cartRow]] = await pool.query(
       "SELECT COUNT(*) AS cnt FROM funnel_events WHERE event_type='cart' AND DATE(created_at) BETWEEN ? AND ?", [from, to]
+    );
+    const [[checkoutRow]] = await pool.query(
+      "SELECT COUNT(*) AS cnt FROM funnel_events WHERE event_type='checkout' AND DATE(created_at) BETWEEN ? AND ?", [from, to]
     );
     const [[ordersCreatedRow]] = await pool.query(
       "SELECT COUNT(*) AS cnt FROM orders WHERE DATE(created_at) BETWEEN ? AND ?", [from, to]
@@ -742,6 +750,7 @@ app.get('/api/analytics/summary', requireAuth, async (req, res) => {
     const funnelCounts = [
       { key: 'view', label: 'Просмотр товара', count: Number(viewRow.cnt) || 0 },
       { key: 'cart', label: 'Добавили в корзину', count: Number(cartRow.cnt) || 0 },
+      { key: 'checkout', label: 'Начали оформление', count: Number(checkoutRow.cnt) || 0 },
       { key: 'order', label: 'Оформили заказ', count: Number(ordersCreatedRow.cnt) || 0 },
       { key: 'paid', label: 'Оплатили / забрали', count: Number(ordersPaidRow.cnt) || 0 },
     ];
@@ -755,6 +764,44 @@ app.get('/api/analytics/summary', requireAuth, async (req, res) => {
     });
     const funnelHasData = funnelCounts.some(s => s.count > 0);
 
+    // ---- 8) Трафик: посещения, уникальные посетители, конверсия ----
+    const [[visitRow]] = await pool.query('SELECT COUNT(*) AS cnt, COUNT(DISTINCT visitor_id) AS uniq FROM site_visits WHERE DATE(created_at) BETWEEN ? AND ?', [from, to]);
+    const traffic = Number(visitRow.cnt) || 0;
+    const uniqueVisitors = Number(visitRow.uniq) || 0;
+    // конверсия считается от уникальных посетителей — точнее, чем от общего числа заходов на сайт
+    const conversion = uniqueVisitors ? round2(ordersCount / uniqueVisitors * 100) : (traffic ? round2(ordersCount / traffic * 100) : 0);
+
+    // ---- 9) Источники трафика (UTM) — реклама vs органика, по кампаниям ----
+    const [visitsBySource] = await pool.query(
+      "SELECT COALESCE(NULLIF(utm_source,''),'(органика)') AS src, COUNT(*) AS visits, COUNT(DISTINCT visitor_id) AS uniq " +
+      "FROM site_visits WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY src", [from, to]
+    );
+    const [funnelBySource] = await pool.query(
+      "SELECT COALESCE(NULLIF(utm_source,''),'(органика)') AS src, event_type, COUNT(*) AS cnt " +
+      "FROM funnel_events WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY src, event_type", [from, to]
+    );
+    const [ordersBySource] = await pool.query(
+      "SELECT COALESCE(NULLIF(utm_source,''),'(органика)') AS src, COUNT(*) AS cnt, " +
+      "COALESCE(SUM(CASE WHEN status='done' THEN total - COALESCE(refunded_amount,0) ELSE 0 END),0) AS revenue " +
+      "FROM orders WHERE DATE(created_at) BETWEEN ? AND ? GROUP BY src", [from, to]
+    );
+    const sourceMap = {};
+    const touchSource = (src) => { if (!sourceMap[src]) sourceMap[src] = { source: src, visits: 0, unique_visitors: 0, view: 0, cart: 0, checkout: 0, orders: 0, revenue: 0 }; return sourceMap[src]; };
+    visitsBySource.forEach(r => { const s = touchSource(r.src); s.visits = Number(r.visits) || 0; s.unique_visitors = Number(r.uniq) || 0; });
+    funnelBySource.forEach(r => { const s = touchSource(r.src); s[r.event_type] = Number(r.cnt) || 0; });
+    ordersBySource.forEach(r => { const s = touchSource(r.src); s.orders = Number(r.cnt) || 0; s.revenue = round2(Number(r.revenue) || 0); });
+    const trafficSources = Object.values(sourceMap).map(s => ({
+      ...s, conversion_pct: s.unique_visitors ? round2(s.orders / s.unique_visitors * 100) : (s.visits ? round2(s.orders / s.visits * 100) : 0),
+    })).sort((a, b) => b.revenue - a.revenue);
+
+    const [campaignRows] = await pool.query(
+      "SELECT utm_campaign AS campaign, COUNT(*) AS orders_count, " +
+      "COALESCE(SUM(CASE WHEN status='done' THEN total - COALESCE(refunded_amount,0) ELSE 0 END),0) AS revenue " +
+      "FROM orders WHERE DATE(created_at) BETWEEN ? AND ? AND utm_campaign IS NOT NULL AND utm_campaign <> '' GROUP BY utm_campaign ORDER BY revenue DESC LIMIT 10",
+      [from, to]
+    );
+    const campaigns = campaignRows.map(r => ({ campaign: r.campaign, orders_count: Number(r.orders_count) || 0, revenue: round2(Number(r.revenue) || 0) }));
+
     res.json({
       period, from, to, days,
       compare: {
@@ -763,7 +810,10 @@ app.get('/api/analytics/summary', requireAuth, async (req, res) => {
         orders_count: ordersCount, prev_orders_count: prevOrdersCount, orders_pct: pctChange(ordersCount, prevOrdersCount),
         avg_check: avgCheck, prev_avg_check: prevAvgCheck, avg_check_pct: pctChange(avgCheck, prevAvgCheck),
       },
+      traffic: { total: traffic, unique_visitors: uniqueVisitors, conversion_pct: conversion },
       funnel: { steps: funnel, has_data: funnelHasData },
+      traffic_sources: trafficSources,
+      campaigns,
       abc,
       turnover,
       discount_effectiveness: discountEffectiveness,
@@ -774,6 +824,20 @@ app.get('/api/analytics/summary', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Ошибка расчёта аналитики:', e);
     res.status(500).json({ error: 'Не удалось рассчитать аналитику' });
+  }
+});
+
+// админ может вручную запустить отправку ежедневной сводки — удобно для проверки настройки Telegram
+app.post('/api/analytics/send-digest-test', requireAuth, async (req, res) => {
+  if (!OWNER_TELEGRAM_CHAT_ID) {
+    return res.status(400).json({ error: 'Сначала задайте OWNER_TELEGRAM_CHAT_ID в переменных окружения Railway' });
+  }
+  try {
+    await sendDailyDigest();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка тестовой отправки сводки:', e);
+    res.status(500).json({ error: 'Не удалось отправить сводку' });
   }
 });
 
@@ -2080,8 +2144,12 @@ app.patch('/api/products/:id/active', requireAuth, async (req, res) => {
 // публичный — увеличивает счётчик просмотров на 1 (вызывается при открытии страницы товара)
 app.post('/api/products/:id/view', async (req, res) => {
   try {
+    const { visitor_id, utm_source } = req.body || {};
     await pool.query('UPDATE products SET views = views + 1 WHERE id = ?', [req.params.id]);
-    pool.query('INSERT INTO funnel_events (event_type, product_id) VALUES (?, ?)', ['view', req.params.id]).catch(()=>{});
+    pool.query(
+      'INSERT INTO funnel_events (event_type, product_id, visitor_id, utm_source) VALUES (?, ?, ?, ?)',
+      ['view', req.params.id, visitor_id || null, utm_source || null]
+    ).catch(()=>{});
     res.json({ ok: true });
   } catch (e) {
     console.error('Ошибка увеличения счётчика просмотров:', e);
@@ -2089,12 +2157,15 @@ app.post('/api/products/:id/view', async (req, res) => {
   }
 });
 
-// публичный — событие воронки продаж: добавление товара в корзину (для аналитики "Воронка продаж")
+// публичный — событие воронки продаж: добавление в корзину / начало оформления (для "Воронка продаж")
 app.post('/api/track-event', async (req, res) => {
-  const type = req.body && req.body.type;
+  const { type, product_id, visitor_id, utm_source } = req.body || {};
   if (!['cart', 'checkout'].includes(type)) return res.status(400).json({ error: 'Неизвестный тип события' });
   try {
-    await pool.query('INSERT INTO funnel_events (event_type, product_id) VALUES (?, ?)', [type, (req.body && req.body.product_id) || null]);
+    await pool.query(
+      'INSERT INTO funnel_events (event_type, product_id, visitor_id, utm_source) VALUES (?, ?, ?, ?)',
+      [type, product_id || null, visitor_id || null, utm_source || null]
+    );
     res.json({ ok: true });
   } catch (e) {
     // событие воронки не критично — не должно ломать пользовательский опыт
@@ -2244,6 +2315,92 @@ async function tgCall(method, payload) {
     console.error(`Ошибка запроса к Telegram (${method}):`, e);
     return null;
   }
+}
+
+// ----------------------------------------------------------------------------
+// ЕЖЕДНЕВНАЯ СВОДКА ВЛАДЕЛЬЦУ В TELEGRAM — "мёртвый" товар и клиенты, которым
+// пора напомнить о себе (см. раздел Аналитика в админке)
+// ----------------------------------------------------------------------------
+async function computeDailyDigestData() {
+  // мёртвый товар: остаток есть, но 0 продаж за последние 30 дней
+  const [products] = await pool.query("SELECT id, name_ru, stock FROM products WHERE active = 1 AND stock IS NOT NULL AND stock > 0");
+  const [recentOrders] = await pool.query(
+    "SELECT items FROM orders WHERE status = 'done' AND COALESCE(completed_at, created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)"
+  );
+  const soldRecently = new Set();
+  for (const o of recentOrders) {
+    const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+    for (const it of items) { if ((Number(it.qty) || 0) > 0) soldRecently.add(String(it.id)); }
+  }
+  const deadStock = products.filter(p => !soldRecently.has(String(p.id))).slice(0, 8);
+
+  // клиенты, которые давно не покупали (>60 дней), топ по сумме покупок за всё время
+  const [allDone] = await pool.query(
+    "SELECT customer_name, customer_phone, total, COALESCE(completed_at, created_at) AS done_at FROM orders WHERE status = 'done'"
+  );
+  const custMap = {};
+  for (const o of allDone) {
+    const phone = (o.customer_phone || '').replace(/\D/g, '');
+    if (!phone) continue;
+    if (!custMap[phone]) custMap[phone] = { name: o.customer_name, phone, total: 0, lastDate: null };
+    custMap[phone].total += Number(o.total) || 0;
+    const d = new Date(o.done_at);
+    if (!custMap[phone].lastDate || d > custMap[phone].lastDate) custMap[phone].lastDate = d;
+  }
+  const now = new Date();
+  const dormant = Object.values(custMap)
+    .map(c => ({ ...c, recency_days: c.lastDate ? Math.floor((now - c.lastDate) / 86400000) : 9999 }))
+    .filter(c => c.recency_days > 60)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
+  return { deadStock, dormant };
+}
+
+function buildDigestMessage({ deadStock, dormant }) {
+  const lines = [`📊 <b>Ежедневная сводка · ХАМАБОЗОР</b>\n`];
+  lines.push(`📦 <b>Мёртвый товар</b> (остаток есть, продаж не было 30+ дней):`);
+  if (deadStock.length) {
+    deadStock.forEach(p => lines.push(`• ${p.name_ru} — остаток ${p.stock} шт`));
+  } else {
+    lines.push('Нет — все товары, что в наличии, продаются.');
+  }
+  lines.push('');
+  lines.push(`👥 <b>Клиенты, которым пора напомнить о себе</b> (не покупали 60+ дней):`);
+  if (dormant.length) {
+    dormant.forEach(c => lines.push(`• ${c.name} · ${c.phone} — ${round2(c.total)} смн всего, ${c.recency_days} дн. назад`));
+  } else {
+    lines.push('Нет — все постоянные клиенты покупали недавно.');
+  }
+  return lines.join('\n');
+}
+
+async function sendDailyDigest() {
+  if (!OWNER_TELEGRAM_CHAT_ID) {
+    console.warn('⚠️  OWNER_TELEGRAM_CHAT_ID не задан — ежедневная сводка не отправляется. См. README-DATABASE.md.');
+    return;
+  }
+  try {
+    const data = await computeDailyDigestData();
+    const text = buildDigestMessage(data);
+    await tgCall('sendMessage', { chat_id: OWNER_TELEGRAM_CHAT_ID, text, parse_mode: 'HTML' });
+    console.log('Ежедневная сводка отправлена в Telegram');
+  } catch (e) {
+    console.error('Ошибка отправки ежедневной сводки:', e);
+  }
+}
+
+// проверяем раз в 15 минут, не настал ли час отправки сводки (защита от повторной отправки в тот же день)
+let lastDigestSentDate = null;
+function scheduleDailyDigest() {
+  setInterval(() => {
+    const now = new Date();
+    const todayKey = now.toISOString().slice(0, 10);
+    if (now.getHours() === DIGEST_HOUR && lastDigestSentDate !== todayKey) {
+      lastDigestSentDate = todayKey;
+      sendDailyDigest();
+    }
+  }, 15 * 60 * 1000);
 }
 
 function buildOrderMessage(order, extraLine) {
@@ -2654,6 +2811,10 @@ async function ensureVisitsTable() {
       INDEX idx_visits_date (created_at)
     )
   `);
+  await ensureColumn('site_visits', 'visitor_id', 'VARCHAR(64) NULL');
+  await ensureColumn('site_visits', 'utm_source', 'VARCHAR(100) NULL');
+  await pool.query('ALTER TABLE site_visits ADD INDEX idx_visits_visitor (visitor_id)').catch(()=>{});
+
   // события воронки продаж: просмотр товара / добавление в корзину / начало оформления —
   // нужны для раздела "Аналитика → Воронка продаж", чтобы видеть, где отваливаются клиенты
   await pool.query(`
@@ -2665,6 +2826,8 @@ async function ensureVisitsTable() {
       INDEX idx_funnel_type_date (event_type, created_at)
     )
   `);
+  await ensureColumn('funnel_events', 'visitor_id', 'VARCHAR(64) NULL');
+  await ensureColumn('funnel_events', 'utm_source', 'VARCHAR(100) NULL');
 }
 
 async function ensureMarketingTables() {
@@ -2710,6 +2873,9 @@ async function ensureMarketingTables() {
   `);
   await ensureColumn('orders', 'promo_code', 'VARCHAR(50) NULL');
   await ensureColumn('orders', 'discount_amount', 'DECIMAL(10,2) NULL');
+  await ensureColumn('orders', 'utm_source', 'VARCHAR(100) NULL');
+  await ensureColumn('orders', 'utm_medium', 'VARCHAR(100) NULL');
+  await ensureColumn('orders', 'utm_campaign', 'VARCHAR(150) NULL');
 }
 
 async function ensureFinanceTables() {
@@ -3140,4 +3306,5 @@ ensureSchema()
   .catch(e => console.error('Не удалось создать таблицу orders при старте:', e))
   .finally(() => {
     app.listen(PORT, () => console.log(`Сервер ХАМАБОЗОР запущен на порту ${PORT}`));
+    scheduleDailyDigest();
   });

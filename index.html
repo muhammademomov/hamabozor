@@ -1347,9 +1347,36 @@ function copyHomePromoCode(){
   showToast(lang==='tj' ? 'Промокод нусхабардорӣ шуд' : 'Промокод скопирован');
 }
 
+/* ---------- посетитель / UTM-метки рекламы (для аналитики) ---------- */
+function getVisitorId(){
+  let vid = localStorage.getItem('hb_vid');
+  if(!vid){
+    vid = (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2)));
+    localStorage.setItem('hb_vid', vid);
+  }
+  return vid;
+}
+function captureUtm(){
+  const params = new URLSearchParams(location.search);
+  const source = params.get('utm_source');
+  // фиксируем метку рекламы только если она реально пришла по ссылке — иначе оставляем то,
+  // что было сохранено раньше (последний переход по рекламе "побеждает" — last-touch)
+  if(source){
+    localStorage.setItem('hb_utm', JSON.stringify({
+      source, medium: params.get('utm_medium')||'', campaign: params.get('utm_campaign')||'',
+    }));
+  }
+}
+function getUtm(){
+  try{ return JSON.parse(localStorage.getItem('hb_utm')||'null') || {}; }catch(e){ return {}; }
+}
+
 /* ---------- сабад / корзина ---------- */
 function trackFunnelEvent(type, productId){
-  fetch('/api/track-event', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, product_id: productId }) }).catch(()=>{});
+  const utm = getUtm();
+  fetch('/api/track-event', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+    type, product_id: productId, visitor_id: getVisitorId(), utm_source: utm.source||null,
+  }) }).catch(()=>{});
 }
 function addToCart(id){
   cart[id] = (cart[id]||0) + 1;
@@ -1516,7 +1543,7 @@ function ppRenderOpen(id){
   if(!viewedProductIds.has(id)){
     viewedProductIds.add(id);
     p.views = (p.views || 0) + 1; // сразу обновляем на экране, не дожидаясь ответа сервера
-    fetch('/api/products/' + id + '/view', { method:'POST' }).catch(()=>{});
+    fetch('/api/products/' + id + '/view', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ visitor_id: getVisitorId(), utm_source: getUtm().source||null }) }).catch(()=>{});
   }
 }
 function ppRenderClose(){
@@ -1919,6 +1946,7 @@ function openCheckout(){
   if(cartCount()===0) return;
   renderCheckoutOrderSummary();
   document.getElementById('checkoutOverlay').classList.add('show');
+  trackFunnelEvent('checkout', null);
 }
 
 /* ---------- фармоиш / заказ ---------- */
@@ -1984,6 +2012,7 @@ async function saveOrderToDatabase(channel, name, phone, address, comment){
   });
   const promoInput = document.getElementById('custPromo');
   const promo_code = promoInput && promoInput.value.trim() ? promoInput.value.trim().toUpperCase() : null;
+  const utm = getUtm();
   try{
     const res = await fetch('/api/orders', {
       method: 'POST',
@@ -1996,7 +2025,10 @@ async function saveOrderToDatabase(channel, name, phone, address, comment){
         items,
         total: cartTotal(),
         channel,
-        promo_code
+        promo_code,
+        utm_source: utm.source || null,
+        utm_medium: utm.medium || null,
+        utm_campaign: utm.campaign || null,
       })
     });
     if(!res.ok) throw new Error('save order failed: ' + res.status);
@@ -2127,10 +2159,12 @@ handleRoute();
 loadProducts();
 loadBanners();
 
+captureUtm(); // фиксируем utm_source/medium/campaign, если пришли по рекламной ссылке
+
 // один раз за сессию отмечаем посещение сайта — для дашборда (трафик/конверсия)
 if(!sessionStorage.getItem('hb_visit_tracked')){
   sessionStorage.setItem('hb_visit_tracked', '1');
-  fetch('/api/track-visit', { method:'POST' }).catch(()=>{});
+  fetch('/api/track-visit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ visitor_id: getVisitorId(), utm_source: getUtm().source||null }) }).catch(()=>{});
 }
 </script>
 </body>

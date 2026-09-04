@@ -270,6 +270,11 @@ function loadAnalytics(){
   apiFetch('/api/analytics/summary?period='+(state.analyticsPeriod||'month')).then(d=>{ cache.analytics=d; renderAnalytics(d); }).catch(e=>flash(e.message));
 }
 function setAnalyticsPeriod(p){ state.analyticsPeriod=p; loadAnalytics(); }
+function sendDigestTest(){
+  apiFetch('/api/analytics/send-digest-test',{method:'POST'})
+    .then(()=>flash('Сводка отправлена в Telegram'))
+    .catch(e=>flash(e.message));
+}
 function pctBadge(pct){
   const up = pct>0, flat = pct===0;
   const color = flat? '#86868b' : (up? '#16A34A' : '#ff3b30');
@@ -318,9 +323,11 @@ function renderAnalytics(d){
   const heat=(d.heatmap&&d.heatmap.grid)||[]; const peak=(d.heatmap&&d.heatmap.peak)||{};
   const days=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
   const maxHeat=Math.max(1,...heat.flat());
+  const traffic=d.traffic||{}; const sources=d.traffic_sources||[]; const campaigns=d.campaigns||[];
   document.getElementById('content').innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:24px">
+    <div style="display:flex;gap:8px;margin-bottom:24px;align-items:center">
       ${['today','week','month'].map(p=>`<button class="btn ${((state.analyticsPeriod||'month')===p)?'btn-primary':'btn-secondary'}" onclick="setAnalyticsPeriod('${p}')">${p==='today'?'Сегодня':p==='week'?'7 дней':'Месяц'}</button>`).join('')}
+      <button class="btn btn-secondary" style="margin-left:auto" onclick="sendDigestTest()">📨 Отправить сводку в Telegram сейчас</button>
     </div>
 
     <div style="font-size:15px;font-weight:600;margin-bottom:12px">🔻 Воронка продаж</div>
@@ -329,10 +336,31 @@ function renderAnalytics(d){
     </div>
 
     <div style="font-size:15px;font-weight:600;margin-bottom:12px">📊 Сравнение периодов</div>
-    <div class="grid3" style="margin-bottom:26px">
+    <div class="grid3" style="margin-bottom:12px">
       ${compareCard('Выручка', money(cmp.revenue), cmp.revenue_pct||0)}
       ${compareCard('Заказов', cmp.orders_count||0, cmp.orders_pct||0)}
       ${compareCard('Средний чек', money(cmp.avg_check), cmp.avg_check_pct||0)}
+    </div>
+    <div class="card" style="margin-bottom:26px">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px">
+        <span>👀 Заходов на сайт: <b>${traffic.total||0}</b></span>
+        <span>🧍 Уникальных посетителей: <b>${traffic.unique_visitors||0}</b></span>
+        <span>🎯 Конверсия в заказ: <b>${traffic.conversion_pct||0}%</b></span>
+      </div>
+    </div>
+
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px">📣 Источники трафика — реклама vs органика</div>
+    <div class="card" style="margin-bottom:26px;padding:0;overflow:hidden">
+      <table><thead><tr><th>Источник</th><th>Заходов</th><th>Уник.</th><th>Просм. тов.</th><th>В корзину</th><th>Оформление</th><th>Заказов</th><th>Выручка</th><th>Конверсия</th></tr></thead>
+      <tbody>${sources.map(s=>`<tr>
+        <td style="font-weight:600">${s.source==='(органика)'?'🌱 '+esc(s.source):'📣 '+esc(s.source)}</td>
+        <td>${s.visits}</td><td>${s.unique_visitors}</td><td>${s.view||0}</td><td>${s.cart||0}</td><td>${s.checkout||0}</td>
+        <td>${s.orders}</td><td style="font-weight:600">${money(s.revenue)}</td><td>${s.conversion_pct}%</td>
+      </tr>`).join('') || '<tr><td colspan="9" style="color:#86868b;text-align:center;padding:20px">Нет данных за период</td></tr>'}</tbody></table>
+      ${campaigns.length?`<div style="padding:14px 18px;border-top:1px solid #f0f0f2">
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:8px">Топ кампаний (utm_campaign) по выручке:</div>
+        ${campaigns.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0"><span>${esc(c.campaign)}</span><b>${c.orders_count} зак. · ${money(c.revenue)}</b></div>`).join('')}
+      </div>`:''}
     </div>
 
     <div style="font-size:15px;font-weight:600;margin-bottom:12px">🎯 ABC-анализ товаров (по выручке за период)</div>
