@@ -42,6 +42,46 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
 .pm-chip-add{display:flex;gap:8px;margin-top:8px}
 .pm-chip-add .field{flex:1}
 .pm-chip-add .btn{white-space:nowrap}
+
+/* ---------------- МОБИЛЬНАЯ ВЕРСИЯ ---------------- */
+@media (max-width: 860px) {
+  #navOpenBtn{display:block !important}
+  #navCloseBtn{display:block !important}
+  .btn-refresh-label{display:none}
+
+  #sidebar{
+    position:fixed !important; top:0; left:0; height:100vh; width:82vw; max-width:300px;
+    z-index:50; transform:translateX(-100%); transition:transform .22s ease; box-shadow:0 0 40px rgba(0,0,0,.2);
+  }
+  #sidebar.nav-open{ transform:translateX(0); }
+  #navOverlay.show{ display:block !important; }
+
+  header{ padding:0 14px !important; gap:10px !important; height:56px !important; }
+  #content{ padding:16px 14px 90px !important; }
+
+  .grid3, .grid4{ grid-template-columns:1fr !important; }
+  div[style*="grid-template-columns"]{ grid-template-columns:1fr !important; }
+
+  .card{ padding:14px !important; border-radius:14px !important; }
+  .card table{ min-width:560px; }
+  .card:has(table){ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+  .modal{ padding:20px !important; max-height:92vh; }
+
+  h1{ font-size:19px !important; }
+  #sectionTitle{ font-size:15.5px !important; }
+
+  /* строки статистики/сравнения с горизонтальным списком — не переносим, даём скролл */
+  div[style*="display:flex;gap:24px;flex-wrap:wrap"]{ overflow-x:auto; flex-wrap:nowrap !important; -webkit-overflow-scrolling:touch; }
+
+  /* панели с кнопками периода + доп.кнопкой (напр. "Отправить сводку") — переносим на новую строку */
+  div[style*="align-items:center"][style*="margin-bottom:24px"]{ flex-wrap:wrap !important; }
+  div[style*="align-items:center"][style*="margin-bottom:24px"] > [style*="margin-left:auto"]{ margin-left:0 !important; }
+}
+@media (max-width: 480px) {
+  .btn{ padding:9px 14px; font-size:12.5px; }
+  td, th{ padding:9px 10px; font-size:12.5px; }
+}
 </style>
 </head>
 <body>
@@ -61,10 +101,12 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
 
 <!-- APP -->
 <div id="app" class="hidden" style="display:flex;min-height:100vh">
-  <aside style="width:248px;flex-shrink:0;background:#fbfbfd;border-right:1px solid #e5e5e7;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto">
+  <div id="navOverlay" onclick="closeMobileNav()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:40"></div>
+  <aside id="sidebar" style="width:248px;flex-shrink:0;background:#fbfbfd;border-right:1px solid #e5e5e7;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto">
     <div style="padding:24px 20px 18px;display:flex;align-items:center;gap:10px">
       <div style="width:34px;height:34px;border-radius:10px;background:#1d1d1f;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;flex-shrink:0">Х</div>
-      <div><div style="font-weight:600;font-size:14.5px;letter-spacing:-.01em">ХАМАБОЗОР</div><div style="font-size:11px;color:#86868b;font-weight:500">Админ панель</div></div>
+      <div style="flex:1"><div style="font-weight:600;font-size:14.5px;letter-spacing:-.01em">ХАМАБОЗОР</div><div style="font-size:11px;color:#86868b;font-weight:500">Админ панель</div></div>
+      <button id="navCloseBtn" onclick="closeMobileNav()" style="display:none;background:none;border:none;font-size:20px;color:#86868b;cursor:pointer;padding:4px 8px">✕</button>
     </div>
     <nav id="navList" style="flex:1;padding:6px 12px;display:flex;flex-direction:column;gap:1px"></nav>
     <div style="padding:14px 16px;border-top:1px solid #e5e5e7;display:flex;align-items:center;gap:10px">
@@ -75,8 +117,9 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
   </aside>
   <div style="flex:1;min-width:0;display:flex;flex-direction:column">
     <header style="height:64px;background:rgba(255,255,255,.78);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid #e5e5e7;display:flex;align-items:center;gap:14px;padding:0 32px;position:sticky;top:0;z-index:10">
-      <div id="sectionTitle" style="font-size:17px;font-weight:600"></div>
-      <button class="btn btn-secondary" style="margin-left:auto" onclick="loadSection(state.section)">↻ Обновить</button>
+      <button id="navOpenBtn" onclick="openMobileNav()" style="display:none;background:none;border:none;font-size:20px;cursor:pointer;padding:4px 6px 4px 0;flex-shrink:0">☰</button>
+      <div id="sectionTitle" style="font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <button class="btn btn-secondary" style="margin-left:auto;flex-shrink:0" onclick="loadSection(state.section)">↻ <span class="btn-refresh-label">Обновить</span></button>
     </header>
     <div id="content" style="flex:1;overflow-y:auto;padding:32px 36px 90px"></div>
   </div>
@@ -197,7 +240,9 @@ function renderNav(){
     g.items.map(([id,label])=>`<button class="nav-btn ${state.section===id?'active':''}" onclick="goSection('${id}')">${label}</button>`).join('')
   ).join('') + `<a href="index.html" target="_blank" style="display:block;padding:10px;border-radius:10px;font-size:13.5px;font-weight:500;color:#6e6e73;margin-top:10px">Магазин ↗</a>`;
 }
-function goSection(id){ state.section=id; document.getElementById('sectionTitle').textContent=TITLES[id]||''; renderNav(); loadSection(id); }
+function goSection(id){ state.section=id; document.getElementById('sectionTitle').textContent=TITLES[id]||''; renderNav(); loadSection(id); closeMobileNav(); }
+function openMobileNav(){ document.getElementById('sidebar').classList.add('nav-open'); document.getElementById('navOverlay').classList.add('show'); }
+function closeMobileNav(){ document.getElementById('sidebar').classList.remove('nav-open'); document.getElementById('navOverlay').classList.remove('show'); }
 
 function loadSection(section){
   const c=document.getElementById('content');
