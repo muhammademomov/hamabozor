@@ -289,6 +289,7 @@ function compareCard(label, value, pct){
   </div>`;
 }
 const ABC_COLOR={A:'#16A34A',B:'#e58e0f',C:'#ff3b30'};
+const DONUT_PALETTE=['#16A34A','#5A7DFF','#FF9500','#AF52DE','#FF3B7F','#00B8D9','#86868b'];
 const TURNOVER_LABEL={ok:'В норме',slow:'Медленно',dead:'Мёртвый товар'};
 const TURNOVER_COLOR={ok:'#16A34A',slow:'#e58e0f',dead:'#ff3b30'};
 function renderFunnel(funnel){
@@ -335,6 +336,11 @@ function renderAnalytics(d){
       ${renderFunnel(d.funnel)}
     </div>
 
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px">📈 Тренд выручки за 30 дней</div>
+    <div class="card" style="margin-bottom:26px">
+      ${renderLineChart((d.revenue_trend||[]).map(r=>r.label), (d.revenue_trend||[]).map(r=>r.revenue))}
+    </div>
+
     <div style="font-size:15px;font-weight:600;margin-bottom:12px">📊 Сравнение периодов</div>
     <div class="grid3" style="margin-bottom:12px">
       ${compareCard('Выручка', money(cmp.revenue), cmp.revenue_pct||0)}
@@ -350,32 +356,44 @@ function renderAnalytics(d){
     </div>
 
     <div style="font-size:15px;font-weight:600;margin-bottom:12px">📣 Источники трафика — реклама vs органика</div>
-    <div class="card" style="margin-bottom:26px;padding:0;overflow:hidden">
-      <table><thead><tr><th>Источник</th><th>Заходов</th><th>Уник.</th><th>Просм. тов.</th><th>В корзину</th><th>Оформление</th><th>Заказов</th><th>Выручка</th><th>Конверсия</th></tr></thead>
-      <tbody>${sources.map(s=>`<tr>
-        <td style="font-weight:600">${s.source==='(органика)'?'🌱 '+esc(s.source):'📣 '+esc(s.source)}</td>
-        <td>${s.visits}</td><td>${s.unique_visitors}</td><td>${s.view||0}</td><td>${s.cart||0}</td><td>${s.checkout||0}</td>
-        <td>${s.orders}</td><td style="font-weight:600">${money(s.revenue)}</td><td>${s.conversion_pct}%</td>
-      </tr>`).join('') || '<tr><td colspan="9" style="color:#86868b;text-align:center;padding:20px">Нет данных за период</td></tr>'}</tbody></table>
-      ${campaigns.length?`<div style="padding:14px 18px;border-top:1px solid #f0f0f2">
-        <div style="font-size:12.5px;font-weight:700;margin-bottom:8px">Топ кампаний (utm_campaign) по выручке:</div>
-        ${campaigns.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0"><span>${esc(c.campaign)}</span><b>${c.orders_count} зак. · ${money(c.revenue)}</b></div>`).join('')}
-      </div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:20px;margin-bottom:26px">
+      <div class="card">
+        <div style="font-size:12.5px;font-weight:700;color:#6e6e73;margin-bottom:10px">Доля выручки по источникам</div>
+        ${renderDonutChart(sources.slice(0,6).map((s,i)=>({label:s.source, value:s.revenue, color:DONUT_PALETTE[i%DONUT_PALETTE.length]})))}
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table><thead><tr><th>Источник</th><th>Заходов</th><th>Уник.</th><th>Просм. тов.</th><th>В корзину</th><th>Оформление</th><th>Заказов</th><th>Выручка</th><th>Конверсия</th></tr></thead>
+        <tbody>${sources.map(s=>`<tr>
+          <td style="font-weight:600">${s.source==='(органика)'?'🌱 '+esc(s.source):'📣 '+esc(s.source)}</td>
+          <td>${s.visits}</td><td>${s.unique_visitors}</td><td>${s.view||0}</td><td>${s.cart||0}</td><td>${s.checkout||0}</td>
+          <td>${s.orders}</td><td style="font-weight:600">${money(s.revenue)}</td><td>${s.conversion_pct}%</td>
+        </tr>`).join('') || '<tr><td colspan="9" style="color:#86868b;text-align:center;padding:20px">Нет данных за период</td></tr>'}</tbody></table>
+        ${campaigns.length?`<div style="padding:14px 18px;border-top:1px solid #f0f0f2">
+          <div style="font-size:12.5px;font-weight:700;margin-bottom:8px">Топ кампаний (utm_campaign) по выручке:</div>
+          ${campaigns.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0"><span>${esc(c.campaign)}</span><b>${c.orders_count} зак. · ${money(c.revenue)}</b></div>`).join('')}
+        </div>`:''}
+      </div>
     </div>
 
     <div style="font-size:15px;font-weight:600;margin-bottom:12px">🎯 ABC-анализ товаров (по выручке за период)</div>
-    <div class="card" style="margin-bottom:26px;padding:0;overflow:hidden">
-      <div style="display:flex;gap:0;padding:14px 18px;border-bottom:1px solid #f0f0f2;font-size:12.5px;color:#6e6e73">
-        <span style="color:${ABC_COLOR.A};font-weight:700;margin-right:14px">● A — ${abcA} товаров (дают 80% выручки)</span>
-        <span style="color:${ABC_COLOR.B};font-weight:700;margin-right:14px">● B — ${abcB} товаров (15%)</span>
-        <span style="color:${ABC_COLOR.C};font-weight:700">● C — ${abcC} товаров (5%)</span>
+    <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:20px;margin-bottom:26px">
+      <div class="card">
+        <div style="font-size:12.5px;font-weight:700;color:#6e6e73;margin-bottom:10px">Доля выручки по группам A/B/C</div>
+        ${renderDonutChart((d.abc_by_grade||[]).map(g=>({label:'Группа '+g.grade, value:g.revenue, color:ABC_COLOR[g.grade]})))}
       </div>
-      <table><thead><tr><th>Товар</th><th>Продано</th><th>Выручка</th><th>Доля</th><th>Накопл. %</th><th>Группа</th></tr></thead>
-      <tbody>${abc.slice(0,15).map(r=>`<tr>
-        <td>${esc(r.name)}</td><td>${r.qty}</td><td style="font-weight:600">${money(r.revenue)}</td>
-        <td>${r.share_pct}%</td><td>${r.cum_pct}%</td>
-        <td><span class="badge" style="background:${ABC_COLOR[r.grade]}22;color:${ABC_COLOR[r.grade]}">${r.grade}</span></td>
-      </tr>`).join('') || '<tr><td colspan="6" style="color:#86868b;text-align:center;padding:20px">Нет продаж за период</td></tr>'}</tbody></table>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="display:flex;gap:0;padding:14px 18px;border-bottom:1px solid #f0f0f2;font-size:12.5px;color:#6e6e73">
+          <span style="color:${ABC_COLOR.A};font-weight:700;margin-right:14px">● A — ${abcA} товаров (дают 80% выручки)</span>
+          <span style="color:${ABC_COLOR.B};font-weight:700;margin-right:14px">● B — ${abcB} товаров (15%)</span>
+          <span style="color:${ABC_COLOR.C};font-weight:700">● C — ${abcC} товаров (5%)</span>
+        </div>
+        <table><thead><tr><th>Товар</th><th>Продано</th><th>Выручка</th><th>Доля</th><th>Накопл. %</th><th>Группа</th></tr></thead>
+        <tbody>${abc.slice(0,15).map(r=>`<tr>
+          <td>${esc(r.name)}</td><td>${r.qty}</td><td style="font-weight:600">${money(r.revenue)}</td>
+          <td>${r.share_pct}%</td><td>${r.cum_pct}%</td>
+          <td><span class="badge" style="background:${ABC_COLOR[r.grade]}22;color:${ABC_COLOR[r.grade]}">${r.grade}</span></td>
+        </tr>`).join('') || '<tr><td colspan="6" style="color:#86868b;text-align:center;padding:20px">Нет продаж за период</td></tr>'}</tbody></table>
+      </div>
     </div>
 
     <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:20px;margin-bottom:26px">
@@ -1129,6 +1147,67 @@ function renderMonthlyChart(rows){
     <line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="#e5e5e7" stroke-width="1"/>
     ${bars}
   </svg>`;
+}
+// линейный график "как в финансовых приложениях" — заливка под линией, зелёный/красный тренд
+function renderLineChart(labels, values, opts){
+  opts = opts || {};
+  const W=720, H=200, padL=8, padR=8, padT=16, padB=26;
+  const n = values.length;
+  if(!n) return '<div style="color:#86868b;font-size:13px;padding:20px 0">Нет данных за период</div>';
+  const max = Math.max(1, ...values, 0);
+  const min = Math.min(0, ...values);
+  const range = (max - min) || 1;
+  const stepX = n>1 ? (W-padL-padR)/(n-1) : 0;
+  const yOf = v => H-padB - ((v-min)/range)*(H-padT-padB);
+  const pts = values.map((v,i)=>({x: padL+stepX*i, y: yOf(v)}));
+  const isUp = values[values.length-1] >= (values[0]||0);
+  const color = opts.color || (isUp ? '#16A34A' : '#ff3b30');
+  const linePath = pts.map((p,i)=>`${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const zeroY = yOf(0);
+  const areaPath = `${linePath} L${pts[pts.length-1].x.toFixed(1)},${zeroY} L${pts[0].x.toFixed(1)},${zeroY} Z`;
+  const gid = 'lg'+Math.random().toString(36).slice(2,8);
+  // подписи по оси X — не чаще, чем раз в ~5 точек, чтобы не наслаивались
+  const labelStep = Math.max(1, Math.ceil(n/7));
+  const xLabels = pts.map((p,i)=> (i%labelStep===0 || i===n-1) ? `<text x="${p.x.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#86868b">${labels[i]}</text>` : '').join('');
+  const lastPt = pts[pts.length-1];
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:200px">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${color}" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
+    </linearGradient></defs>
+    <line x1="0" y1="${zeroY.toFixed(1)}" x2="${W}" y2="${zeroY.toFixed(1)}" stroke="#e5e5e7" stroke-width="1"/>
+    <path d="${areaPath}" fill="url(#${gid})"/>
+    <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${lastPt.x.toFixed(1)}" cy="${lastPt.y.toFixed(1)}" r="4" fill="${color}"/>
+    ${xLabels}
+  </svg>`;
+}
+// круговая диаграмма ("кружок") — доля выручки/значений по сегментам, с легендой
+function renderDonutChart(segments, opts){
+  opts = opts || {};
+  const size = opts.size || 176, thickness = opts.thickness || 24;
+  const total = segments.reduce((s,x)=>s+(Number(x.value)||0),0);
+  const r = (size - thickness)/2, cx = size/2, cy = size/2, circumference = 2*Math.PI*r;
+  let acc = 0;
+  const arcs = !total ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f0f0f2" stroke-width="${thickness}"/>` : segments.map(seg=>{
+    const val = Number(seg.value)||0;
+    const len = circumference * (val/total);
+    const dasharray = `${len.toFixed(2)} ${(circumference-len).toFixed(2)}`;
+    const dashoffset = -acc;
+    acc += len;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="${thickness}" stroke-dasharray="${dasharray}" stroke-dashoffset="${dashoffset.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>`;
+  }).join('');
+  const legend = segments.map(seg=>{
+    const pct = total ? Math.round((Number(seg.value)||0)/total*100) : 0;
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 0">
+      <span style="width:10px;height:10px;border-radius:3px;background:${seg.color};flex-shrink:0"></span>
+      <span style="flex:1">${seg.label}</span><b>${pct}%</b>
+    </div>`;
+  }).join('');
+  return `<div style="display:flex;align-items:center;gap:22px;flex-wrap:wrap">
+    <svg viewBox="0 0 ${size} ${size}" style="width:${size}px;height:${size}px;flex-shrink:0">${arcs}</svg>
+    <div style="flex:1;min-width:140px">${legend}</div>
+  </div>`;
 }
 function saveUsdRate(){
   const rate = Number(document.getElementById('usdRateInput').value);

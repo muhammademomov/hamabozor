@@ -716,6 +716,24 @@ app.get('/api/analytics/summary', requireAuth, async (req, res) => {
     });
     const geo = Object.values(geoMap).map(g => ({ ...g, revenue: round2(g.revenue) })).sort((a, b) => b.revenue - a.revenue);
 
+    // ---- 6.5) Тренд выручки за последние 30 дней (график "вверх/вниз", независим от выбранного периода) ----
+    const [trendRows] = await pool.query(
+      "SELECT DATE(COALESCE(completed_at, created_at)) AS d, SUM(total - COALESCE(refunded_amount,0)) AS revenue " +
+      "FROM orders WHERE status = 'done' AND DATE(COALESCE(completed_at, created_at)) >= DATE_SUB(CURDATE(), INTERVAL 29 DAY) " +
+      "GROUP BY d ORDER BY d"
+    );
+    const trendMap = {}; trendRows.forEach(r => { trendMap[r.d.toISOString ? r.d.toISOString().slice(0,10) : String(r.d)] = round2(Number(r.revenue) || 0); });
+    const revenueTrend = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      revenueTrend.push({ date: key, label: key.slice(8,10)+'.'+key.slice(5,7), revenue: trendMap[key] || 0 });
+    }
+
+    // ---- 6.6) ABC — сводка по группам для круговой диаграммы ----
+    const abcRevenueByGrade = { A: 0, B: 0, C: 0 };
+    abc.forEach(r => { abcRevenueByGrade[r.grade] += r.revenue; });
+
     // ---- 6) Тепловая карта нагрузки (день недели x час), последние 90 дней, все заказы кроме отменённых ----
     const [heatRows] = await pool.query(
       "SELECT DAYOFWEEK(created_at) AS dow, HOUR(created_at) AS hr, COUNT(*) AS cnt FROM orders " +
@@ -812,6 +830,12 @@ app.get('/api/analytics/summary', requireAuth, async (req, res) => {
       },
       traffic: { total: traffic, unique_visitors: uniqueVisitors, conversion_pct: conversion },
       funnel: { steps: funnel, has_data: funnelHasData },
+      revenue_trend: revenueTrend,
+      abc_by_grade: [
+        { grade: 'A', revenue: round2(abcRevenueByGrade.A) },
+        { grade: 'B', revenue: round2(abcRevenueByGrade.B) },
+        { grade: 'C', revenue: round2(abcRevenueByGrade.C) },
+      ],
       traffic_sources: trafficSources,
       campaigns,
       abc,
