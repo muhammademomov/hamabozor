@@ -87,6 +87,13 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
 }
 
 /* ---------------- НИЖНЯЯ ПАНЕЛЬ ВКЛАДОК (мобильное приложение) ---------------- */
+.mobile-only{ display:none; }
+.mobile-only-flex{ display:none; }
+@media (max-width: 860px) {
+  .mobile-only{ display:block; }
+  .mobile-only-flex{ display:flex; }
+  .desktop-only, .desktop-only-inline{ display:none !important; }
+}
 .mobile-tabbar{ display:none; }
 @media (max-width: 860px) {
   .mobile-tabbar{
@@ -154,6 +161,7 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
 const TOKEN_KEY='hamabozor_admin_token';
 const STATUS_LABEL={new:'Новый',progress:'В обработке',done:'Выполнен',cancel:'Отменён'};
 const STATUS_COLOR={new:'#ff9500',progress:'#16A34A',done:'#34c759',cancel:'#ff3b30'};
+const MOBILE_STATUS_BADGE={new:{bg:'#EAF1FF',color:'#3B82F6',label:'Новый'},progress:{bg:'#FDF3DF',color:'#e58e0f',label:'В обработке'},done:{bg:'#E7F6EC',color:'#16A34A',label:'Выполнен'},cancel:{bg:'#FDEAEA',color:'#ff3b30',label:'Отменён'}};
 const CAT_LABEL={electronics:'Электроника',clothing:'Одежда',bags:'Сумки'};
 const NAV=[
   {label:'Главное',items:[['dashboard','Дашборд'],['analytics','Аналитика'],['orders','Заказы'],['products','Товары'],['hr','Кадры'],['logistics','Курьеры']]},
@@ -538,6 +546,67 @@ function renderAnalytics(d){
   `;
 }
 
+const ORDER_ICON_STYLE={
+  new:{bg:'#EEE9FE',fg:'#8B5CF6',icon:'👜'},
+  progress:{bg:'#EAF1FF',fg:'#3B82F6',icon:'👜'},
+  done:{bg:'#E7F6EC',fg:'#16A34A',icon:'👜'},
+  cancel:{bg:'#FDEAEA',fg:'#ff3b30',icon:'📦'},
+};
+function ruItemsWord(n){ const m10=n%10, m100=n%100; if(m10===1&&m100!==11) return 'товар'; if(m10>=2&&m10<=4&&!(m100>=12&&m100<=14)) return 'товара'; return 'товаров'; }
+function orderItemsCount(o){
+  try{ const items=typeof o.items==='string'?JSON.parse(o.items):(o.items||[]); return items.reduce((s,it)=>s+(Number(it.qty)||0),0); }catch(e){ return 0; }
+}
+function renderOrderCardsMobile(filtered){
+  if(!filtered.length) return '<div class="card" style="text-align:center;color:#86868b;padding:30px">Заказов не найдено</div>';
+  return `<div class="card" style="padding:0;overflow:hidden">${filtered.map((o,i)=>{
+    const st=ORDER_ICON_STYLE[o.status]||ORDER_ICON_STYLE.new;
+    const badge=MOBILE_STATUS_BADGE[o.status]||MOBILE_STATUS_BADGE.new;
+    const n=orderItemsCount(o);
+    return `<div onclick="openOrderDetailMobile(${o.id})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;${i<filtered.length-1?'border-bottom:1px solid #f0f0f2':''};cursor:pointer">
+      <div style="width:44px;height:44px;border-radius:12px;background:${st.bg};color:${st.fg};display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">${st.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14.5px;font-weight:700">#${o.id}</div>
+        <div style="font-size:12px;color:#86868b;margin-top:2px">${fmtDate(o.created_at)} · ${n} ${ruItemsWord(n)}</div>
+      </div>
+      <span style="font-size:11px;font-weight:700;padding:5px 10px;border-radius:980px;background:${badge.bg};color:${badge.color};white-space:nowrap">${badge.label}</span>
+      <span style="color:#c7c7cc;font-size:16px">›</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+function openOrderDetailMobile(id){
+  const o=(cache.orders||[]).find(x=>x.id===id);
+  if(!o) return;
+  let items=[]; try{ items=typeof o.items==='string'?JSON.parse(o.items):(o.items||[]); }catch(e){}
+  const badge=MOBILE_STATUS_BADGE[o.status]||MOBILE_STATUS_BADGE.new;
+  document.getElementById('content').innerHTML = `
+    <button onclick="renderOrders()" style="background:none;border:none;font-size:14px;font-weight:600;color:#16A34A;cursor:pointer;padding:0 0 16px;display:flex;align-items:center;gap:6px">← Назад к заказам</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:19px;font-weight:700">Заказ #${o.id}</div>
+      <span style="font-size:12px;font-weight:700;padding:6px 12px;border-radius:980px;background:${badge.bg};color:${badge.color}">${badge.label}</span>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:12.5px;font-weight:700;color:#6e6e73;margin-bottom:10px">Информация о заказе</div>
+      ${[['Дата',fmtDate(o.created_at)],['Клиент',esc(o.customer_name)],['Телефон',esc(o.customer_phone)],['Адрес',esc(o.customer_address||'—')]].map(([l,v])=>
+        `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f2;font-size:13px"><span style="color:#86868b">${l}</span><span style="font-weight:600;text-align:right">${v}</span></div>`
+      ).join('')}
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px">
+      <div style="font-size:12.5px;font-weight:700;color:#6e6e73;padding:14px 16px 0">Товары (${items.length})</div>
+      ${items.map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #f0f0f2">
+        <div><div style="font-size:13.5px;font-weight:600">${esc(it.name||'')}</div><div style="font-size:12px;color:#86868b">${it.qty||1} × ${money(it.price)}</div></div>
+        <div style="font-weight:700;font-size:13.5px">${money((Number(it.price)||0)*(Number(it.qty)||1))}</div>
+      </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;padding:14px 16px;font-size:14.5px;font-weight:700">
+        <span>Итого</span><span>${money(o.total)}</span>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:12.5px;font-weight:700;color:#6e6e73;margin-bottom:10px">Изменить статус</div>
+      <select style="width:100%;padding:11px;border-radius:10px;font-size:13.5px;font-weight:600;border:1px solid #d2d2d7" onchange="updateOrderStatus(${o.id}, this.value)">
+        ${['new','progress','done','cancel'].map(s=>`<option value="${s}" ${o.status===s?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}
+      </select>
+    </div>`;
+}
 /* ---------------- ORDERS ---------------- */
 function loadOrders(){
   Promise.all([apiFetch('/api/orders'), apiFetch('/api/couriers').catch(()=>[])])
@@ -556,26 +625,32 @@ function renderOrders(){
   const q=(state.orderSearch||'').toLowerCase();
   const filtered=orders.filter(o=>{
     const matchQ=!q||(o.customer_name||'').toLowerCase().includes(q)||(o.customer_phone||'').includes(q);
-    const matchS=state.orderStatus==='all'||o.status===state.orderStatus;
+    const matchS=state.orderStatus==='all' ? true : state.orderStatus==='active' ? (o.status==='new'||o.status==='progress') : o.status===state.orderStatus;
     return matchQ&&matchS;
   });
   const nonCancel=orders.filter(o=>o.status!=='cancel');
   const sum=nonCancel.reduce((a,o)=>a+(Number(o.total)||0),0);
+  const activeCount=orders.filter(o=>o.status==='new'||o.status==='progress').length;
+  const mobileTabs=[['all','Все'],['active','В обработке '+activeCount],['done','Выполненные'],['cancel','Отменённые']];
   document.getElementById('content').innerHTML = `
-    <div class="grid4" style="margin-bottom:20px">
+    <div class="desktop-only grid4" style="margin-bottom:20px">
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Заказов</div><div style="font-size:24px;font-weight:600;margin-top:6px">${orders.length}</div></div>
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Сумма</div><div style="font-size:24px;font-weight:600;margin-top:6px">${money(sum)}</div></div>
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Новые</div><div style="font-size:24px;font-weight:600;margin-top:6px;color:#ff3b30">${orders.filter(o=>o.status==='new').length}</div></div>
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Средний чек</div><div style="font-size:24px;font-weight:600;margin-top:6px">${money(nonCancel.length?sum/nonCancel.length:0)}</div></div>
     </div>
+    <div class="mobile-only-flex" style="gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px">
+      ${mobileTabs.map(([key,label])=>`<button onclick="state.orderStatus='${key}'; renderOrders()" style="white-space:nowrap;padding:8px 14px;border-radius:980px;border:none;font-size:12.5px;font-weight:600;cursor:pointer;background:${state.orderStatus===key||(key==='all'&&!['active','done','cancel'].includes(state.orderStatus))?'#16A34A':'#f0f0f2'};color:${state.orderStatus===key||(key==='all'&&!['active','done','cancel'].includes(state.orderStatus))?'#fff':'#3a3a3c'}">${label}</button>`).join('')}
+    </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
       <input class="field" style="flex:1;min-width:220px;max-width:320px" placeholder="Поиск по имени или телефону..." value="${esc(state.orderSearch)}" oninput="state.orderSearch=this.value; renderOrders()">
-      <select class="field" style="width:auto" onchange="state.orderStatus=this.value; renderOrders()">
+      <select class="field desktop-only-inline" style="width:auto" onchange="state.orderStatus=this.value; renderOrders()">
         <option value="all">Все статусы</option><option value="new">Новый</option><option value="progress">В обработке</option><option value="done">Выполнен</option><option value="cancel">Отменён</option>
       </select>
-      <div style="margin-left:auto;font-size:13px;color:#86868b">${filtered.length} из ${orders.length}</div>
+      <div class="desktop-only" style="margin-left:auto;font-size:13px;color:#86868b">${filtered.length} из ${orders.length}</div>
     </div>
-    <div class="card" style="padding:0;overflow:hidden">
+    <div class="mobile-only">${renderOrderCardsMobile(filtered)}</div>
+    <div class="desktop-only card" style="padding:0;overflow:hidden">
       <table><thead><tr><th>№</th><th>Дата</th><th>Клиент</th><th>Телефон</th><th>Сумма</th><th>Курьер</th><th>Статус</th><th></th></tr></thead>
       <tbody>${filtered.map(o=>`<tr>
         <td>#${o.id}</td><td>${fmtDate(o.created_at)}</td><td>${esc(o.customer_name)}</td><td>${esc(o.customer_phone)}</td>
