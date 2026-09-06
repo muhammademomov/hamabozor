@@ -254,6 +254,7 @@ function enterApp(){
   renderNav();
   goSection(state.section);
 }
+const MOBILE_TABS=[['dashboard','🏠','Главная'],['orders','📦','Заказы'],['products','🛍','Товары'],['analytics','📊','Аналитика'],['__more__','⋯','Ещё']];
 if(state.token) enterApp();
 
 function renderNav(){
@@ -263,7 +264,6 @@ function renderNav(){
   ).join('') + `<a href="index.html" target="_blank" style="display:block;padding:10px;border-radius:10px;font-size:13.5px;font-weight:500;color:#6e6e73;margin-top:10px">Магазин ↗</a>`;
   renderMobileTabbar();
 }
-const MOBILE_TABS=[['dashboard','🏠','Главная'],['orders','📦','Заказы'],['products','🛍','Товары'],['analytics','📊','Аналитика'],['__more__','⋯','Ещё']];
 function renderMobileTabbar(){
   const el=document.getElementById('mobileTabbar');
   if(!el) return;
