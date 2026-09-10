@@ -1875,21 +1875,20 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
   };
 }
 
-function resolvePeriodToDates(period) {
+function resolvePeriodToDates(period, from, to) {
   const today = new Date();
-  const to = today.toISOString().slice(0, 10);
-  let from;
-  if (period === 'today') from = to;
-  else if (period === 'week') { const d = new Date(today); d.setDate(d.getDate() - 7); from = d.toISOString().slice(0, 10); }
-  else if (period === 'month') { const d = new Date(today); d.setDate(d.getDate() - 30); from = d.toISOString().slice(0, 10); }
-  else from = '2000-01-01'; // 'all'
-  return { from, to };
+  const todayStr = today.toISOString().slice(0, 10);
+  if (period === 'custom' && from && to) return { from, to };
+  if (period === 'today') return { from: todayStr, to: todayStr };
+  if (period === 'week') { const d = new Date(today); d.setDate(d.getDate() - 7); return { from: d.toISOString().slice(0, 10), to: todayStr }; }
+  if (period === 'month') { const d = new Date(today); d.setDate(d.getDate() - 30); return { from: d.toISOString().slice(0, 10), to: todayStr }; }
+  return { from: '2000-01-01', to: todayStr }; // 'all'
 }
 
 app.get('/api/finance/summary', requireAuth, async (req, res) => {
   const period = req.query.period || 'all';
   try {
-    const { from, to } = resolvePeriodToDates(period);
+    const { from, to } = resolvePeriodToDates(period, req.query.from, req.query.to);
     const result = await computeFinanceSummaryForRange(from, to, period);
     res.json({ period, ...result });
   } catch (e) {
@@ -1991,7 +1990,7 @@ async function fetchMetaAdsSpend(period, fromStr, toStr) {
 // --- реальный расход на рекламу из Meta Ads Manager (Marketing API) ---
 // требует переменные окружения META_ACCESS_TOKEN и META_AD_ACCOUNT_ID (см. Railway → Variables)
 app.get('/api/finance/meta-ads-spend', requireAuth, async (req, res) => {
-  const result = await fetchMetaAdsSpend(req.query.period || 'today');
+  const result = await fetchMetaAdsSpend(req.query.period || 'today', req.query.from, req.query.to);
   res.status(200).json(result);
 });
 
