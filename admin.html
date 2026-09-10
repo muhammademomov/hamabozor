@@ -43,6 +43,17 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
 .pm-chip-add .field{flex:1}
 .pm-chip-add .btn{white-space:nowrap}
 
+/* ---------------- ВЫПАДАЮЩИЙ КАЛЕНДАРЬ ПЕРИОДА (компактный, без модалки) ---------------- */
+.period-dropdown{
+  display:none; position:absolute; top:calc(100% + 8px); left:0; z-index:60;
+  width:230px; background:#fff; border-radius:14px; border:1px solid #e5e5e7;
+  box-shadow:0 12px 32px rgba(0,0,0,.14); padding:12px;
+}
+.period-dropdown.show{ display:block; }
+@media (max-width: 480px){
+  .period-dropdown{ width:210px; }
+}
+
 /* ---------------- МОБИЛЬНАЯ ВЕРСИЯ ---------------- */
 @media (max-width: 860px) {
   #navOpenBtn{display:block !important}
@@ -273,49 +284,62 @@ function periodLabelFor(scope){
   return 'Период';
 }
 function periodPillFor(scope){
-  return `<button onclick="openPeriodPicker('${scope}')" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:980px;border:1px solid #d2d2d7;background:#fff;font-size:12.5px;font-weight:600;color:#1d1d1f;cursor:pointer">📅 ${periodLabelFor(scope)}</button>`;
+  return `<div class="period-wrap" style="position:relative;display:inline-block">
+    <button onclick="event.stopPropagation(); togglePeriodDropdown('${scope}')" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:980px;border:1px solid #d2d2d7;background:#fff;font-size:12.5px;font-weight:600;color:#1d1d1f;cursor:pointer">📅 <span id="pdd_label_${scope}">${periodLabelFor(scope)}</span></button>
+    <div id="pdd_${scope}" class="period-dropdown" onclick="event.stopPropagation()">${periodDropdownContent(scope)}</div>
+  </div>`;
 }
-function openPeriodPicker(scope){
-  const g=resolveDatesFor(scope);
+function periodDropdownContent(scope){
   const ps=getPeriodState(scope);
-  document.getElementById('modalRoot').innerHTML = `
-  <div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal" style="max-width:340px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3>Период — ${TITLES[scope]||scope}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
-      ${[['today','Сегодня'],['week','7 дней'],['month','30 дней'],['all','Всё время']].map(([k,l])=>`<button class="btn ${ps.period===k?'btn-primary':'btn-secondary'}" onclick="setScopedPeriod('${scope}','${k}')">${l}</button>`).join('')}
+  const g=resolveDatesFor(scope);
+  return `
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+      ${[['today','Сегодня'],['week','7 дней'],['month','30 дней'],['all','Всё время']].map(([k,l])=>`<button onclick="setScopedPeriod('${scope}','${k}')" style="text-align:left;padding:8px 10px;border-radius:8px;border:none;background:${ps.period===k?'#16A34A':'transparent'};color:${ps.period===k?'#fff':'#1d1d1f'};font-size:13px;font-weight:600;cursor:pointer">${l}</button>`).join('')}
     </div>
-    <div style="font-size:12.5px;font-weight:700;color:#6e6e73;margin-bottom:8px">Своя дата или диапазон</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="gp_from" type="date" class="field" value="${g.from}" style="flex:1">
-      <span style="color:#86868b">–</span>
-      <input id="gp_to" type="date" class="field" value="${g.to}" style="flex:1">
-    </div>
-    <p style="font-size:11.5px;color:#86868b;margin:8px 0 0">Чтобы выбрать один день — поставь одинаковую дату в обоих полях.</p>
-    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="applyScopedCustomPeriod('${scope}')">Показать</button>
-  </div></div>`;
+    <div style="border-top:1px solid #f0f0f2;padding-top:10px">
+      <div style="font-size:11px;font-weight:700;color:#86868b;text-transform:uppercase;margin-bottom:6px">Своя дата</div>
+      <input id="pdd_from_${scope}" type="date" class="field" value="${g.from}" style="width:100%;margin-bottom:6px;font-size:13px" onchange="onScopedDateChange('${scope}')">
+      <input id="pdd_to_${scope}" type="date" class="field" value="${g.to}" style="width:100%;font-size:13px" onchange="onScopedDateChange('${scope}')">
+      <p style="font-size:10.5px;color:#a1a1a6;margin:6px 0 0">Одинаковая дата в обоих полях — один день</p>
+    </div>`;
+}
+function togglePeriodDropdown(scope){
+  const el=document.getElementById('pdd_'+scope);
+  if(!el) return;
+  const isOpen=el.classList.contains('show');
+  document.querySelectorAll('.period-dropdown.show').forEach(d=>d.classList.remove('show'));
+  if(!isOpen){ el.innerHTML=periodDropdownContent(scope); el.classList.add('show'); }
+}
+document.addEventListener('click', ()=>{ document.querySelectorAll('.period-dropdown.show').forEach(d=>d.classList.remove('show')); });
+function onScopedDateChange(scope){
+  let from=document.getElementById('pdd_from_'+scope).value;
+  let to=document.getElementById('pdd_to_'+scope).value;
+  if(!from||!to) return;
+  if(to<from){ const t=from; from=to; to=t; }
+  const ps=getPeriodState(scope);
+  ps.period='custom'; ps.from=from; ps.to=to;
+  persistPeriods(); afterScopedPeriodChange(scope, true);
 }
 function setScopedPeriod(scope,p){
   const ps=getPeriodState(scope);
   ps.period=p; ps.from=null; ps.to=null;
-  persistPeriods(); closeModal(); afterScopedPeriodChange(scope);
-}
-function applyScopedCustomPeriod(scope){
-  let from=document.getElementById('gp_from').value;
-  let to=document.getElementById('gp_to').value;
-  if(!from||!to){ return; }
-  if(to<from){ const t=from; from=to; to=t; }
-  const ps=getPeriodState(scope);
-  ps.period='custom'; ps.from=from; ps.to=to;
-  persistPeriods(); closeModal(); afterScopedPeriodChange(scope);
+  persistPeriods(); afterScopedPeriodChange(scope, true);
 }
 function persistPeriods(){
   try{ localStorage.setItem('hb_admin_periods', JSON.stringify(state.periods)); }catch(e){}
 }
-function afterScopedPeriodChange(scope){
+function afterScopedPeriodChange(scope, keepOpen){
   if(scope==='dashboard') loadDashboard();
   else if(scope==='analytics') loadAnalytics();
   else if(scope==='finance') loadFinance();
   else if(scope==='orders') renderOrders();
+  // после перерисовки раздела элементы пересозданы заново — если попап был открыт, откроем его снова на новом узле
+  if(keepOpen){
+    setTimeout(()=>{
+      const el=document.getElementById('pdd_'+scope);
+      if(el){ el.innerHTML=periodDropdownContent(scope); el.classList.add('show'); }
+    }, 0);
+  }
 }
 let cache={};
 
@@ -394,6 +418,7 @@ function renderDashboard(d){
   const sources=d.order_sources||[]; const roi=(d.marketing?d.marketing.roi_pct:0);
   const cust=d.customers||{repeat_rate:0,vip_customers:0,avg_ltv:0};
   document.getElementById('content').innerHTML = `
+    <div style="margin-bottom:16px">${periodPillFor('dashboard')}</div>
     <div class="grid4" style="margin-bottom:24px">
       ${dashStatCard('💰','#E7F6EC','Выручка', money(d.revenue))}
       ${dashStatCard('🛒','#EEE9FE','Заказов', d.orders_count)}
