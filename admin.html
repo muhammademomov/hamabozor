@@ -400,18 +400,17 @@ function renderHeaderPeriod(){
   slot.innerHTML = dateScopes.includes(state.section) ? periodPillFor(state.section) : '';
 }
 function afterScopedPeriodChange(scope, keepOpen){
+  // сначала синхронно перерисовываем сам попап (подпись + сетку календаря) —
+  // без задержки, чтобы не было "мигания" старой подсветки перед новой
+  const lbl=document.getElementById('pdd_label_'+scope); if(lbl) lbl.textContent=periodLabelFor(scope);
+  if(keepOpen){
+    const el=document.getElementById('pdd_'+scope);
+    if(el){ renderDropdownBody(scope); el.classList.add('show'); }
+  }
   if(scope==='dashboard') loadDashboard();
   else if(scope==='analytics') loadAnalytics();
   else if(scope==='finance') loadFinance();
   else if(scope==='orders') renderOrders();
-  // обновляем подпись и (если раздел не перерисовывает шапку сам) пересоздаём попап открытым
-  const lbl=document.getElementById('pdd_label_'+scope); if(lbl) lbl.textContent=periodLabelFor(scope);
-  if(keepOpen){
-    setTimeout(()=>{
-      const el=document.getElementById('pdd_'+scope);
-      if(el){ renderDropdownBody(scope); el.classList.add('show'); }
-    }, 0);
-  }
 }
 let cache={};
 
