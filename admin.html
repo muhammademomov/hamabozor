@@ -146,8 +146,7 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
     <header style="height:64px;background:rgba(255,255,255,.78);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid #e5e5e7;display:flex;align-items:center;gap:14px;padding:0 32px;position:sticky;top:0;z-index:10">
       <button id="navOpenBtn" onclick="openMobileNav()" style="display:none;background:none;border:none;font-size:20px;cursor:pointer;padding:4px 6px 4px 0;flex-shrink:0">☰</button>
       <div id="sectionTitle" style="font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-      <button class="btn btn-secondary" style="margin-left:auto;flex-shrink:0" onclick="openPeriodPicker()">📅 <span id="periodBtnLabel">Период</span></button>
-      <button class="btn btn-secondary" style="flex-shrink:0" onclick="loadSection(state.section)">↻ <span class="btn-refresh-label">Обновить</span></button>
+      <button class="btn btn-secondary" style="margin-left:auto;flex-shrink:0" onclick="loadSection(state.section)">↻ <span class="btn-refresh-label">Обновить</span></button>
     </header>
     <div id="content" style="flex:1;overflow-y:auto;padding:32px 36px 90px"></div>
   </div>
@@ -234,45 +233,56 @@ function dashStatCard(icon, iconBg, label, value){
   </div>`;
 }
 
-const state={ token: localStorage.getItem(TOKEN_KEY)||null, section:'orders', orderSearch:'', orderStatus:'all', productSearch:'', productCat:'all', dashPeriod:'today', financePeriod:'today', financeTab:'overview', marketingTab:'promo', period:'week', periodFrom:null, periodTo:null };
+const state={ token: localStorage.getItem(TOKEN_KEY)||null, section:'orders', orderSearch:'', orderStatus:'all', productSearch:'', productCat:'all', financeTab:'overview', marketingTab:'promo', periods:{} };
+const PERIOD_DEFAULTS={ dashboard:'today', analytics:'month', finance:'today', orders:'all' };
 try{
-  const savedPeriod = JSON.parse(localStorage.getItem('hb_admin_period')||'null');
-  if(savedPeriod && savedPeriod.period){ state.period=savedPeriod.period; state.periodFrom=savedPeriod.from||null; state.periodTo=savedPeriod.to||null; }
+  const saved = JSON.parse(localStorage.getItem('hb_admin_periods')||'null');
+  if(saved) state.periods = saved;
 }catch(e){}
-/* ---------- общий период (дата/диапазон), применяется на Дашборде, Аналитике, Финансах и Заказах ---------- */
-function resolveGlobalDates(){
+/* ---------- независимый период для каждого раздела (Дашборд/Аналитика/Финансы/Заказы) ---------- */
+function getPeriodState(scope){
+  if(!state.periods[scope]) state.periods[scope] = { period: PERIOD_DEFAULTS[scope]||'today', from:null, to:null };
+  return state.periods[scope];
+}
+function resolveDatesFor(scope){
+  const ps=getPeriodState(scope);
   const now=new Date(); const toStr=now.toISOString().slice(0,10);
-  if(state.period==='custom' && state.periodFrom && state.periodTo) return {from:state.periodFrom, to:state.periodTo};
-  if(state.period==='today') return {from:toStr, to:toStr};
-  if(state.period==='week'){ const d=new Date(now); d.setDate(d.getDate()-6); return {from:d.toISOString().slice(0,10), to:toStr}; }
-  if(state.period==='month'){ const d=new Date(now); d.setDate(d.getDate()-29); return {from:d.toISOString().slice(0,10), to:toStr}; }
+  if(ps.period==='custom' && ps.from && ps.to) return {from:ps.from, to:ps.to};
+  if(ps.period==='today') return {from:toStr, to:toStr};
+  if(ps.period==='week'){ const d=new Date(now); d.setDate(d.getDate()-6); return {from:d.toISOString().slice(0,10), to:toStr}; }
+  if(ps.period==='month'){ const d=new Date(now); d.setDate(d.getDate()-29); return {from:d.toISOString().slice(0,10), to:toStr}; }
   return {from:'2000-01-01', to:toStr}; // всё время
 }
-function periodQuery(){ const {from,to}=resolveGlobalDates(); return 'period=custom&from='+from+'&to='+to; }
+function periodQueryFor(scope){ const {from,to}=resolveDatesFor(scope); return 'period=custom&from='+from+'&to='+to; }
 function fmtDateShort(iso){
   if(!iso) return '';
   const parts=iso.split('-'); const m=Number(parts[1]), d=Number(parts[2]);
   const months=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
   return d+' '+(months[m-1]||'');
 }
-function periodLabel(){
-  if(state.period==='today') return 'Сегодня';
-  if(state.period==='week') return '7 дней';
-  if(state.period==='month') return '30 дней';
-  if(state.period==='all') return 'Всё время';
-  if(state.period==='custom'){
-    const {from,to}=resolveGlobalDates();
+function periodLabelFor(scope){
+  const ps=getPeriodState(scope);
+  if(ps.period==='today') return 'Сегодня';
+  if(ps.period==='week') return '7 дней';
+  if(ps.period==='month') return '30 дней';
+  if(ps.period==='all') return 'Всё время';
+  if(ps.period==='custom'){
+    const {from,to}=resolveDatesFor(scope);
     return from===to ? fmtDateShort(from) : (fmtDateShort(from)+' – '+fmtDateShort(to));
   }
   return 'Период';
 }
-function openPeriodPicker(){
-  const g=resolveGlobalDates();
+function periodPillFor(scope){
+  return `<button onclick="openPeriodPicker('${scope}')" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:980px;border:1px solid #d2d2d7;background:#fff;font-size:12.5px;font-weight:600;color:#1d1d1f;cursor:pointer">📅 ${periodLabelFor(scope)}</button>`;
+}
+function openPeriodPicker(scope){
+  const g=resolveDatesFor(scope);
+  const ps=getPeriodState(scope);
   document.getElementById('modalRoot').innerHTML = `
   <div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal" style="max-width:340px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3>Выбрать период</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3>Период — ${TITLES[scope]||scope}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
-      ${[['today','Сегодня'],['week','7 дней'],['month','30 дней'],['all','Всё время']].map(([k,l])=>`<button class="btn ${state.period===k?'btn-primary':'btn-secondary'}" onclick="setGlobalPeriod('${k}')">${l}</button>`).join('')}
+      ${[['today','Сегодня'],['week','7 дней'],['month','30 дней'],['all','Всё время']].map(([k,l])=>`<button class="btn ${ps.period===k?'btn-primary':'btn-secondary'}" onclick="setScopedPeriod('${scope}','${k}')">${l}</button>`).join('')}
     </div>
     <div style="font-size:12.5px;font-weight:700;color:#6e6e73;margin-bottom:8px">Своя дата или диапазон</div>
     <div style="display:flex;gap:8px;align-items:center">
@@ -281,27 +291,31 @@ function openPeriodPicker(){
       <input id="gp_to" type="date" class="field" value="${g.to}" style="flex:1">
     </div>
     <p style="font-size:11.5px;color:#86868b;margin:8px 0 0">Чтобы выбрать один день — поставь одинаковую дату в обоих полях.</p>
-    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="applyCustomPeriod()">Показать</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="applyScopedCustomPeriod('${scope}')">Показать</button>
   </div></div>`;
 }
-function setGlobalPeriod(p){
-  state.period=p; state.periodFrom=null; state.periodTo=null;
-  persistGlobalPeriod(); closeModal(); afterPeriodChange();
+function setScopedPeriod(scope,p){
+  const ps=getPeriodState(scope);
+  ps.period=p; ps.from=null; ps.to=null;
+  persistPeriods(); closeModal(); afterScopedPeriodChange(scope);
 }
-function applyCustomPeriod(){
+function applyScopedCustomPeriod(scope){
   let from=document.getElementById('gp_from').value;
   let to=document.getElementById('gp_to').value;
   if(!from||!to){ return; }
   if(to<from){ const t=from; from=to; to=t; }
-  state.period='custom'; state.periodFrom=from; state.periodTo=to;
-  persistGlobalPeriod(); closeModal(); afterPeriodChange();
+  const ps=getPeriodState(scope);
+  ps.period='custom'; ps.from=from; ps.to=to;
+  persistPeriods(); closeModal(); afterScopedPeriodChange(scope);
 }
-function persistGlobalPeriod(){
-  try{ localStorage.setItem('hb_admin_period', JSON.stringify({period:state.period, from:state.periodFrom, to:state.periodTo})); }catch(e){}
+function persistPeriods(){
+  try{ localStorage.setItem('hb_admin_periods', JSON.stringify(state.periods)); }catch(e){}
 }
-function afterPeriodChange(){
-  const lbl=document.getElementById('periodBtnLabel'); if(lbl) lbl.textContent=periodLabel();
-  loadSection(state.section);
+function afterScopedPeriodChange(scope){
+  if(scope==='dashboard') loadDashboard();
+  else if(scope==='analytics') loadAnalytics();
+  else if(scope==='finance') loadFinance();
+  else if(scope==='orders') renderOrders();
 }
 let cache={};
 
@@ -329,7 +343,6 @@ function enterApp(){
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   renderNav();
-  const lbl=document.getElementById('periodBtnLabel'); if(lbl) lbl.textContent=periodLabel();
   goSection(state.section);
 }
 const MOBILE_TABS=[['dashboard','🏠','Главная'],['orders','📦','Заказы'],['products','🛍','Товары'],['analytics','📊','Аналитика'],['__more__','⋯','Ещё']];
@@ -373,7 +386,7 @@ function loadSection(section){
 
 /* ---------------- DASHBOARD ---------------- */
 function loadDashboard(){
-  apiFetch('/api/dashboard/summary?'+periodQuery()).then(d=>renderDashboard(d)).catch(e=>flash(e.message));
+  apiFetch('/api/dashboard/summary?'+periodQueryFor('dashboard')).then(d=>renderDashboard(d)).catch(e=>flash(e.message));
 }
 function renderDashboard(d){
   const bars=(d.chart&&d.chart.by_day)||[]; const maxV=Math.max(1,...bars.map(b=>b.sales));
@@ -419,7 +432,7 @@ function renderDashboard(d){
 
 /* ---------------- ANALYTICS ---------------- */
 function loadAnalytics(){
-  apiFetch('/api/analytics/summary?'+periodQuery()).then(d=>{ cache.analytics=d; renderAnalytics(d); }).catch(e=>flash(e.message));
+  apiFetch('/api/analytics/summary?'+periodQueryFor('analytics')).then(d=>{ cache.analytics=d; renderAnalytics(d); }).catch(e=>flash(e.message));
 }
 function sendDigestTest(){
   apiFetch('/api/analytics/send-digest-test',{method:'POST'})
@@ -478,7 +491,7 @@ function renderAnalytics(d){
   const traffic=d.traffic||{}; const sources=d.traffic_sources||[]; const campaigns=d.campaigns||[];
   document.getElementById('content').innerHTML = `
     <div style="display:flex;gap:8px;margin-bottom:24px;align-items:center">
-      <div style="font-size:13px;color:#86868b">Период: <b style="color:#1d1d1f">${periodLabel()}</b> <a href="javascript:void(0)" onclick="openPeriodPicker()" style="color:#16A34A;font-weight:600;margin-left:6px">изменить</a></div>
+      ${periodPillFor('analytics')}
       <button class="btn btn-secondary" style="margin-left:auto" onclick="sendDigestTest()">📨 Отправить сводку в Telegram сейчас</button>
     </div>
 
@@ -686,7 +699,7 @@ function assignCourier(orderId, courierId){
     .catch(e=>flash(e.message));
 }
 function renderOrders(){
-  const {from:gFrom, to:gTo} = resolveGlobalDates();
+  const {from:gFrom, to:gTo} = resolveDatesFor('orders');
   const ordersAll=cache.orders||[];
   const orders=ordersAll.filter(o=>{ const d=(o.created_at||'').slice(0,10); return d>=gFrom && d<=gTo; });
   const q=(state.orderSearch||'').toLowerCase();
@@ -700,7 +713,7 @@ function renderOrders(){
   const activeCount=orders.filter(o=>o.status==='new'||o.status==='progress').length;
   const mobileTabs=[['all','Все'],['active','В обработке '+activeCount],['done','Выполненные'],['cancel','Отменённые']];
   document.getElementById('content').innerHTML = `
-    <div style="font-size:13px;color:#86868b;margin-bottom:14px">Период: <b style="color:#1d1d1f">${periodLabel()}</b> <a href="javascript:void(0)" onclick="openPeriodPicker()" style="color:#16A34A;font-weight:600;margin-left:6px">изменить</a></div>
+    <div style="margin-bottom:14px">${periodPillFor('orders')}</div>
     <div class="desktop-only grid4" style="margin-bottom:20px">
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Заказов</div><div style="font-size:24px;font-weight:600;margin-top:6px">${orders.length}</div></div>
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Сумма</div><div style="font-size:24px;font-weight:600;margin-top:6px">${money(sum)}</div></div>
@@ -1217,12 +1230,12 @@ function deletePurchase(id){ if(!confirm('Удалить закупку?')) retu
 
 /* ---------------- FINANCE ---------------- */
 function loadFinance(){
-  Promise.all([apiFetch('/api/finance/summary?'+periodQuery()), apiFetch('/api/general-expenses'), apiFetch('/api/owner-transactions'), apiFetch('/api/expense-categories').catch(()=>[])])
+  Promise.all([apiFetch('/api/finance/summary?'+periodQueryFor('finance')), apiFetch('/api/general-expenses'), apiFetch('/api/owner-transactions'), apiFetch('/api/expense-categories').catch(()=>[])])
     .then(([fin,ge,ot,cats])=>{ cache.financeData=fin; cache.generalExpenses=ge; cache.ownerTx=ot; cache.expenseCategories=cats;
       if(state.financeTab==='balance') apiFetch('/api/finance/balance').then(b=>{ cache.financeBalance=b; renderFinance(); }).catch(()=>renderFinance());
       else renderFinance();
     }).catch(e=>flash(e.message));
-  apiFetch('/api/finance/meta-ads-spend?'+periodQuery()).then(m=>{ cache.metaAds=m; renderFinance(); }).catch(()=>{});
+  apiFetch('/api/finance/meta-ads-spend?'+periodQueryFor('finance')).then(m=>{ cache.metaAds=m; renderFinance(); }).catch(()=>{});
 }
 function setFinanceTab(t){
   state.financeTab=t;
@@ -1238,7 +1251,7 @@ function loadMonthlyFinance(months){
 }
 function renderFinance(){
   const fin=cache.financeData, bal=cache.financeBalance, ge=cache.generalExpenses||[], ot=cache.ownerTx||[];
-  const periodTabs=`<div style="font-size:13px;color:#86868b">Период: <b style="color:#1d1d1f">${periodLabel()}</b> <a href="javascript:void(0)" onclick="openPeriodPicker()" style="color:#16A34A;font-weight:600;margin-left:6px">изменить</a></div>`;
+  const periodTabs=periodPillFor('finance');
   const tabs=[['overview','Обзор'],['pnl','ОПиУ'],['cashflow','ОДДС'],['balance','Баланс'],['monthly','По месяцам']].map(([id,label])=>`<button onclick="setFinanceTab('${id}')" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;color:${state.financeTab===id?'#16A34A':'#6e6e73'};border-bottom:2px solid ${state.financeTab===id?'#16A34A':'transparent'}">${label}</button>`).join('');
   let body='';
   if(fin && state.financeTab==='overview'){
