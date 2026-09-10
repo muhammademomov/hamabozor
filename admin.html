@@ -45,13 +45,13 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
 
 /* ---------------- ВЫПАДАЮЩИЙ КАЛЕНДАРЬ ПЕРИОДА (компактный, без модалки) ---------------- */
 .period-dropdown{
-  display:none; position:absolute; top:calc(100% + 8px); left:0; z-index:60;
-  width:230px; background:#fff; border-radius:14px; border:1px solid #e5e5e7;
+  display:none; position:absolute; top:calc(100% + 8px); right:0; z-index:60;
+  width:260px; background:#fff; border-radius:14px; border:1px solid #e5e5e7;
   box-shadow:0 12px 32px rgba(0,0,0,.14); padding:12px;
 }
 .period-dropdown.show{ display:block; }
 @media (max-width: 480px){
-  .period-dropdown{ width:210px; }
+  .period-dropdown{ width:250px; }
 }
 
 /* ---------------- МОБИЛЬНАЯ ВЕРСИЯ ---------------- */
@@ -59,6 +59,8 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
   #navOpenBtn{display:block !important}
   #navCloseBtn{display:block !important}
   .btn-refresh-label{display:none}
+  .period-label-text{display:none}
+  #headerPeriodSlot .period-wrap>button{padding:7px 10px}
 
   #sidebar{
     position:fixed !important; top:0; left:0; height:100vh; width:82vw; max-width:300px;
@@ -157,7 +159,10 @@ td{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f0f0f2}
     <header style="height:64px;background:rgba(255,255,255,.78);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid #e5e5e7;display:flex;align-items:center;gap:14px;padding:0 32px;position:sticky;top:0;z-index:10">
       <button id="navOpenBtn" onclick="openMobileNav()" style="display:none;background:none;border:none;font-size:20px;cursor:pointer;padding:4px 6px 4px 0;flex-shrink:0">☰</button>
       <div id="sectionTitle" style="font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-      <button class="btn btn-secondary" style="margin-left:auto;flex-shrink:0" onclick="loadSection(state.section)">↻ <span class="btn-refresh-label">Обновить</span></button>
+      <div style="margin-left:auto;flex-shrink:0;display:flex;gap:8px;align-items:center">
+        <div id="headerPeriodSlot"></div>
+        <button class="btn btn-secondary" onclick="loadSection(state.section)">↻ <span class="btn-refresh-label">Обновить</span></button>
+      </div>
     </header>
     <div id="content" style="flex:1;overflow-y:auto;padding:32px 36px 90px"></div>
   </div>
@@ -262,6 +267,8 @@ function resolveDatesFor(scope){
   if(ps.period==='today') return {from:toStr, to:toStr};
   if(ps.period==='week'){ const d=new Date(now); d.setDate(d.getDate()-6); return {from:d.toISOString().slice(0,10), to:toStr}; }
   if(ps.period==='month'){ const d=new Date(now); d.setDate(d.getDate()-29); return {from:d.toISOString().slice(0,10), to:toStr}; }
+  if(ps.period==='halfyear'){ const d=new Date(now); d.setMonth(d.getMonth()-5); return {from:d.toISOString().slice(0,10), to:toStr}; }
+  if(ps.period==='year'){ const d=new Date(now); d.setFullYear(d.getFullYear()-1); return {from:d.toISOString().slice(0,10), to:toStr}; }
   return {from:'2000-01-01', to:toStr}; // всё время
 }
 function periodQueryFor(scope){ const {from,to}=resolveDatesFor(scope); return 'period=custom&from='+from+'&to='+to; }
@@ -275,7 +282,9 @@ function periodLabelFor(scope){
   const ps=getPeriodState(scope);
   if(ps.period==='today') return 'Сегодня';
   if(ps.period==='week') return '7 дней';
-  if(ps.period==='month') return '30 дней';
+  if(ps.period==='month') return 'Месяц';
+  if(ps.period==='halfyear') return '5 месяцев';
+  if(ps.period==='year') return 'Год';
   if(ps.period==='all') return 'Всё время';
   if(ps.period==='custom'){
     const {from,to}=resolveDatesFor(scope);
@@ -285,59 +294,122 @@ function periodLabelFor(scope){
 }
 function periodPillFor(scope){
   return `<div class="period-wrap" style="position:relative;display:inline-block">
-    <button onclick="event.stopPropagation(); togglePeriodDropdown('${scope}')" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:980px;border:1px solid #d2d2d7;background:#fff;font-size:12.5px;font-weight:600;color:#1d1d1f;cursor:pointer">📅 <span id="pdd_label_${scope}">${periodLabelFor(scope)}</span></button>
-    <div id="pdd_${scope}" class="period-dropdown" onclick="event.stopPropagation()">${periodDropdownContent(scope)}</div>
+    <button onclick="event.stopPropagation(); togglePeriodDropdown('${scope}')" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:980px;border:1px solid #d2d2d7;background:#fff;font-size:12.5px;font-weight:600;color:#1d1d1f;cursor:pointer">📅 <span class="period-label-text" id="pdd_label_${scope}">${periodLabelFor(scope)}</span></button>
+    <div id="pdd_${scope}" class="period-dropdown" onclick="event.stopPropagation()"></div>
   </div>`;
 }
+const MONTH_NAMES=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const WEEKDAY_NAMES=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+function daysInMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
+function firstWeekdayMon0(y,m){ const d=new Date(y,m,1).getDay(); return (d+6)%7; }
 function periodDropdownContent(scope){
   const ps=getPeriodState(scope);
   const g=resolveDatesFor(scope);
+  const toDate=new Date(g.to+'T00:00:00');
+  const vy = ps._viewYear!=null ? ps._viewYear : toDate.getFullYear();
+  const vm = ps._viewMonth!=null ? ps._viewMonth : toDate.getMonth();
+  const curYear=new Date().getFullYear();
+  const years=[]; for(let y=curYear-4;y<=curYear+1;y++) years.push(y);
+  const firstWd=firstWeekdayMon0(vy,vm);
+  const totalDays=daysInMonth(vy,vm);
+  const todayStr=new Date().toISOString().slice(0,10);
+  let cells='';
+  for(let i=0;i<firstWd;i++) cells+='<div></div>';
+  for(let day=1; day<=totalDays; day++){
+    const dateStr=vy+'-'+String(vm+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    const inRange = ps.period==='custom' && dateStr>=g.from && dateStr<=g.to;
+    const isEdge = ps.period==='custom' && (dateStr===g.from || dateStr===g.to);
+    const isToday = dateStr===todayStr;
+    let bg='transparent', color='#1d1d1f', fontWeight='500', radius='8px';
+    if(inRange){ bg='#E7F6EC'; }
+    if(dateStr===g.from && ps.period==='custom'){ radius='8px 2px 2px 8px'; }
+    if(dateStr===g.to && ps.period==='custom'){ radius=dateStr===g.from?'8px':'2px 8px 8px 2px'; }
+    if(isEdge){ bg='#16A34A'; color='#fff'; fontWeight='700'; }
+    const ring = isToday && !isEdge ? 'box-shadow:inset 0 0 0 1.5px #16A34A;' : '';
+    cells += `<button onclick="onCalendarDayClick('${scope}',${vy},${vm},${day})" style="width:26px;height:26px;border:none;border-radius:${radius};background:${bg};color:${color};font-size:11.5px;font-weight:${fontWeight};cursor:pointer;${ring}">${day}</button>`;
+  }
   return `
-    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
-      ${[['today','Сегодня'],['week','7 дней'],['month','30 дней'],['all','Всё время']].map(([k,l])=>`<button onclick="setScopedPeriod('${scope}','${k}')" style="text-align:left;padding:8px 10px;border-radius:8px;border:none;background:${ps.period===k?'#16A34A':'transparent'};color:${ps.period===k?'#fff':'#1d1d1f'};font-size:13px;font-weight:600;cursor:pointer">${l}</button>`).join('')}
-    </div>
-    <div style="border-top:1px solid #f0f0f2;padding-top:10px">
-      <div style="font-size:11px;font-weight:700;color:#86868b;text-transform:uppercase;margin-bottom:6px">Своя дата</div>
-      <input id="pdd_from_${scope}" type="date" class="field" value="${g.from}" style="width:100%;margin-bottom:6px;font-size:13px" onchange="onScopedDateChange('${scope}')">
-      <input id="pdd_to_${scope}" type="date" class="field" value="${g.to}" style="width:100%;font-size:13px" onchange="onScopedDateChange('${scope}')">
-      <p style="font-size:10.5px;color:#a1a1a6;margin:6px 0 0">Одинаковая дата в обоих полях — один день</p>
+    <div style="display:flex;gap:12px">
+      <div style="display:flex;flex-direction:column;gap:2px;width:92px;flex-shrink:0">
+        ${[['today','Сегодня'],['week','7 дней'],['month','Месяц'],['halfyear','5 месяцев'],['year','Год'],['all','Всё время']].map(([k,l])=>`<button onclick="setScopedPeriod('${scope}','${k}')" style="text-align:left;padding:7px 8px;border-radius:8px;border:none;background:${ps.period===k?'#16A34A':'transparent'};color:${ps.period===k?'#fff':'#1d1d1f'};font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap">${l}</button>`).join('')}
+      </div>
+      <div style="flex:1;min-width:0;border-left:1px solid #f0f0f2;padding-left:12px">
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <select onchange="setCalendarView('${scope}', this.value, ${vy})" style="flex:1;min-width:0;font-size:10.5px;padding:4px;border-radius:6px;border:1px solid #e5e5e7;background:#fff">
+            ${MONTH_NAMES.map((mn,i)=>`<option value="${i}" ${i===vm?'selected':''}>${mn}</option>`).join('')}
+          </select>
+          <select onchange="setCalendarView('${scope}', ${vm}, this.value)" style="width:60px;flex-shrink:0;font-size:10.5px;padding:4px;border-radius:6px;border:1px solid #e5e5e7;background:#fff">
+            ${years.map(y=>`<option value="${y}" ${y===vy?'selected':''}>${y}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,26px);gap:2px;font-size:9.5px;color:#a1a1a6;text-align:center;margin-bottom:3px">
+          ${WEEKDAY_NAMES.map(d=>`<div>${d}</div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,26px);gap:2px">${cells}</div>
+        <p style="font-size:10px;color:#a1a1a6;margin:8px 0 0">Клик — один день. Второй клик — диапазон.</p>
+      </div>
     </div>`;
+}
+let calPending={};
+function renderDropdownBody(scope){
+  const el=document.getElementById('pdd_'+scope);
+  if(el){ el.innerHTML=periodDropdownContent(scope); }
 }
 function togglePeriodDropdown(scope){
   const el=document.getElementById('pdd_'+scope);
   if(!el) return;
   const isOpen=el.classList.contains('show');
   document.querySelectorAll('.period-dropdown.show').forEach(d=>d.classList.remove('show'));
-  if(!isOpen){ el.innerHTML=periodDropdownContent(scope); el.classList.add('show'); }
+  if(!isOpen){ calPending[scope]=null; renderDropdownBody(scope); el.classList.add('show'); }
 }
 document.addEventListener('click', ()=>{ document.querySelectorAll('.period-dropdown.show').forEach(d=>d.classList.remove('show')); });
-function onScopedDateChange(scope){
-  let from=document.getElementById('pdd_from_'+scope).value;
-  let to=document.getElementById('pdd_to_'+scope).value;
-  if(!from||!to) return;
-  if(to<from){ const t=from; from=to; to=t; }
+function setCalendarView(scope, month, year){
   const ps=getPeriodState(scope);
-  ps.period='custom'; ps.from=from; ps.to=to;
-  persistPeriods(); afterScopedPeriodChange(scope, true);
+  ps._viewMonth=Number(month); ps._viewYear=Number(year);
+  renderDropdownBody(scope);
+}
+function onCalendarDayClick(scope, y, m, day){
+  const dateStr=y+'-'+String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  const ps=getPeriodState(scope);
+  ps._viewYear=y; ps._viewMonth=m;
+  if(calPending[scope]){
+    let from=calPending[scope], to=dateStr;
+    if(to<from){ const t=from; from=to; to=t; }
+    ps.period='custom'; ps.from=from; ps.to=to;
+    calPending[scope]=null;
+  } else {
+    ps.period='custom'; ps.from=dateStr; ps.to=dateStr;
+    calPending[scope]=dateStr;
+  }
+  persistPeriods();
+  afterScopedPeriodChange(scope, true);
 }
 function setScopedPeriod(scope,p){
   const ps=getPeriodState(scope);
   ps.period=p; ps.from=null; ps.to=null;
+  calPending[scope]=null;
   persistPeriods(); afterScopedPeriodChange(scope, true);
 }
 function persistPeriods(){
   try{ localStorage.setItem('hb_admin_periods', JSON.stringify(state.periods)); }catch(e){}
+}
+function renderHeaderPeriod(){
+  const slot=document.getElementById('headerPeriodSlot');
+  if(!slot) return;
+  const dateScopes=['dashboard','analytics','finance','orders'];
+  slot.innerHTML = dateScopes.includes(state.section) ? periodPillFor(state.section) : '';
 }
 function afterScopedPeriodChange(scope, keepOpen){
   if(scope==='dashboard') loadDashboard();
   else if(scope==='analytics') loadAnalytics();
   else if(scope==='finance') loadFinance();
   else if(scope==='orders') renderOrders();
-  // после перерисовки раздела элементы пересозданы заново — если попап был открыт, откроем его снова на новом узле
+  // обновляем подпись и (если раздел не перерисовывает шапку сам) пересоздаём попап открытым
+  const lbl=document.getElementById('pdd_label_'+scope); if(lbl) lbl.textContent=periodLabelFor(scope);
   if(keepOpen){
     setTimeout(()=>{
       const el=document.getElementById('pdd_'+scope);
-      if(el){ el.innerHTML=periodDropdownContent(scope); el.classList.add('show'); }
+      if(el){ renderDropdownBody(scope); el.classList.add('show'); }
     }, 0);
   }
 }
@@ -388,7 +460,7 @@ function renderMobileTabbar(){
     return `<button class="${active?'active':''}" onclick="${action}"><span class="tb-icon">${icon}</span><span>${label}</span></button>`;
   }).join('');
 }
-function goSection(id){ state.section=id; document.getElementById('sectionTitle').textContent=TITLES[id]||''; renderNav(); loadSection(id); closeMobileNav(); }
+function goSection(id){ state.section=id; document.getElementById('sectionTitle').textContent=TITLES[id]||''; renderNav(); renderHeaderPeriod(); loadSection(id); closeMobileNav(); }
 function openMobileNav(){ document.getElementById('sidebar').classList.add('nav-open'); document.getElementById('navOverlay').classList.add('show'); }
 function closeMobileNav(){ document.getElementById('sidebar').classList.remove('nav-open'); document.getElementById('navOverlay').classList.remove('show'); }
 
@@ -418,7 +490,6 @@ function renderDashboard(d){
   const sources=d.order_sources||[]; const roi=(d.marketing?d.marketing.roi_pct:0);
   const cust=d.customers||{repeat_rate:0,vip_customers:0,avg_ltv:0};
   document.getElementById('content').innerHTML = `
-    <div style="margin-bottom:16px">${periodPillFor('dashboard')}</div>
     <div class="grid4" style="margin-bottom:24px">
       ${dashStatCard('💰','#E7F6EC','Выручка', money(d.revenue))}
       ${dashStatCard('🛒','#EEE9FE','Заказов', d.orders_count)}
@@ -516,7 +587,6 @@ function renderAnalytics(d){
   const traffic=d.traffic||{}; const sources=d.traffic_sources||[]; const campaigns=d.campaigns||[];
   document.getElementById('content').innerHTML = `
     <div style="display:flex;gap:8px;margin-bottom:24px;align-items:center">
-      ${periodPillFor('analytics')}
       <button class="btn btn-secondary" style="margin-left:auto" onclick="sendDigestTest()">📨 Отправить сводку в Telegram сейчас</button>
     </div>
 
@@ -738,7 +808,6 @@ function renderOrders(){
   const activeCount=orders.filter(o=>o.status==='new'||o.status==='progress').length;
   const mobileTabs=[['all','Все'],['active','В обработке '+activeCount],['done','Выполненные'],['cancel','Отменённые']];
   document.getElementById('content').innerHTML = `
-    <div style="margin-bottom:14px">${periodPillFor('orders')}</div>
     <div class="desktop-only grid4" style="margin-bottom:20px">
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Заказов</div><div style="font-size:24px;font-weight:600;margin-top:6px">${orders.length}</div></div>
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Сумма</div><div style="font-size:24px;font-weight:600;margin-top:6px">${money(sum)}</div></div>
@@ -1276,7 +1345,6 @@ function loadMonthlyFinance(months){
 }
 function renderFinance(){
   const fin=cache.financeData, bal=cache.financeBalance, ge=cache.generalExpenses||[], ot=cache.ownerTx||[];
-  const periodTabs=periodPillFor('finance');
   const tabs=[['overview','Обзор'],['pnl','ОПиУ'],['cashflow','ОДДС'],['balance','Баланс'],['monthly','По месяцам']].map(([id,label])=>`<button onclick="setFinanceTab('${id}')" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;color:${state.financeTab===id?'#16A34A':'#6e6e73'};border-bottom:2px solid ${state.financeTab===id?'#16A34A':'transparent'}">${label}</button>`).join('');
   let body='';
   if(fin && state.financeTab==='overview'){
@@ -1344,7 +1412,6 @@ function renderFinance(){
     }
   }
   document.getElementById('content').innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:14px">${state.financeTab==='monthly'?'':periodTabs}</div>
     <div style="display:flex;gap:20px;border-bottom:1px solid #e5e5e7;margin-bottom:22px">${tabs}</div>
     ${state.financeTab==='monthly'?'':renderMetaAdsCard()}
     ${body}
