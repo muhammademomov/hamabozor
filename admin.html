@@ -1541,8 +1541,8 @@ function deletePurchase(id){ if(!confirm('Удалить закупку?')) retu
 
 /* ---------------- FINANCE ---------------- */
 function loadFinance(){
-  Promise.all([apiFetch('/api/finance/summary?'+periodQueryFor('finance')), apiFetch('/api/general-expenses'), apiFetch('/api/owner-transactions'), apiFetch('/api/expense-categories').catch(()=>[])])
-    .then(([fin,ge,ot,cats])=>{ cache.financeData=fin; cache.generalExpenses=ge; cache.ownerTx=ot; cache.expenseCategories=cats;
+  Promise.all([apiFetch('/api/finance/summary?'+periodQueryFor('finance')), apiFetch('/api/general-expenses'), apiFetch('/api/owner-transactions'), apiFetch('/api/expense-categories').catch(()=>[]), apiFetch('/api/settings/finance-extras').catch(()=>null), apiFetch('/api/couriers').catch(()=>[])])
+    .then(([fin,ge,ot,cats,extras,couriers])=>{ cache.financeData=fin; cache.generalExpenses=ge; cache.ownerTx=ot; cache.expenseCategories=cats; cache.financeExtras=extras; cache.couriersForSettings=couriers;
       if(state.financeTab==='balance') apiFetch('/api/finance/balance').then(b=>{ cache.financeBalance=b; renderFinance(); }).catch(()=>renderFinance());
       else renderFinance();
     }).catch(e=>flash(e.message));
@@ -1562,7 +1562,7 @@ function loadMonthlyFinance(months){
 }
 function renderFinance(){
   const fin=cache.financeData, bal=cache.financeBalance, ge=cache.generalExpenses||[], ot=cache.ownerTx||[];
-  const tabs=[['overview','Обзор'],['pnl','ОПиУ'],['cashflow','ОДДС'],['balance','Баланс'],['monthly','По месяцам']].map(([id,label])=>`<button onclick="setFinanceTab('${id}')" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;color:${state.financeTab===id?'#16A34A':'#6e6e73'};border-bottom:2px solid ${state.financeTab===id?'#16A34A':'transparent'}">${label}</button>`).join('');
+  const tabs=[['overview','Обзор'],['pnl','ОПиУ'],['cashflow','ОДДС'],['balance','Баланс'],['monthly','По месяцам'],['settings','Настройки']].map(([id,label])=>`<button onclick="setFinanceTab('${id}')" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;color:${state.financeTab===id?'#16A34A':'#6e6e73'};border-bottom:2px solid ${state.financeTab===id?'#16A34A':'transparent'}">${label}</button>`).join('');
   let body='';
   if(fin && state.financeTab==='overview'){
     body = `<div class="grid4">
@@ -1572,11 +1572,11 @@ function renderFinance(){
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Чистая прибыль</div><div style="font-size:22px;font-weight:600;margin-top:6px;color:#34c759">${money(fin.pnl.net_profit)}</div></div>
     </div>`;
   } else if(fin && state.financeTab==='pnl'){
-    const rows=[['Выручка',fin.pnl.revenue],['Себестоимость',fin.pnl.cogs],['Валовая прибыль',fin.pnl.gross_profit],['Расходы партнёров (прочее)',fin.pnl.partner_expenses],['Комиссия партнёрам (от продаж)',fin.pnl.partner_commission],['ЗП курьеров',fin.pnl.courier_salary],['Общие расходы',fin.pnl.general_expenses],['Итого расходы',fin.pnl.total_operating_expenses],['Чистая прибыль',fin.pnl.net_profit]];
+    const rows=[['Выручка',fin.pnl.revenue],['Себестоимость',fin.pnl.cogs],['Валовая прибыль',fin.pnl.gross_profit],['Расходы партнёров (прочее)',fin.pnl.partner_expenses],['Комиссия партнёрам (от продаж)',fin.pnl.partner_commission],['ЗП курьеров',fin.pnl.courier_salary],['Комиссия Лаклак (компании)'+(fin.pnl.laklak_deliveries?` · ${fin.pnl.laklak_deliveries} дост.`:''),fin.pnl.laklak_company_fee],['Общие расходы',fin.pnl.general_expenses],['— в т.ч. реклама',fin.pnl.ad_expenses],['Итого расходы',fin.pnl.total_operating_expenses],['Прибыль до налога',fin.pnl.profit_before_tax],['Налог'+(fin.pnl.tax_percent?` (${fin.pnl.tax_percent}% от ${fin.pnl.tax_base==='net_profit'?'прибыли':'выручки'})`:''),fin.pnl.tax_amount],['Чистая прибыль',fin.pnl.net_profit]];
     body = `${renderSingleBarChart('Выручка',fin.pnl.revenue,'Расходы',fin.pnl.total_operating_expenses,'Прибыль',fin.pnl.net_profit)}
       <div class="card">${rows.map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f2;font-size:14px"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>`;
   } else if(fin && state.financeTab==='cashflow'){
-    const rows=[['Поступления',fin.cashflow.cash_in],['Оплачено за товар',fin.cashflow.cogs_paid],['Выплаты партнёрам',fin.cashflow.partner_payouts],['Выплаты курьерам',fin.cashflow.courier_payouts],['Общие расходы',fin.cashflow.general_expenses_paid],['Чистый денежный поток',fin.cashflow.net_cash_flow]];
+    const rows=[['Поступления',fin.cashflow.cash_in],['Оплачено за товар',fin.cashflow.cogs_paid],['Выплаты партнёрам',fin.cashflow.partner_payouts],['Выплаты курьерам',fin.cashflow.courier_payouts],['Комиссия Лаклак (компании)',fin.cashflow.laklak_company_fee],['Общие расходы',fin.cashflow.general_expenses_paid],['Чистый денежный поток',fin.cashflow.net_cash_flow]];
     body = `${renderSingleBarChart('Поступления',fin.cashflow.cash_in,'Расходы',fin.cashflow.cash_out,'Чистый поток',fin.cashflow.net_cash_flow)}
       <div class="card">${rows.map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f2;font-size:14px"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>`;
   } else if(state.financeTab==='balance'){
@@ -1599,8 +1599,8 @@ function renderFinance(){
       const lines = [
         ['Выручка','revenue'],['Себестоимость','cogs'],['Валовая прибыль','gross_profit'],
         ['Расходы партнёров (прочее)','partner_expenses'],['Комиссия партнёрам (от продаж)','partner_commission'],
-        ['ЗП курьеров','courier_salary'],['Общие расходы','general_expenses'],['Реклама','ad_expenses'],
-        ['Итого расходы','total_operating_expenses'],['Чистая прибыль','net_profit'],
+        ['ЗП курьеров','courier_salary'],['Комиссия Лаклак (компании)','laklak_company_fee'],['Общие расходы','general_expenses'],['Реклама','ad_expenses'],
+        ['Итого расходы','total_operating_expenses'],['Налог','tax_amount'],['Чистая прибыль','net_profit'],
       ];
       body = `
         <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
@@ -1627,12 +1627,49 @@ function renderFinance(){
           </table>
         </div>`;
     }
+  } else if(state.financeTab==='settings'){
+    const ex=cache.financeExtras||{tax_percent:0,tax_base:'revenue',laklak_courier_id:null,laklak_fee_per_delivery:6};
+    const couriers=cache.couriersForSettings||[];
+    body = `<div class="card" style="max-width:480px">
+      <div style="font-size:14.5px;font-weight:700;margin-bottom:4px">💰 Налог</div>
+      <p style="font-size:12px;color:#86868b;margin:0 0 12px">Автоматически считается и вычитается в ОПиУ каждый период.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div>
+          <label style="font-size:11.5px;color:#6e6e73;display:block;margin-bottom:4px">Ставка, %</label>
+          <input id="fx_tax_percent" type="number" step="0.1" min="0" max="100" class="field" style="width:100%" value="${ex.tax_percent}">
+        </div>
+        <div>
+          <label style="font-size:11.5px;color:#6e6e73;display:block;margin-bottom:4px">База</label>
+          <select id="fx_tax_base" class="field" style="width:100%">
+            <option value="revenue" ${ex.tax_base==='revenue'?'selected':''}>% от выручки</option>
+            <option value="net_profit" ${ex.tax_base==='net_profit'?'selected':''}>% от прибыли до налога</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:14.5px;font-weight:700;margin-bottom:4px">🚚 Комиссия компании-перевозчика (Лаклак)</div>
+      <p style="font-size:12px;color:#86868b;margin:0 0 12px">За каждую доставку курьеру платится его ставка (см. раздел «Курьеры»), а компании-перевозчику — отдельная сумма ниже. Она добавляется как отдельный расход в ОПиУ.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+        <div>
+          <label style="font-size:11.5px;color:#6e6e73;display:block;margin-bottom:4px">Курьер-компания</label>
+          <select id="fx_laklak_courier" class="field" style="width:100%">
+            <option value="">— не выбрано —</option>
+            ${couriers.map(c=>`<option value="${c.id}" ${Number(ex.laklak_courier_id)===c.id?'selected':''}>${esc([c.first_name,c.last_name].filter(Boolean).join(' '))}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11.5px;color:#6e6e73;display:block;margin-bottom:4px">Сумма за доставку, смн</label>
+          <input id="fx_laklak_fee" type="number" step="0.5" min="0" class="field" style="width:100%" value="${ex.laklak_fee_per_delivery}">
+        </div>
+      </div>
+      <div id="fxError" style="color:#ff3b30;font-size:12.5px;margin-bottom:10px"></div>
+      <button class="btn btn-primary" onclick="saveFinanceExtras()">Сохранить</button>
+    </div>`;
   }
   document.getElementById('content').innerHTML = `
     <div style="display:flex;gap:20px;border-bottom:1px solid #e5e5e7;margin-bottom:22px">${tabs}</div>
-    ${state.financeTab==='monthly'?'':renderMetaAdsCard()}
+    ${['monthly','settings'].includes(state.financeTab)?'':renderMetaAdsCard()}
     ${body}
-    ${state.financeTab==='monthly'?'':`<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:26px">
+    ${['monthly','settings'].includes(state.financeTab)?'':`<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:26px">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><b style="font-size:14.5px">🧾 Общие расходы</b><button class="btn btn-primary" style="padding:7px 14px;font-size:12px" onclick="openExpenseModal()">+ Добавить</button></div>
         ${ge.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13px">
@@ -1757,6 +1794,15 @@ function saveUsdRate(){
   apiFetch('/api/settings/usd-rate',{method:'PUT',body:JSON.stringify({rate})})
     .then(()=>{ flash('Курс сохранён'); loadFinance(); })
     .catch(e=>flash(e.message));
+}
+function saveFinanceExtras(){
+  const tax_percent=Number(document.getElementById('fx_tax_percent').value)||0;
+  const tax_base=document.getElementById('fx_tax_base').value;
+  const laklak_courier_id=document.getElementById('fx_laklak_courier').value||null;
+  const laklak_fee_per_delivery=Number(document.getElementById('fx_laklak_fee').value)||0;
+  apiFetch('/api/settings/finance-extras',{method:'PUT',body:JSON.stringify({tax_percent,tax_base,laklak_courier_id,laklak_fee_per_delivery})})
+    .then(()=>{ flash('Настройки сохранены'); loadFinance(); })
+    .catch(e=>{ const el=document.getElementById('fxError'); if(el) el.textContent=e.message; else flash(e.message); });
 }
 function toggleBalanceBreakdown(kind){
   const el = document.getElementById('breakdown_'+kind);

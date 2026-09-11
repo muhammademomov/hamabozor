@@ -1680,6 +1680,50 @@ app.put('/api/settings/usd-rate', requireAuth, async (req, res) => {
   }
 });
 
+// --- налог и комиссия компании-перевозчика (Лаклак) — настраиваемые параметры для ОПиУ ---
+const FINANCE_EXTRA_KEYS = ['tax_percent', 'tax_base', 'laklak_courier_id', 'laklak_fee_per_delivery'];
+app.get('/api/settings/finance-extras', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT \`key\`, value FROM app_settings WHERE \`key\` IN (${FINANCE_EXTRA_KEYS.map(() => '?').join(',')})`,
+      FINANCE_EXTRA_KEYS
+    );
+    const byKey = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    res.json({
+      tax_percent: byKey.tax_percent != null ? Number(byKey.tax_percent) : 0,
+      tax_base: byKey.tax_base || 'revenue', // 'revenue' или 'net_profit'
+      laklak_courier_id: byKey.laklak_courier_id ? Number(byKey.laklak_courier_id) : null,
+      laklak_fee_per_delivery: byKey.laklak_fee_per_delivery != null ? Number(byKey.laklak_fee_per_delivery) : 6,
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Не удалось получить настройки' });
+  }
+});
+app.put('/api/settings/finance-extras', requireAuth, async (req, res) => {
+  const { tax_percent, tax_base, laklak_courier_id, laklak_fee_per_delivery } = req.body || {};
+  if (tax_percent != null && (Number(tax_percent) < 0 || Number(tax_percent) > 100)) {
+    return res.status(400).json({ error: 'Ставка налога должна быть от 0 до 100%' });
+  }
+  if (tax_base && !['revenue', 'net_profit'].includes(tax_base)) {
+    return res.status(400).json({ error: 'Недопустимая база налога' });
+  }
+  try {
+    const entries = [
+      ['tax_percent', tax_percent != null ? String(Number(tax_percent)) : '0'],
+      ['tax_base', tax_base === 'net_profit' ? 'net_profit' : 'revenue'],
+      ['laklak_courier_id', laklak_courier_id ? String(Number(laklak_courier_id)) : ''],
+      ['laklak_fee_per_delivery', laklak_fee_per_delivery != null ? String(Number(laklak_fee_per_delivery)) : '6'],
+    ];
+    for (const [key, value] of entries) {
+      await pool.query('INSERT INTO app_settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = ?', [key, value, value]);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Ошибка сохранения настроек:', e);
+    res.status(500).json({ error: 'Не удалось сохранить настройки' });
+  }
+});
+
 app.get('/api/expense-categories', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM expense_categories ORDER BY parent_id IS NULL DESC, parent_id, name');
@@ -1759,6 +1803,25 @@ app.delete('/api/owner-transactions/:id', requireAuth, async (req, res) => {
 // Вынесено в отдельную функцию, чтобы одну и ту же логику можно было посчитать как один раз
 // (обычная сводка Финансов), так и много раз подряд — по одному разу на каждый месяц для
 // таблицы "показатели по строкам / месяцы по столбцам", как в банковской форме ОПУ.
+// читает налог/Лаклак-настройки для использования внутри расчёта ОПиУ (без requireAuth — внутренний вызов)
+async function getFinanceExtras() {
+  try {
+    const [rows] = await pool.query(
+      `SELECT \`key\`, value FROM app_settings WHERE \`key\` IN (${FINANCE_EXTRA_KEYS.map(() => '?').join(',')})`,
+      FINANCE_EXTRA_KEYS
+    );
+    const byKey = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    return {
+      taxPercent: byKey.tax_percent != null ? Number(byKey.tax_percent) : 0,
+      taxBase: byKey.tax_base === 'net_profit' ? 'net_profit' : 'revenue',
+      laklakCourierId: byKey.laklak_courier_id ? Number(byKey.laklak_courier_id) : null,
+      laklakFeePerDelivery: byKey.laklak_fee_per_delivery != null ? Number(byKey.laklak_fee_per_delivery) : 6,
+    };
+  } catch (e) {
+    return { taxPercent: 0, taxBase: 'revenue', laklakCourierId: null, laklakFeePerDelivery: 6 };
+  }
+}
+
 async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
   const between = (col) => `AND DATE(${col}) BETWEEN '${fromStr}' AND '${toStr}'`;
   const completedCond = `AND DATE(COALESCE(completed_at, created_at)) BETWEEN '${fromStr}' AND '${toStr}'`;
@@ -1864,6 +1927,20 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
   );
   const courierPayouts = courierPayoutRows.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
+  // комиссия самой компании-перевозчика (например, Лаклак) — отдельно от зарплаты курьера.
+  // По договору за каждую доставку курьеру платится его ставка (уже учтена выше в ЗП курьеров),
+  // а компании-перевозчику — дополнительная фиксированная сумма за каждую доставку
+  const extras = await getFinanceExtras();
+  let laklakDeliveries = 0;
+  if (extras.laklakCourierId) {
+    const [[lRow]] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM orders WHERE courier_id = ? AND delivery_status = 'delivered' ${completedCond}`,
+      [extras.laklakCourierId]
+    );
+    laklakDeliveries = Number(lRow.cnt) || 0;
+  }
+  const laklakCompanyFee = round2(laklakDeliveries * extras.laklakFeePerDelivery);
+
   // общие расходы (аренда, реклама и т.п.) — вручную занесённые
   const [genExpRows] = await pool.query(`SELECT * FROM general_expenses WHERE 1=1 ${between('expense_date')} ORDER BY expense_date DESC`);
   const generalExpenses = genExpRows.reduce((s, e) => s + (Number(e.amount) || 0), 0);
@@ -1875,7 +1952,7 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
   const adExpenses = adExpensesManual + adExpensesMeta;
 
   // комиссия каждому партнёру по его базе (gross/net)
-  const operatingExpensePool = courierSalaryAccrued + generalExpenses + adExpensesMeta;
+  const operatingExpensePool = courierSalaryAccrued + laklakCompanyFee + generalExpenses + adExpensesMeta;
   let partnerCommissionAccrued = 0;
   const partnerCommissionRows = [];
   for (const [partnerId, sales] of Object.entries(partnerSalesById)) {
@@ -1895,13 +1972,19 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
   }
 
   const grossProfit = revenue - cogs;
-  const totalOperatingExpenses = partnerExpenses + partnerCommissionAccrued + courierSalaryAccrued + generalExpenses + adExpensesMeta;
-  const netProfit = grossProfit - totalOperatingExpenses;
+  const totalOperatingExpenses = partnerExpenses + partnerCommissionAccrued + courierSalaryAccrued + laklakCompanyFee + generalExpenses + adExpensesMeta;
+  const profitBeforeTax = grossProfit - totalOperatingExpenses;
+
+  // налог — считается либо от выручки, либо от прибыли до налога (настраивается в Финансы → Настройки)
+  const taxBaseAmount = extras.taxBase === 'net_profit' ? Math.max(0, profitBeforeTax) : revenue;
+  const taxAmount = round2(taxBaseAmount * extras.taxPercent / 100);
+  const netProfit = profitBeforeTax - taxAmount;
+
   const avgCheck = orders.length ? revenue / orders.length : 0;
   const marketingPct = revenue ? (adExpenses / revenue * 100) : 0;
 
   const cashIn = revenue;
-  const cashOut = purchasesCash + partnerPayouts + courierPayouts + generalExpenses + adExpensesMeta;
+  const cashOut = purchasesCash + partnerPayouts + courierPayouts + laklakCompanyFee + generalExpenses + adExpensesMeta;
   const netCashFlow = cashIn - cashOut;
 
   return {
@@ -1913,6 +1996,8 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
       partner_expenses: round2(partnerExpenses),
       partner_commission: round2(partnerCommissionAccrued),
       courier_salary: round2(courierSalaryAccrued),
+      laklak_company_fee: laklakCompanyFee,
+      laklak_deliveries: laklakDeliveries,
       general_expenses: round2(generalExpenses),
       ad_expenses: round2(adExpenses),
       ad_expenses_manual: round2(adExpensesManual),
@@ -1922,6 +2007,10 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
       marketing_pct: round2(marketingPct),
       margin_pct: revenue ? round2(netProfit / revenue * 100) : 0,
       total_operating_expenses: round2(totalOperatingExpenses),
+      profit_before_tax: round2(profitBeforeTax),
+      tax_percent: extras.taxPercent,
+      tax_base: extras.taxBase,
+      tax_amount: taxAmount,
       net_profit: round2(netProfit),
     },
     cashflow: {
@@ -1929,6 +2018,7 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
       cogs_paid: round2(purchasesCash),
       partner_payouts: round2(partnerPayouts),
       courier_payouts: round2(courierPayouts),
+      laklak_company_fee: laklakCompanyFee,
       general_expenses_paid: round2(generalExpenses),
       ad_expenses_meta: round2(adExpensesMeta),
       cash_out: round2(cashOut),
