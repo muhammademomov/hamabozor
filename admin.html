@@ -785,6 +785,105 @@ function loadOrders(){
     .then(([orders,couriers])=>{ cache.orders=orders; cache.couriers=couriers; renderOrders(); })
     .catch(e=>flash(e.message));
 }
+/* ---------------- НОВЫЙ ЗАКАЗ ВРУЧНУЮ (звонок клиента и т.п.) ---------------- */
+let adminOrderCart={};
+function openNewOrderModal(){
+  const loadP = (cache.products && cache.products.length) ? Promise.resolve(cache.products) : apiFetch('/api/products?all=1').then(p=>{ cache.products=p; return p; });
+  loadP.then(()=>{
+    adminOrderCart={};
+    document.getElementById('modalRoot').innerHTML = newOrderModalShell();
+  }).catch(e=>flash(e.message));
+}
+function newOrderModalShell(){
+  return `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal" style="max-width:520px;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3>Новый заказ</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <p style="font-size:12.5px;color:#86868b;margin:-8px 0 14px">Для случаев, когда клиент заказывает по звонку — добавьте товары и данные клиента вручную.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <input id="no_name" class="field" placeholder="Имя клиента *">
+      <input id="no_phone" class="field" placeholder="Телефон *">
+    </div>
+    <input id="no_address" class="field" placeholder="Адрес (необязательно)" style="width:100%;margin-bottom:10px">
+    <select id="no_channel" class="field" style="width:100%;margin-bottom:16px">
+      <option value="phone">По звонку</option>
+      <option value="whatsapp">WhatsApp</option>
+      <option value="telegram">Telegram</option>
+      <option value="direct">Лично / другое</option>
+    </select>
+    <div style="font-size:12.5px;font-weight:700;color:#6e6e73;margin-bottom:8px">Товары</div>
+    <input class="field" placeholder="Поиск товара..." style="width:100%;margin-bottom:8px" oninput="updateNewOrderSearch(this.value)">
+    <div id="no_product_list" style="max-height:150px;overflow-y:auto;border:1px solid #e5e5e7;border-radius:10px;margin-bottom:14px">${renderProductPickList('')}</div>
+    <div style="font-size:12.5px;font-weight:700;color:#6e6e73;margin-bottom:8px">В заказе</div>
+    <div id="no_cart" style="margin-bottom:10px">${renderAdminOrderCart()}</div>
+    <div id="no_total" style="display:flex;justify-content:space-between;align-items:center;font-size:15px;font-weight:700;padding:12px 0;border-top:1px solid #e5e5e7;margin-bottom:14px">${renderAdminOrderTotal()}</div>
+    <textarea id="no_comment" class="field" placeholder="Комментарий (необязательно)" style="width:100%;margin-bottom:14px;min-height:50px"></textarea>
+    <button class="btn btn-primary" style="width:100%" onclick="submitNewOrder()">Создать заказ</button>
+  </div></div>`;
+}
+function renderProductPickList(query){
+  const products=cache.products||[];
+  const q=(query||'').toLowerCase().trim();
+  const filtered=(q?products.filter(p=>(p.name_ru||'').toLowerCase().includes(q)):products).slice(0,30);
+  if(!filtered.length) return '<div style="padding:16px;text-align:center;color:#86868b;font-size:13px">Ничего не найдено</div>';
+  return filtered.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #f0f0f2">
+    <div style="min-width:0"><div style="font-size:13px;font-weight:600">${esc(p.name_ru)}</div><div style="font-size:11.5px;color:#86868b">${money(p.price)}${p.stock!=null?' · остаток '+p.stock:''}</div></div>
+    <button class="btn btn-secondary" style="padding:5px 10px;font-size:12px;flex-shrink:0" onclick="addToAdminOrderCart(${p.id})">+ Добавить</button>
+  </div>`).join('');
+}
+function renderAdminOrderCart(){
+  const products=cache.products||[];
+  const entries=Object.entries(adminOrderCart).filter(([id,qty])=>qty>0);
+  if(!entries.length) return '<div style="color:#86868b;font-size:13px">Заказ пуст — добавьте товары выше</div>';
+  return entries.map(([id,qty])=>{
+    const p=products.find(x=>String(x.id)===String(id));
+    if(!p) return '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f2">
+      <div style="font-size:13px;flex:1;min-width:0">${esc(p.name_ru)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <button class="btn btn-secondary" style="padding:2px 9px" onclick="changeAdminOrderQty(${id},-1)">−</button>
+        <span style="font-size:13px;font-weight:600;min-width:16px;text-align:center">${qty}</span>
+        <button class="btn btn-secondary" style="padding:2px 9px" onclick="changeAdminOrderQty(${id},1)">+</button>
+        <span style="font-size:13px;font-weight:700;min-width:72px;text-align:right">${money(Number(p.price)*qty)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+function renderAdminOrderTotal(){
+  const products=cache.products||[];
+  const total=Object.entries(adminOrderCart).reduce((s,[id,qty])=>{ const p=products.find(x=>String(x.id)===String(id)); return s+(p?Number(p.price)*qty:0); },0);
+  return `<span>Итого</span><span>${money(total)}</span>`;
+}
+function updateNewOrderSearch(v){
+  const el=document.getElementById('no_product_list'); if(el) el.innerHTML=renderProductPickList(v);
+}
+function addToAdminOrderCart(id){
+  adminOrderCart[id]=(adminOrderCart[id]||0)+1;
+  refreshAdminOrderCartUI();
+}
+function changeAdminOrderQty(id,delta){
+  adminOrderCart[id]=(adminOrderCart[id]||0)+delta;
+  if(adminOrderCart[id]<=0) delete adminOrderCart[id];
+  refreshAdminOrderCartUI();
+}
+function refreshAdminOrderCartUI(){
+  const cartEl=document.getElementById('no_cart'); if(cartEl) cartEl.innerHTML=renderAdminOrderCart();
+  const totalEl=document.getElementById('no_total'); if(totalEl) totalEl.innerHTML=renderAdminOrderTotal();
+}
+function submitNewOrder(){
+  const name=(document.getElementById('no_name').value||'').trim();
+  const phone=(document.getElementById('no_phone').value||'').trim();
+  const address=(document.getElementById('no_address').value||'').trim();
+  const channel=document.getElementById('no_channel').value;
+  const comment=(document.getElementById('no_comment').value||'').trim();
+  const products=cache.products||[];
+  const entries=Object.entries(adminOrderCart).filter(([id,qty])=>qty>0);
+  if(!name || !phone){ flash('Укажите имя и телефон клиента'); return; }
+  if(!entries.length){ flash('Добавьте хотя бы один товар'); return; }
+  const items=entries.map(([id,qty])=>{ const p=products.find(x=>String(x.id)===String(id)); return { id: p.id, name: p.name_ru, qty, price: Number(p.price) }; });
+  const total=items.reduce((s,it)=>s+it.price*it.qty,0);
+  apiFetch('/api/orders', { method:'POST', body: JSON.stringify({ customer_name:name, customer_phone:phone, customer_address:address||null, comment:comment||null, items, total, channel }) })
+    .then(()=>{ closeModal(); flash('Заказ создан'); if(state.section==='orders') loadOrders(); })
+    .catch(e=>flash(e.message));
+}
 function updateOrderStatus(id,status){ apiFetch('/api/orders/'+id,{method:'PATCH',body:JSON.stringify({status})}).then(loadOrders).catch(e=>flash(e.message)); }
 function assignCourier(orderId, courierId){
   if(!courierId){ return; }
@@ -807,6 +906,9 @@ function renderOrders(){
   const activeCount=orders.filter(o=>o.status==='new'||o.status==='progress').length;
   const mobileTabs=[['all','Все'],['active','В обработке '+activeCount],['done','Выполненные'],['cancel','Отменённые']];
   document.getElementById('content').innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <button class="btn btn-primary" onclick="openNewOrderModal()">+ Новый заказ</button>
+    </div>
     <div class="desktop-only grid4" style="margin-bottom:20px">
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Заказов</div><div style="font-size:24px;font-weight:600;margin-top:6px">${orders.length}</div></div>
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Сумма</div><div style="font-size:24px;font-weight:600;margin-top:6px">${money(sum)}</div></div>
