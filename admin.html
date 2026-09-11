@@ -737,7 +737,7 @@ function renderOrderCardsMobile(filtered){
     return `<div onclick="openOrderDetailMobile(${o.id})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;${i<filtered.length-1?'border-bottom:1px solid #f0f0f2':''};cursor:pointer">
       <div style="width:44px;height:44px;border-radius:12px;background:${st.bg};color:${st.fg};display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">${st.icon}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:14.5px;font-weight:700">#${o.id}</div>
+        <div style="font-size:14.5px;font-weight:700">#${o.id}${Number(o.manual_discount)===1?` <span style="font-size:9.5px;font-weight:700;color:#16A34A;background:#eafaf0;padding:2px 5px;border-radius:5px;vertical-align:middle">инд. скидка</span>`:''}</div>
         <div style="font-size:12px;color:#86868b;margin-top:2px">${fmtDate(o.created_at)} · ${n} ${ruItemsWord(n)}</div>
       </div>
       <span style="font-size:11px;font-weight:700;padding:5px 10px;border-radius:980px;background:${badge.bg};color:${badge.color};white-space:nowrap">${badge.label}</span>
@@ -769,7 +769,7 @@ function openOrderDetailMobile(id){
         <div style="font-weight:700;font-size:13.5px">${money((Number(it.price)||0)*(Number(it.qty)||1))}</div>
       </div>`).join('')}
       <div style="display:flex;justify-content:space-between;padding:14px 16px;font-size:14.5px;font-weight:700">
-        <span>Итого</span><span>${money(o.total)}</span>
+        <span>Итого</span><span>${money(o.total)}<button title="Изменить цену/состав заказа" style="border:none;background:none;cursor:pointer;color:#86868b;padding:2px;margin-left:4px;font-size:14px;vertical-align:middle" onclick="openEditOrderItemsModal(${o.id})">✎</button></span>
       </div>
     </div>
     <div class="card">
@@ -787,6 +787,7 @@ function loadOrders(){
 }
 /* ---------------- НОВЫЙ ЗАКАЗ ВРУЧНУЮ (звонок клиента и т.п.) ---------------- */
 let adminOrderCart={};
+let editOrderState={orderId:null, items:[]};
 function openNewOrderModal(){
   const loadP = (cache.products && cache.products.length) ? Promise.resolve(cache.products) : apiFetch('/api/products?all=1').then(p=>{ cache.products=p; return p; });
   loadP.then(()=>{
@@ -903,6 +904,99 @@ function submitNewOrder(){
     .catch(e=>flash(e.message));
 }
 function updateOrderStatus(id,status){ apiFetch('/api/orders/'+id,{method:'PATCH',body:JSON.stringify({status})}).then(loadOrders).catch(e=>flash(e.message)); }
+/* ---------------- РЕДАКТИРОВАНИЕ УЖЕ СОЗДАННОГО ЗАКАЗА (цена/состав) ---------------- */
+function openEditOrderItemsModal(orderId){
+  const o=(cache.orders||[]).find(x=>x.id===orderId);
+  if(!o) return;
+  let items=[]; try{ items=typeof o.items==='string'?JSON.parse(o.items):(o.items||[]); }catch(e){}
+  editOrderState={ orderId, items: items.map(it=>({ id: it.id??null, name: it.name, qty: Number(it.qty)||1, price: Number(it.price)||0 })) };
+  const loadP=(cache.products && cache.products.length) ? Promise.resolve(cache.products) : apiFetch('/api/products?all=1').then(p=>{ cache.products=p; return p; });
+  loadP.then(()=>{ document.getElementById('modalRoot').innerHTML=editOrderModalShell(o); }).catch(e=>flash(e.message));
+}
+function editOrderModalShell(o){
+  return `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal" style="max-width:520px;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3>Изменить заказ #${o.id}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <p style="font-size:12.5px;color:#86868b;margin:-8px 0 14px">Поменяйте цену, количество или состав — например, если клиенту сделали индивидуальную скидку по звонку.</p>
+    <input class="field" placeholder="Добавить товар в заказ..." style="width:100%;margin-bottom:8px" oninput="updateEditOrderSearch(this.value)">
+    <div id="eo_product_list" style="max-height:130px;overflow-y:auto;border-radius:10px;margin-bottom:14px"></div>
+    <div style="font-size:12.5px;font-weight:700;color:#6e6e73;margin-bottom:8px">Товары в заказе</div>
+    <div id="eo_cart">${renderEditOrderCart()}</div>
+    <div id="eo_total" style="display:flex;justify-content:space-between;align-items:center;font-size:15px;font-weight:700;padding:12px 0;border-top:1px solid #e5e5e7;margin:10px 0 14px">${renderEditOrderTotal()}</div>
+    <div id="eoError" style="color:#ff3b30;font-size:12.5px;margin-bottom:10px"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveEditOrderItems()">Сохранить</button>
+  </div></div>`;
+}
+function renderEditProductPickList(query){
+  const q=(query||'').toLowerCase().trim();
+  if(!q) return '';
+  const filtered=(cache.products||[]).filter(p=>(p.name_ru||'').toLowerCase().includes(q)).slice(0,20);
+  if(!filtered.length) return '<div style="padding:12px;text-align:center;color:#86868b;font-size:12.5px;border:1px solid #e5e5e7;border-radius:10px">Ничего не найдено</div>';
+  return `<div style="border:1px solid #e5e5e7;border-radius:10px">${filtered.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #f0f0f2">
+    <div style="min-width:0"><div style="font-size:13px;font-weight:600">${esc(p.name_ru)}</div><div style="font-size:11.5px;color:#86868b">${money(p.price)}</div></div>
+    <button class="btn btn-secondary" style="padding:5px 10px;font-size:12px;flex-shrink:0" onclick="addEditOrderItem(${p.id})">+ Добавить</button>
+  </div>`).join('')}</div>`;
+}
+function updateEditOrderSearch(v){
+  const el=document.getElementById('eo_product_list'); if(el) el.innerHTML=renderEditProductPickList(v);
+}
+function addEditOrderItem(productId){
+  const p=(cache.products||[]).find(x=>String(x.id)===String(productId));
+  if(!p) return;
+  const existing=editOrderState.items.find(it=>String(it.id)===String(productId));
+  if(existing) existing.qty+=1;
+  else editOrderState.items.push({ id:p.id, name:p.name_ru, qty:1, price:Number(p.price) });
+  refreshEditOrderCartUI();
+}
+function renderEditOrderCart(){
+  const items=editOrderState.items;
+  if(!items.length) return '<div style="color:#86868b;font-size:13px">В заказе нет товаров</div>';
+  return items.map((it,idx)=>`<div style="padding:8px 0;border-bottom:1px solid #f0f0f2">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="font-size:13px;flex:1;min-width:0">${esc(it.name)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <button class="btn btn-secondary" style="padding:2px 9px" onclick="changeEditOrderQty(${idx},-1)">−</button>
+        <span style="font-size:13px;font-weight:600;min-width:16px;text-align:center">${it.qty}</span>
+        <button class="btn btn-secondary" style="padding:2px 9px" onclick="changeEditOrderQty(${idx},1)">+</button>
+        <button class="btn btn-secondary" style="padding:2px 7px;color:#ff3b30" onclick="removeEditOrderItem(${idx})">✕</button>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:4px">
+      <span style="font-size:11px;color:#86868b">цена/шт:</span>
+      <input type="number" value="${it.price}" min="0" step="0.01" style="width:80px;padding:4px 6px;font-size:12.5px;border:1px solid #e5e5e7;border-radius:6px;text-align:right" onchange="setEditOrderPrice(${idx},this.value)">
+      <span style="font-size:13px;font-weight:700;min-width:72px;text-align:right">${money(it.price*it.qty)}</span>
+    </div>
+  </div>`).join('');
+}
+function renderEditOrderTotal(){
+  const total=editOrderState.items.reduce((s,it)=>s+Number(it.price)*Number(it.qty),0);
+  return `<span>Итого</span><span>${money(total)}</span>`;
+}
+function refreshEditOrderCartUI(){
+  const c=document.getElementById('eo_cart'); if(c) c.innerHTML=renderEditOrderCart();
+  const t=document.getElementById('eo_total'); if(t) t.innerHTML=renderEditOrderTotal();
+}
+function changeEditOrderQty(idx,delta){
+  const it=editOrderState.items[idx]; if(!it) return;
+  it.qty+=delta;
+  if(it.qty<=0) editOrderState.items.splice(idx,1);
+  refreshEditOrderCartUI();
+}
+function removeEditOrderItem(idx){
+  editOrderState.items.splice(idx,1);
+  refreshEditOrderCartUI();
+}
+function setEditOrderPrice(idx,value){
+  const it=editOrderState.items[idx]; if(!it) return;
+  it.price=Math.max(0,Number(value)||0);
+  refreshEditOrderCartUI();
+}
+function saveEditOrderItems(){
+  if(!editOrderState.items.length){ document.getElementById('eoError').textContent='Добавьте хотя бы один товар'; return; }
+  const items=editOrderState.items.map(it=>({ id:it.id, name:it.name, qty:it.qty, price:it.price }));
+  apiFetch(`/api/orders/${editOrderState.orderId}/items`,{method:'PATCH',body:JSON.stringify({items})})
+    .then(()=>{ closeModal(); flash('Заказ обновлён'); loadOrders(); })
+    .catch(e=>document.getElementById('eoError').textContent=e.message);
+}
 function assignCourier(orderId, courierId){
   if(!courierId){ return; }
   apiFetch('/api/orders/'+orderId+'/assign-courier',{method:'POST',body:JSON.stringify({courier_id:Number(courierId)})})
@@ -921,17 +1015,19 @@ function renderOrders(){
   });
   const nonCancel=orders.filter(o=>o.status!=='cancel');
   const sum=nonCancel.reduce((a,o)=>a+(Number(o.total)||0),0);
+  const manualCount=orders.filter(o=>Number(o.manual_discount)===1).length;
   const activeCount=orders.filter(o=>o.status==='new'||o.status==='progress').length;
   const mobileTabs=[['all','Все'],['active','В обработке '+activeCount],['done','Выполненные'],['cancel','Отменённые']];
   document.getElementById('content').innerHTML = `
     <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
       <button class="btn btn-primary" onclick="openNewOrderModal()">+ Новый заказ</button>
     </div>
-    <div class="desktop-only grid4" style="margin-bottom:20px">
+    <div class="desktop-only" style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px">
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Заказов</div><div style="font-size:24px;font-weight:600;margin-top:6px">${orders.length}</div></div>
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Сумма</div><div style="font-size:24px;font-weight:600;margin-top:6px">${money(sum)}</div></div>
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Новые</div><div style="font-size:24px;font-weight:600;margin-top:6px;color:#ff3b30">${orders.filter(o=>o.status==='new').length}</div></div>
       <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">Средний чек</div><div style="font-size:24px;font-weight:600;margin-top:6px">${money(nonCancel.length?sum/nonCancel.length:0)}</div></div>
+      <div class="card"><div style="font-size:12px;color:#6e6e73;font-weight:600;text-transform:uppercase">С инд. скидкой</div><div style="font-size:24px;font-weight:600;margin-top:6px;color:#16A34A">${manualCount}</div></div>
     </div>
     <div class="mobile-only-flex" style="gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px">
       ${mobileTabs.map(([key,label])=>`<button onclick="state.orderStatus='${key}'; renderOrders()" style="white-space:nowrap;padding:8px 14px;border-radius:980px;border:none;font-size:12.5px;font-weight:600;cursor:pointer;background:${state.orderStatus===key||(key==='all'&&!['active','done','cancel'].includes(state.orderStatus))?'#16A34A':'#f0f0f2'};color:${state.orderStatus===key||(key==='all'&&!['active','done','cancel'].includes(state.orderStatus))?'#fff':'#3a3a3c'}">${label}</button>`).join('')}
@@ -947,8 +1043,10 @@ function renderOrders(){
     <div class="desktop-only card" style="padding:0;overflow:hidden">
       <table><thead><tr><th>№</th><th>Дата</th><th>Клиент</th><th>Телефон</th><th>Сумма</th><th>Курьер</th><th>Статус</th><th></th></tr></thead>
       <tbody>${filtered.map(o=>`<tr>
-        <td>#${o.id}</td><td>${fmtDate(o.created_at)}</td><td>${esc(o.customer_name)}</td><td>${esc(o.customer_phone)}</td>
-        <td style="font-weight:600">${money(o.total)}${Number(o.refunded_amount)>0?`<div style="font-size:11px;color:#ff3b30;font-weight:600">возврат ${money(o.refunded_amount)}</div>`:''}</td>
+        <td>#${o.id}</td><td>${fmtDate(o.created_at)}</td><td>${esc(o.customer_name)}${Number(o.manual_discount)===1?` <span title="В заказе изменена цена товара вручную" style="font-size:10px;font-weight:700;color:#16A34A;background:#eafaf0;padding:2px 6px;border-radius:6px;white-space:nowrap">инд. скидка</span>`:''}</td><td>${esc(o.customer_phone)}</td>
+        <td style="font-weight:600">${money(o.total)}${Number(o.refunded_amount)>0?`<div style="font-size:11px;color:#ff3b30;font-weight:600">возврат ${money(o.refunded_amount)}</div>`:''}
+          <button title="Изменить цену/состав заказа" style="border:none;background:none;cursor:pointer;color:#86868b;padding:2px;margin-left:2px;vertical-align:middle" onclick="openEditOrderItemsModal(${o.id})">✎</button>
+        </td>
         <td><select style="padding:6px 10px;border-radius:8px;font-size:12.5px;border:1px solid #d2d2d7;background:#fff;min-width:140px" onchange="assignCourier(${o.id}, this.value)">
           ${!o.courier_id ? `<option value="">— выбрать курьера —</option>` : ''}
           ${(cache.couriers||[]).filter(c=>c.active!==0 || c.id===o.courier_id).map(c=>`<option value="${c.id}" ${o.courier_id===c.id?'selected':''}>${esc([c.first_name,c.last_name].filter(Boolean).join(' '))}</option>`).join('')}

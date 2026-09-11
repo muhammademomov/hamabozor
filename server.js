@@ -124,10 +124,12 @@ app.post('/api/orders', async (req, res) => {
       }
     }
 
+    const manualDiscount = fromAdmin ? await hasManualPriceOverride(orderItems) : false;
+
     const [result] = await pool.query(
-      `INSERT INTO orders (customer_name, customer_phone, customer_address, comment, items, total, status, channel, promo_code, discount_amount, utm_source, utm_medium, utm_campaign)
-       VALUES (?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)`,
-      [customer_name, customer_phone, customer_address || null, comment || null, JSON.stringify(orderItems), finalTotal, channel || null, usedCode, discountAmount, utm_source || null, utm_medium || null, utm_campaign || null]
+      `INSERT INTO orders (customer_name, customer_phone, customer_address, comment, items, total, manual_discount, status, channel, promo_code, discount_amount, utm_source, utm_medium, utm_campaign)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)`,
+      [customer_name, customer_phone, customer_address || null, comment || null, JSON.stringify(orderItems), finalTotal, manualDiscount ? 1 : 0, channel || null, usedCode, discountAmount, utm_source || null, utm_medium || null, utm_campaign || null]
     );
     res.json({ id: result.insertId, total: finalTotal, discount_amount: discountAmount });
   } catch (e) {
@@ -142,6 +144,16 @@ async function promoUsageCount(promoId) {
     [promoId]
   );
   return Number(row.cnt) || 0;
+}
+
+// проверяет, отличается ли цена хотя бы одного товара в заказе от его текущей цены в каталоге
+// (используется, чтобы пометить заказ как "с индивидуальной скидкой" — например, звонок VIP-клиента)
+async function hasManualPriceOverride(orderItems) {
+  const ids = orderItems.map(it => Number(it.id)).filter(Boolean);
+  if (!ids.length) return false;
+  const [rows] = await pool.query(`SELECT id, price FROM products WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+  const priceById = Object.fromEntries(rows.map(r => [r.id, Number(r.price)]));
+  return orderItems.some(it => it.id && priceById[Number(it.id)] != null && round2(Number(it.price)) !== round2(priceById[Number(it.id)]));
 }
 
 // ----------------------------------------------------------------------------
@@ -226,7 +238,35 @@ app.patch('/api/orders/:id', requireAuth, async (req, res) => {
   }
 });
 
-// --- возврат по заказу ---
+// --- редактирование состава/цены уже созданного заказа (только администратор) ---
+// нужно для случаев, когда клиенту по звонку задним числом меняют цену на товар
+// (индивидуальная скидка), либо поправляют количество/состав
+app.patch('/api/orders/:id/items', requireAuth, async (req, res) => {
+  const { items } = req.body || {};
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Заказ должен содержать хотя бы один товар' });
+  }
+  for (const it of items) {
+    if (!it || typeof it.name !== 'string' || !it.name.trim() || !(Number(it.qty) > 0) || Number(it.price) < 0) {
+      return res.status(400).json({ error: 'Некорректные данные товара в заказе' });
+    }
+  }
+  try {
+    const normalized = items.map(it => ({ id: it.id ?? null, name: it.name, qty: Number(it.qty), price: round2(Number(it.price)) }));
+    const total = round2(normalized.reduce((s, it) => s + it.price * it.qty, 0));
+    const [[order]] = await pool.query('SELECT refunded_amount FROM orders WHERE id = ?', [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Заказ не найден' });
+    if (Number(order.refunded_amount || 0) > total) {
+      return res.status(400).json({ error: 'Новая сумма меньше уже оформленного возврата по этому заказу' });
+    }
+    const manualDiscount = await hasManualPriceOverride(normalized);
+    await pool.query('UPDATE orders SET items = ?, total = ?, manual_discount = ? WHERE id = ?', [JSON.stringify(normalized), total, manualDiscount ? 1 : 0, req.params.id]);
+    res.json({ ok: true, total });
+  } catch (e) {
+    console.error('Ошибка обновления заказа:', e);
+    res.status(500).json({ error: 'Не удалось обновить заказ' });
+  }
+});
 // Возврат уменьшает "эффективную" сумму заказа (orders.refunded_amount), а не удаляет сам заказ.
 // Везде, где считается выручка/себестоимость/комиссия партнёру — используется (total - refunded_amount)
 // вместо total, поэтому возврат автоматически и корректно пересчитывает всю цепочку без двойного учёта.
