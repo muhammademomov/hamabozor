@@ -52,6 +52,20 @@ function requireAuth(req, res, next) {
   }
 }
 
+// мягкая проверка токена — не блокирует запрос, просто говорит, админ это или нет
+// (нужно для /api/orders: витрина шлёт заказы без токена, админка — с токеном)
+function isAdminRequest(req) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return false;
+  try {
+    jwt.verify(token, JWT_SECRET);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // ----------------------------------------------------------------------------
 // публичный эндпоинт: создать заказ (вызывается из index.html)
 // ----------------------------------------------------------------------------
@@ -73,8 +87,26 @@ app.post('/api/orders', async (req, res) => {
     return res.status(400).json({ error: 'Не хватает обязательных полей заказа' });
   }
 
+  const fromAdmin = isAdminRequest(req);
+
   try {
-    let finalTotal = Number(total) || 0;
+    let orderItems = items;
+
+    if (!fromAdmin) {
+      // обычный заказ с витрины — никогда не доверяем цене от клиента,
+      // берём актуальную цену из базы по id товара (защита от подделки цены через API)
+      const ids = items.map(it => Number(it.id)).filter(Boolean);
+      let priceById = {};
+      if (ids.length) {
+        const [rows] = await pool.query(`SELECT id, price FROM products WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+        priceById = Object.fromEntries(rows.map(r => [r.id, Number(r.price)]));
+      }
+      orderItems = items.map(it => ({ ...it, price: priceById[Number(it.id)] ?? (Number(it.price) || 0) }));
+    }
+    // если заказ создан из админки (fromAdmin===true) — доверяем цене за штуку,
+    // введённой вручную (для звонков от VIP-клиентов с индивидуальной скидкой);
+    // иначе (витрина) цена уже пересчитана из базы выше
+    let finalTotal = round2(orderItems.reduce((s, it) => s + Number(it.price) * Number(it.qty), 0));
     let discountAmount = null;
     let usedCode = null;
 
@@ -95,7 +127,7 @@ app.post('/api/orders', async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO orders (customer_name, customer_phone, customer_address, comment, items, total, status, channel, promo_code, discount_amount, utm_source, utm_medium, utm_campaign)
        VALUES (?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)`,
-      [customer_name, customer_phone, customer_address || null, comment || null, JSON.stringify(items), finalTotal, channel || null, usedCode, discountAmount, utm_source || null, utm_medium || null, utm_campaign || null]
+      [customer_name, customer_phone, customer_address || null, comment || null, JSON.stringify(orderItems), finalTotal, channel || null, usedCode, discountAmount, utm_source || null, utm_medium || null, utm_campaign || null]
     );
     res.json({ id: result.insertId, total: finalTotal, discount_amount: discountAmount });
   } catch (e) {
