@@ -2111,6 +2111,15 @@ async function fetchMetaAdsSpend(period, fromStr, toStr) {
   if (!token || !adAccountId) {
     return { connected: false, message: 'META_ACCESS_TOKEN или META_AD_ACCOUNT_ID не настроены в Railway', total_spend: 0, by_campaign: [] };
   }
+  // Meta отклоняет time_range, если "since" уходит более чем на 37 месяцев назад (ошибка #3018).
+  // При фильтре "Всё время" fromStr может быть очень старым (2000-01-01) — подрезаем его до
+  // безопасной границы в 36 месяцев, иначе весь расход на рекламу за период будет теряться.
+  if (fromStr) {
+    const minDate = new Date();
+    minDate.setMonth(minDate.getMonth() - 36);
+    const minDateStr = minDate.toISOString().slice(0, 10);
+    if (fromStr < minDateStr) fromStr = minDateStr;
+  }
   const rangePart = fromStr && toStr
     ? `time_range=${encodeURIComponent(JSON.stringify({ since: fromStr, until: toStr }))}`
     : `date_preset=${period === 'today' ? 'today' : period === 'week' ? 'last_7d' : period === 'month' ? 'last_30d' : 'maximum'}`;
