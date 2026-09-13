@@ -1877,6 +1877,7 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
   const productMetaById = {};
   productsForCommission.forEach(p => { productMetaById[p.id] = p; });
   const partnerSalesById = {};
+  const partnerOrderIds = {}; // для net-базы: какие заказы затронули этого партнёра — нужно для расчёта его доли доставки
   for (const o of orders) {
     const factor = refundFactor(o);
     const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
@@ -1891,6 +1892,8 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
       if (!partnerSalesById[partner.id]) partnerSalesById[partner.id] = { revenue: 0, margin: 0 };
       partnerSalesById[partner.id].revenue += lineRevenue;
       partnerSalesById[partner.id].margin += lineMargin;
+      if (!partnerOrderIds[partner.id]) partnerOrderIds[partner.id] = new Set();
+      partnerOrderIds[partner.id].add(o.id);
     }
   }
 
@@ -1951,8 +1954,25 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
   const adExpensesMeta = metaAds.connected ? Number(metaAds.total_spend) || 0 : 0;
   const adExpenses = adExpensesManual + adExpensesMeta;
 
-  // комиссия каждому партнёру по его базе (gross/net)
-  const operatingExpensePool = courierSalaryAccrued + laklakCompanyFee + generalExpenses + adExpensesMeta;
+  // комиссия каждому партнёру по его базе (gross/net). Для "net" — та же логика, что и на
+  // странице «Партнёры» (computePartnerStats): вычитается ТОЛЬКО доставка его собственных
+  // заказов (курьеры с оплатой за доставку), реклама и общие расходы бизнеса в базу
+  // комиссии НЕ входят — так и было изначально задумано на странице «Партнёры».
+  const allPartnerOrderIds = [...new Set(Object.values(partnerOrderIds).flatMap(s => [...s]))];
+  const deliveryCostByOrderId = {};
+  if (allPartnerOrderIds.length) {
+    const [deliveryRows] = await pool.query(
+      `SELECT o.id, o.delivery_status, c.salary_type, c.salary_rate
+       FROM orders o LEFT JOIN couriers c ON c.id = o.courier_id
+       WHERE o.id IN (${allPartnerOrderIds.map(() => '?').join(',')})`,
+      allPartnerOrderIds
+    );
+    deliveryRows.forEach(row => {
+      if (row.delivery_status === 'delivered' && row.salary_type === 'per_delivery') {
+        deliveryCostByOrderId[row.id] = Number(row.salary_rate) || 0;
+      }
+    });
+  }
   let partnerCommissionAccrued = 0;
   const partnerCommissionRows = [];
   for (const [partnerId, sales] of Object.entries(partnerSalesById)) {
@@ -1960,8 +1980,9 @@ async function computeFinanceSummaryForRange(fromStr, toStr, periodLabel) {
     const pct = (Number(partner.commission_percent) || 0) / 100;
     let base = sales.margin;
     if (partner.commission_basis === 'net') {
-      const expenseShare = revenue > 0 ? (sales.revenue / revenue) * operatingExpensePool : 0;
-      base = Math.max(0, sales.margin - expenseShare);
+      const deliveryCostForPartner = [...(partnerOrderIds[partnerId] || [])]
+        .reduce((s, orderId) => s + (deliveryCostByOrderId[orderId] || 0), 0);
+      base = Math.max(0, sales.margin - deliveryCostForPartner);
     }
     const commission = base * pct;
     partnerCommissionAccrued += commission;
