@@ -1115,7 +1115,8 @@ function renderProducts(){
       </div>`).join('')}</div>`;
 }
 let pmExtraImages=[], pmEditId=null;
-function openProductModal(p){
+async function openProductModal(p){
+  if(!cache.partners){ try{ cache.partners = await apiFetch('/api/partners'); }catch(e){ cache.partners = []; } }
   pmEditId = p ? p.id : null;
   pmExtraImages = p && Array.isArray(p.extra_images) ? [...p.extra_images] : [];
   const partners = cache.partners||[];
