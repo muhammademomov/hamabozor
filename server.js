@@ -2059,6 +2059,175 @@ app.get('/api/finance/summary', requireAuth, async (req, res) => {
   }
 });
 
+const TREND_MONTH_SHORT = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+// строит ряд точек для линейного графика "Динамика выручки" на новой странице Финансов,
+// группируя по дню/неделе/месяцу в зависимости от длины выбранного периода
+function buildTrendSeries(fromStr, toStr, group, dailyMap) {
+  const from = new Date(fromStr + 'T00:00:00');
+  const to = new Date(toStr + 'T00:00:00');
+  const out = [];
+  if (group === 'month') {
+    const cur = new Date(from.getFullYear(), from.getMonth(), 1);
+    while (cur <= to) {
+      const y = cur.getFullYear(), m = cur.getMonth();
+      let sum = 0;
+      Object.keys(dailyMap).forEach(k => { const d = new Date(k + 'T00:00:00'); if (d.getFullYear() === y && d.getMonth() === m) sum += dailyMap[k]; });
+      out.push({ label: TREND_MONTH_SHORT[m] + ' ' + String(y).slice(2), revenue: round2(sum) });
+      cur.setMonth(cur.getMonth() + 1);
+    }
+  } else if (group === 'week') {
+    const cur = new Date(from);
+    while (cur <= to) {
+      const weekEnd = new Date(cur); weekEnd.setDate(weekEnd.getDate() + 6);
+      const end = weekEnd > to ? to : weekEnd;
+      let sum = 0;
+      const c2 = new Date(cur);
+      while (c2 <= end) { const k = c2.toISOString().slice(0, 10); sum += dailyMap[k] || 0; c2.setDate(c2.getDate() + 1); }
+      out.push({ label: String(cur.getDate()) + '.' + String(cur.getMonth() + 1).padStart(2, '0'), revenue: round2(sum) });
+      cur.setDate(cur.getDate() + 7);
+    }
+  } else {
+    const cur = new Date(from);
+    while (cur <= to) {
+      const k = cur.toISOString().slice(0, 10);
+      out.push({ label: String(cur.getDate()).padStart(2, '0') + '.' + String(cur.getMonth() + 1).padStart(2, '0'), revenue: round2(dailyMap[k] || 0) });
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+  return out;
+}
+
+// сводка для нового вида раздела "Финансы" (карточки + график + донат + транзакции +
+// топ партнёров + лента операций) — заменяет собой прежний вид "Обзор"
+app.get('/api/finance/dashboard', requireAuth, async (req, res) => {
+  const period = req.query.period || 'month';
+  const { from, to } = resolvePeriodToDates(period, req.query.from, req.query.to);
+  const { prev_from, prev_to } = resolvePrevRange(from, to);
+  const spanDays = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000) + 1);
+  const group = ['day', 'week', 'month'].includes(req.query.group)
+    ? req.query.group
+    : (spanDays <= 31 ? 'day' : spanDays <= 180 ? 'week' : 'month');
+
+  try {
+    const netTotal = (o) => Math.max(0, (Number(o.total) || 0) - (Number(o.refunded_amount) || 0));
+
+    const [ordersInRange] = await pool.query(
+      "SELECT id, customer_name, total, refunded_amount, items, created_at, completed_at FROM orders WHERE status='done' AND DATE(COALESCE(completed_at, created_at)) BETWEEN ? AND ? ORDER BY COALESCE(completed_at, created_at) DESC",
+      [from, to]
+    );
+    const [ordersPrevRange] = await pool.query(
+      "SELECT total, refunded_amount, items FROM orders WHERE status='done' AND DATE(COALESCE(completed_at, created_at)) BETWEEN ? AND ?",
+      [prev_from, prev_to]
+    );
+    const revenue = ordersInRange.reduce((s, o) => s + netTotal(o), 0);
+    const revenuePrev = ordersPrevRange.reduce((s, o) => s + netTotal(o), 0);
+    const ordersCount = ordersInRange.length;
+    const ordersCountPrev = ordersPrevRange.length;
+
+    const [products] = await pool.query('SELECT id, cat, cost_price, partner_id FROM products');
+    const productById = {}; products.forEach(p => { productById[p.id] = p; });
+
+    const sumCogsAndBreakdown = (orders) => {
+      let cogs = 0;
+      const categoryRevenue = {}, partnerRevenue = {};
+      for (const o of orders) {
+        const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+        for (const it of items) {
+          const qty = Number(it.qty) || 0;
+          const lineRevenue = (Number(it.price) || 0) * qty;
+          const prod = productById[it.id];
+          cogs += (prod ? Number(prod.cost_price) || 0 : 0) * qty;
+          const catKey = prod ? prod.cat : 'unknown';
+          categoryRevenue[catKey] = (categoryRevenue[catKey] || 0) + lineRevenue;
+          if (prod && prod.partner_id) partnerRevenue[prod.partner_id] = (partnerRevenue[prod.partner_id] || 0) + lineRevenue;
+        }
+      }
+      return { cogs, categoryRevenue, partnerRevenue };
+    };
+    const { cogs, categoryRevenue, partnerRevenue } = sumCogsAndBreakdown(ordersInRange);
+    const { cogs: cogsPrev } = sumCogsAndBreakdown(ordersPrevRange);
+    const grossProfit = revenue - cogs;
+    const grossProfitPrev = revenuePrev - cogsPrev;
+    const pctChange = (cur, prev) => (prev ? round2((cur - prev) / prev * 100) : (cur ? 100 : 0));
+
+    // касса — весь денежный поток с самого начала (тот же расчёт, что и в /api/finance/balance)
+    const [[doneOrdersRow]] = await pool.query("SELECT COALESCE(SUM(total),0) AS total FROM orders WHERE status='done'");
+    const [[purchAllRow]] = await pool.query('SELECT COALESCE(SUM(qty*unit_price),0) AS total FROM purchases');
+    const [[partnerPayoutAllRow]] = await pool.query('SELECT COALESCE(SUM(amount),0) AS total FROM partner_payouts');
+    const [[courierPayoutAllRow]] = await pool.query('SELECT COALESCE(SUM(amount),0) AS total FROM courier_payouts');
+    const [[genExpAllRow]] = await pool.query('SELECT COALESCE(SUM(amount),0) AS total FROM general_expenses');
+    const [[contribRow]] = await pool.query("SELECT COALESCE(SUM(amount),0) AS total FROM owner_transactions WHERE type='contribution'");
+    const [[withdrawRow]] = await pool.query("SELECT COALESCE(SUM(amount),0) AS total FROM owner_transactions WHERE type='withdrawal'");
+    const cashBalance = (Number(doneOrdersRow.total) || 0) - (Number(purchAllRow.total) || 0) - (Number(partnerPayoutAllRow.total) || 0)
+      - (Number(courierPayoutAllRow.total) || 0) - (Number(genExpAllRow.total) || 0) + (Number(contribRow.total) || 0) - (Number(withdrawRow.total) || 0);
+
+    const [trendRows] = await pool.query(
+      "SELECT DATE(COALESCE(completed_at, created_at)) AS d, SUM(total - COALESCE(refunded_amount,0)) AS revenue FROM orders WHERE status='done' AND DATE(COALESCE(completed_at, created_at)) BETWEEN ? AND ? GROUP BY d ORDER BY d",
+      [from, to]
+    );
+    const dailyMap = {};
+    trendRows.forEach(r => { const key = r.d.toISOString ? r.d.toISOString().slice(0, 10) : String(r.d); dailyMap[key] = round2(Number(r.revenue) || 0); });
+    const trend = buildTrendSeries(from, to, group, dailyMap);
+
+    const categoryBreakdown = Object.entries(categoryRevenue)
+      .map(([cat, rev]) => ({ category: cat, revenue: round2(rev) }))
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const [partnersAll] = await pool.query('SELECT id, name FROM partners');
+    const partnerNameById = {}; partnersAll.forEach(p => { partnerNameById[p.id] = p.name; });
+    const topPartners = Object.entries(partnerRevenue)
+      .map(([id, rev]) => ({ id: Number(id), name: partnerNameById[id] || `Партнёр #${id}`, revenue: round2(rev) }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 6);
+
+    const recentTransactions = ordersInRange.slice(0, 8).map(o => ({
+      date: o.completed_at || o.created_at, name: o.customer_name || 'Клиент', type: 'Заказ',
+      amount: round2(netTotal(o)), status: 'Успешно',
+    }));
+
+    const [recentPayoutsP] = await pool.query(
+      "SELECT pp.amount, pp.created_at, pt.name AS partner_name FROM partner_payouts pp LEFT JOIN partners pt ON pt.id = pp.partner_id WHERE DATE(pp.created_at) BETWEEN ? AND ? ORDER BY pp.created_at DESC LIMIT 8",
+      [from, to]
+    );
+    const [recentPayoutsC] = await pool.query(
+      "SELECT cp.amount, cp.created_at, c.first_name, c.last_name FROM courier_payouts cp LEFT JOIN couriers c ON c.id = cp.courier_id WHERE DATE(cp.created_at) BETWEEN ? AND ? ORDER BY cp.created_at DESC LIMIT 8",
+      [from, to]
+    );
+    const activity = [];
+    ordersInRange.slice(0, 10).forEach(o => activity.push({
+      date: o.completed_at || o.created_at, title: 'Заказ · ' + (o.customer_name || 'Клиент'),
+      amount: round2(netTotal(o)), direction: 'in',
+    }));
+    recentPayoutsP.forEach(p => activity.push({
+      date: p.created_at, title: 'Выплата партнёру · ' + (p.partner_name || '—'),
+      amount: round2(Number(p.amount) || 0), direction: 'out',
+    }));
+    recentPayoutsC.forEach(c => activity.push({
+      date: c.created_at, title: 'Выплата курьеру · ' + [c.first_name, c.last_name].filter(Boolean).join(' '),
+      amount: round2(Number(c.amount) || 0), direction: 'out',
+    }));
+    activity.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json({
+      from, to, trend_group: group,
+      kpis: {
+        revenue: round2(revenue), revenue_pct: pctChange(revenue, revenuePrev),
+        gross_profit: round2(grossProfit), gross_profit_pct: pctChange(grossProfit, grossProfitPrev),
+        orders_count: ordersCount, orders_pct: pctChange(ordersCount, ordersCountPrev),
+        cash_balance: round2(cashBalance),
+      },
+      trend,
+      category_breakdown: categoryBreakdown,
+      top_partners: topPartners,
+      recent_transactions: recentTransactions,
+      recent_activity: activity.slice(0, 8),
+    });
+  } catch (e) {
+    console.error('Ошибка расчёта дашборда финансов:', e);
+    res.status(500).json({ error: 'Не удалось рассчитать дашборд финансов' });
+  }
+});
+
 // ОПиУ по месяцам одной таблицей — показатели строками, месяцы столбцами (как в банковской
 // форме финансового анализа): ?months=6 — последние 6 календарных месяцев, включая текущий
 app.get('/api/finance/monthly', requireAuth, async (req, res) => {
