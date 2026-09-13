@@ -1571,30 +1571,52 @@ function loadMonthlyFinance(months){
 }
 function renderFinance(){
   const fin=cache.financeData, bal=cache.financeBalance, ge=cache.generalExpenses||[], ot=cache.ownerTx||[];
-  const tabs=[['overview','Обзор'],['pnl','ОПиУ'],['cashflow','ОДДС'],['balance','Баланс'],['monthly','По месяцам'],['settings','Настройки']].filter(([id])=>['overview','settings'].includes(id)).map(([id,label])=>`<button onclick="setFinanceTab('${id}')" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;color:${state.financeTab===id?'#16A34A':'#6e6e73'};border-bottom:2px solid ${state.financeTab===id?'#16A34A':'transparent'}">${label}</button>`).join('');
+  const tabs=[['overview','Обзор'],['pnl','ОПиУ'],['cashflow','ОДДС'],['balance','Баланс'],['monthly','По месяцам'],['settings','Настройки']].map(([id,label])=>`<button onclick="setFinanceTab('${id}')" style="background:none;border:none;padding:10px 2px;font-size:14px;font-weight:600;cursor:pointer;color:${state.financeTab===id?'#16A34A':'#6e6e73'};border-bottom:2px solid ${state.financeTab===id?'#16A34A':'transparent'}">${label}</button>`).join('');
   let body='';
   if(state.financeTab==='overview'){
     body = renderFinanceOverviewDashboard(cache.financeDashboard);
   } else if(fin && state.financeTab==='pnl'){
-    const rows=[['Выручка',fin.pnl.revenue],['Себестоимость',fin.pnl.cogs],['Валовая прибыль',fin.pnl.gross_profit],['Расходы партнёров (прочее)',fin.pnl.partner_expenses],['Комиссия партнёрам (от продаж)',fin.pnl.partner_commission],['ЗП курьеров',fin.pnl.courier_salary],['Комиссия Лаклак (компании)'+(fin.pnl.laklak_deliveries?` · ${fin.pnl.laklak_deliveries} дост.`:''),fin.pnl.laklak_company_fee],['Общие расходы',fin.pnl.general_expenses],['— в т.ч. реклама',fin.pnl.ad_expenses],['Итого расходы',fin.pnl.total_operating_expenses],['Прибыль до налога',fin.pnl.profit_before_tax],['Налог'+(fin.pnl.tax_percent?` (${fin.pnl.tax_percent}% от ${fin.pnl.tax_base==='net_profit'?'прибыли':'выручки'})`:''),fin.pnl.tax_amount],['Чистая прибыль',fin.pnl.net_profit]];
+    const rows=[
+      ['Выручка',fin.pnl.revenue],
+      ['Себестоимость',fin.pnl.cogs],
+      ['Валовая прибыль',fin.pnl.gross_profit,{bold:true,color:'#16A34A'}],
+      ['Расходы партнёров (прочее)',fin.pnl.partner_expenses],
+      ['Комиссия партнёрам (от продаж)',fin.pnl.partner_commission],
+      ['ЗП курьеров',fin.pnl.courier_salary],
+      ['Комиссия Лаклак (компании)'+(fin.pnl.laklak_deliveries?` · ${fin.pnl.laklak_deliveries} дост.`:''),fin.pnl.laklak_company_fee],
+      ['Общие расходы',fin.pnl.general_expenses],
+      ['в т.ч. реклама',fin.pnl.ad_expenses,{indent:true}],
+      ['Итого расходы',fin.pnl.total_operating_expenses,{bold:true,color:'#FF9500'}],
+      ['Прибыль до налога',fin.pnl.profit_before_tax],
+      ['Налог'+(fin.pnl.tax_percent?` (${fin.pnl.tax_percent}% от ${fin.pnl.tax_base==='net_profit'?'прибыли':'выручки'})`:''),fin.pnl.tax_amount],
+      ['Чистая прибыль',fin.pnl.net_profit,{bold:true,color:fin.pnl.net_profit>=0?'#16A34A':'#ff3b30'}],
+    ];
     body = `${renderSingleBarChart('Выручка',fin.pnl.revenue,'Расходы',fin.pnl.total_operating_expenses,'Прибыль',fin.pnl.net_profit)}
-      <div class="card">${rows.map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f2;font-size:14px"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>`;
+      ${financeRowsCard('Отчёт о прибылях и убытках (ОПиУ)','🧾',rows)}`;
   } else if(fin && state.financeTab==='cashflow'){
-    const rows=[['Поступления',fin.cashflow.cash_in],['Оплачено за товар',fin.cashflow.cogs_paid],['Выплаты партнёрам',fin.cashflow.partner_payouts],['Выплаты курьерам',fin.cashflow.courier_payouts],['Комиссия Лаклак (компании)',fin.cashflow.laklak_company_fee],['Общие расходы',fin.cashflow.general_expenses_paid],['Чистый денежный поток',fin.cashflow.net_cash_flow]];
+    const rows=[
+      ['Поступления',fin.cashflow.cash_in,{bold:true,color:'#16A34A'}],
+      ['Оплачено за товар',fin.cashflow.cogs_paid],
+      ['Выплаты партнёрам',fin.cashflow.partner_payouts],
+      ['Выплаты курьерам',fin.cashflow.courier_payouts],
+      ['Комиссия Лаклак (компании)',fin.cashflow.laklak_company_fee],
+      ['Общие расходы',fin.cashflow.general_expenses_paid],
+      ['Чистый денежный поток',fin.cashflow.net_cash_flow,{bold:true,color:fin.cashflow.net_cash_flow>=0?'#16A34A':'#ff3b30'}],
+    ];
     body = `${renderSingleBarChart('Поступления',fin.cashflow.cash_in,'Расходы',fin.cashflow.cash_out,'Чистый поток',fin.cashflow.net_cash_flow)}
-      <div class="card">${rows.map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f2;font-size:14px"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>`;
+      ${financeRowsCard('Отчёт о движении денежных средств (ОДДС)','💵',rows)}`;
   } else if(state.financeTab==='balance'){
     if(!bal) body='<div style="color:#86868b">Загрузка...</div>';
     else body = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
-      <div class="card"><b style="font-size:14px">Активы</b>${[['Касса',bal.assets.cash],['Склад',bal.assets.inventory_value],['Дебиторка',bal.assets.receivables],['Итого',bal.assets.total]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>
-      <div class="card"><b style="font-size:14px">Обязательства</b>
+      ${financeRowsCard('Активы','💰',[['Касса',bal.assets.cash],['Склад',bal.assets.inventory_value],['Дебиторка',bal.assets.receivables],['Итого',bal.assets.total,{bold:true,color:'#16A34A'}]])}
+      <div class="card"><div style="font-size:14.5px;font-weight:700;margin-bottom:6px">📉 Обязательства</div>
         <div onclick="toggleBalanceBreakdown('partners')" style="cursor:pointer;display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>Партнёрам ${bal.liabilities.payable_to_partners_breakdown.length?'▾':''}</span><b>${money(bal.liabilities.payable_to_partners)}</b></div>
         <div id="breakdown_partners" style="display:none;padding:4px 0 4px 10px;border-bottom:1px solid #f0f0f2">${bal.liabilities.payable_to_partners_breakdown.map(x=>`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#6e6e73"><span>${esc(x.name)}</span><span>${money(x.amount)}</span></div>`).join('') || '<div style="font-size:12px;color:#a1a1a6;padding:5px 0">Никому не должны</div>'}</div>
         <div onclick="toggleBalanceBreakdown('couriers')" style="cursor:pointer;display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>Курьерам ${bal.liabilities.payable_to_couriers_breakdown.length?'▾':''}</span><b>${money(bal.liabilities.payable_to_couriers)}</b></div>
         <div id="breakdown_couriers" style="display:none;padding:4px 0 4px 10px;border-bottom:1px solid #f0f0f2">${bal.liabilities.payable_to_couriers_breakdown.map(x=>`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;color:#6e6e73"><span>${esc(x.name)}</span><span>${money(x.amount)}</span></div>`).join('') || '<div style="font-size:12px;color:#a1a1a6;padding:5px 0">Никому не должны</div>'}</div>
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px"><span>Итого</span><b>${money(bal.liabilities.total)}</b></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 0;font-size:14px;margin-top:4px;border-top:1px solid #f0f0f2"><span>Итого</span><b style="color:#FF9500;font-size:15px">${money(bal.liabilities.total)}</b></div>
       </div>
-      <div class="card"><b style="font-size:14px">Капитал</b>${[['Вложено владельцем',bal.equity.owner_net],['Накопленная прибыль',bal.equity.retained_earnings],['Итого',bal.equity.total]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #f0f0f2"><span>${l}</span><b>${money(v)}</b></div>`).join('')}</div>
+      ${financeRowsCard('Капитал','🏦',[['Вложено владельцем',bal.equity.owner_net],['Накопленная прибыль',bal.equity.retained_earnings],['Итого',bal.equity.total,{bold:true,color:'#5A7DFF'}]])}
     </div>`;
   } else if(state.financeTab==='monthly'){
     const rows = cache.financeMonthly;
@@ -1607,9 +1629,12 @@ function renderFinance(){
         ['Итого расходы','total_operating_expenses'],['Налог','tax_amount'],['Чистая прибыль','net_profit'],
       ];
       body = `
-        <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
-          <span style="font-size:12.5px;color:#6e6e73">Показать за:</span>
-          ${[3,6,12].map(n=>`<button class="btn ${state.financeMonths===n?'btn-primary':'btn-secondary'}" style="padding:6px 12px;font-size:12.5px" onclick="loadMonthlyFinance(${n})">${n} мес.</button>`).join('')}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:14.5px;font-weight:700">📅 Продажи и расходы по месяцам</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:12.5px;color:#6e6e73">Показать за:</span>
+            ${[3,6,12].map(n=>`<button class="btn ${state.financeMonths===n?'btn-primary':'btn-secondary'}" style="padding:6px 12px;font-size:12.5px" onclick="loadMonthlyFinance(${n})">${n} мес.</button>`).join('')}
+          </div>
         </div>
         <div class="card" style="margin-bottom:16px">
           <div style="display:flex;gap:16px;margin-bottom:14px;font-size:12px">
@@ -1619,16 +1644,21 @@ function renderFinance(){
           </div>
           ${renderMonthlyChart(rows)}
         </div>
-        <div class="card" style="padding:0;overflow-x:auto">
-          <table style="min-width:${300+rows.length*110}px">
-            <thead><tr><th style="position:sticky;left:0;background:#fff;text-align:left">Показатель</th>${rows.map(r=>`<th style="text-align:right">${r.label}</th>`).join('')}</tr></thead>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="overflow-x:auto">
+          <table style="min-width:${300+rows.length*110}px;border-collapse:separate;border-spacing:0">
+            <thead><tr><th style="position:sticky;left:0;background:#fafafa;text-align:left;border-bottom:1px solid #e5e5e7">Показатель</th>${rows.map(r=>`<th style="text-align:right;background:#fafafa;border-bottom:1px solid #e5e5e7">${r.label}</th>`).join('')}</tr></thead>
             <tbody>
-              ${lines.map(([label,key])=>`<tr style="${key==='net_profit'||key==='gross_profit'?'font-weight:700':''}">
-                <td style="position:sticky;left:0;background:#fff">${label}</td>
-                ${rows.map(r=>`<td style="text-align:right;${key==='net_profit'?(r.pnl[key]>=0?'color:#16A34A':'color:#ff3b30'):''}">${money(r.pnl[key])}</td>`).join('')}
-              </tr>`).join('')}
+              ${lines.map(([label,key],i)=>{
+                const isTotal = key==='net_profit'||key==='gross_profit';
+                const rowBg = isTotal ? '#F0FBF3' : (i%2? '#fafafa' : '#fff');
+                return `<tr style="${isTotal?'font-weight:700':''}">
+                <td style="position:sticky;left:0;background:${rowBg}">${label}</td>
+                ${rows.map(r=>`<td style="text-align:right;background:${rowBg};${key==='net_profit'?(r.pnl[key]>=0?'color:#16A34A':'color:#ff3b30'):''}">${money(r.pnl[key])}</td>`).join('')}
+              </tr>`;}).join('')}
             </tbody>
           </table>
+          </div>
         </div>`;
     }
   } else if(state.financeTab==='settings'){
@@ -1758,6 +1788,22 @@ function renderFinanceOverviewDashboard(dd){
         </div>`).join('') || '<div style="color:#86868b;font-size:13px">Нет операций за период</div>'}
       </div>
     </div>
+  </div>`;
+}
+// полированная карточка "заголовок + список строк" — используется в ОПиУ/ОДДС/Балансе.
+// rows: [label, value, {bold, color, indent}] — bold подсвечивает итоговую строку светлым
+// фоном на всю ширину карточки, indent — для расшифровки внутри предыдущей строки (напр. "в т.ч. реклама")
+function financeRowsCard(title, icon, rows){
+  return `<div class="card">
+    <div style="font-size:14.5px;font-weight:700;margin-bottom:6px">${icon} ${title}</div>
+    ${rows.map(([label,value,opts])=>{
+      opts = opts || {};
+      const bg = opts.bold ? 'background:#F0FBF3;margin:0 -20px;padding-left:20px;padding-right:20px;' : '';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:${opts.bold?'12px':'10px'} 0;padding-left:${opts.indent?'16px':(opts.bold?'20px':'0')};${bg}border-bottom:1px solid #f0f0f2;font-size:${opts.indent?'12.5px':'14px'}">
+        <span style="${opts.indent?'color:#86868b':''}">${label}</span>
+        <b style="${opts.color?'color:'+opts.color+';':''}${opts.bold?'font-size:15px':''}">${money(value)}</b>
+      </div>`;
+    }).join('')}
   </div>`;
 }
 function renderSingleBarChart(l1,v1,l2,v2,l3,v3){
