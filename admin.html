@@ -1927,6 +1927,14 @@ function toggleBalanceBreakdown(kind){
   const el = document.getElementById('breakdown_'+kind);
   if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
 }
+let metaAdsCardExpanded = false;
+function toggleMetaAdsCard(){
+  metaAdsCardExpanded = !metaAdsCardExpanded;
+  const body = document.getElementById('metaAdsBreakdown');
+  const icon = document.getElementById('metaAdsToggleIcon');
+  if(body) body.style.display = metaAdsCardExpanded ? 'block' : 'none';
+  if(icon) icon.style.transform = metaAdsCardExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+}
 function renderMetaAdsCard(){
   const m = cache.metaAds;
   if(!m) return ''; // ещё грузится
@@ -1938,16 +1946,19 @@ function renderMetaAdsCard(){
   const campaigns = (m.by_campaign||[]).filter(c=>c.spend>0);
   const isForeignCurrency = m.currency && m.currency !== 'TJS';
   return `<div class="card" style="margin-bottom:20px">
-    <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleMetaAdsCard()">
       <div>
         <div style="font-size:12px;font-weight:600;color:#6e6e73;text-transform:uppercase">📣 Реклама (Meta Ads, из кабинета)</div>
         <div style="font-size:26px;font-weight:600;margin-top:6px">${money(m.total_spend)}</div>
-        ${isForeignCurrency ? `<div style="font-size:12.5px;color:#3a3a3c;margin-top:4px">$${m.total_spend_raw} × курс <input id="usdRateInput" type="number" step="0.01" value="${m.exchange_rate}" style="width:52px;border:1px solid #d2d2d7;border-radius:6px;padding:1px 4px;font-size:12px"> = ${money(m.total_spend)} <button onclick="saveUsdRate()" style="border:none;background:none;color:#16A34A;font-weight:700;cursor:pointer;font-size:11.5px">сохранить курс</button></div>` : ''}
+        ${isForeignCurrency ? `<div style="font-size:12.5px;color:#3a3a3c;margin-top:4px">$${m.total_spend_raw} × курс <input id="usdRateInput" type="number" step="0.01" value="${m.exchange_rate}" onclick="event.stopPropagation()" style="width:52px;border:1px solid #d2d2d7;border-radius:6px;padding:1px 4px;font-size:12px"> = ${money(m.total_spend)} <button onclick="event.stopPropagation();saveUsdRate()" style="border:none;background:none;color:#16A34A;font-weight:700;cursor:pointer;font-size:11.5px">сохранить курс</button></div>` : ''}
         <div style="font-size:11.5px;color:#16A34A;margin-top:4px;font-weight:600">✓ уже учтено в разделе Финансы</div>
       </div>
-      <div style="width:34px;height:34px;border-radius:10px;background:#EEE9FE;display:flex;align-items:center;justify-content:center;font-size:16px">📣</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:34px;height:34px;border-radius:10px;background:#EEE9FE;display:flex;align-items:center;justify-content:center;font-size:16px">📣</div>
+        ${campaigns.length ? `<div id="metaAdsToggleIcon" style="font-size:13px;color:#8e8e93;transition:transform .2s;transform:${metaAdsCardExpanded?'rotate(180deg)':'rotate(0deg)'}">▾</div>` : ''}
+      </div>
     </div>
-    ${campaigns.length ? `<div style="margin-top:14px;border-top:1px solid #f0f0f2;padding-top:10px">
+    ${campaigns.length ? `<div id="metaAdsBreakdown" style="display:${metaAdsCardExpanded?'block':'none'};margin-top:14px;border-top:1px solid #f0f0f2;padding-top:10px">
       ${campaigns.map(c=>`<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px"><span style="color:#3a3a3c">${esc(c.name)}</span><b>${money(c.spend)}</b></div>`).join('')}
     </div>` : ''}
   </div>`;
