@@ -91,22 +91,47 @@ app.post('/api/orders', async (req, res) => {
 
   try {
     let orderItems = items;
+    let storefrontTotal = null;
 
     if (!fromAdmin) {
       // обычный заказ с витрины — никогда не доверяем цене от клиента,
       // берём актуальную цену из базы по id товара (защита от подделки цены через API)
-      const ids = items.map(it => Number(it.id)).filter(Boolean);
-      let priceById = {};
+      const ids = [...new Set(items.map(it => Number(it.id)).filter(Boolean))];
+      let productById = {};
       if (ids.length) {
-        const [rows] = await pool.query(`SELECT id, price FROM products WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
-        priceById = Object.fromEntries(rows.map(r => [r.id, Number(r.price)]));
+        const [rows] = await pool.query(
+          `SELECT id, name_ru, price, bundle2_price, bundle3_price, bundle4_price, stock, active FROM products WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+        productById = Object.fromEntries(rows.map(r => [r.id, r]));
       }
-      orderItems = items.map(it => ({ ...it, price: priceById[Number(it.id)] ?? (Number(it.price) || 0) }));
+      const missing = ids.filter(id => !productById[id] || productById[id].active === 0);
+      if (missing.length || items.some(it => !Number(it.id))) {
+        return res.status(409).json({ error: 'Некоторые товары больше не продаются. Обновите страницу и проверьте корзину.' });
+      }
+      const outOfStock = ids.map(id => productById[id]).filter(p => p.stock != null && Number(p.stock) <= 0);
+      if (outOfStock.length) {
+        return res.status(409).json({ error: 'Нет в наличии: ' + outOfStock.map(p => p.name_ru).join(', ') });
+      }
+      // цена за штуку с учётом скидки за количество (2/3/4 шт) — считается по сумме
+      // всех строк одного товара (например, 2 футболки разных размеров = комплект из 2 шт)
+      const qtyById = {};
+      for (const it of items) qtyById[Number(it.id)] = (qtyById[Number(it.id)] || 0) + (Number(it.qty) || 0);
+      const unitById = {};
+      for (const id of ids) {
+        const q = qtyById[id];
+        unitById[id] = q > 0 ? round2(productLineTotal(productById[id], q) / q) : Number(productById[id].price);
+      }
+      orderItems = items.map(it => ({ ...it, qty: Number(it.qty) || 0, price: unitById[Number(it.id)] }))
+        .filter(it => it.qty > 0);
+      if (!orderItems.length) return res.status(400).json({ error: 'Корзина пуста' });
+      // итог — по суммам комплектов (3 шт за 250 = ровно 250, а не 83.33 × 3 = 249.99)
+      storefrontTotal = round2(ids.reduce((s, id) => s + (qtyById[id] > 0 ? productLineTotal(productById[id], qtyById[id]) : 0), 0));
     }
     // если заказ создан из админки (fromAdmin===true) — доверяем цене за штуку,
     // введённой вручную (для звонков от VIP-клиентов с индивидуальной скидкой);
     // иначе (витрина) цена уже пересчитана из базы выше
-    let finalTotal = round2(orderItems.reduce((s, it) => s + Number(it.price) * Number(it.qty), 0));
+    let finalTotal = storefrontTotal != null
+      ? storefrontTotal
+      : round2(orderItems.reduce((s, it) => s + Number(it.price) * Number(it.qty), 0));
     let discountAmount = null;
     let usedCode = null;
 
@@ -137,6 +162,20 @@ app.post('/api/orders', async (req, res) => {
     res.status(500).json({ error: 'Не удалось сохранить заказ' });
   }
 });
+
+// сумма за q штук одного товара с учётом цен "2/3/4 шт" — берём самый выгодный
+// вариант за штуку среди доступных (n <= q). Та же формула продублирована в index.html
+function productLineTotal(p, q) {
+  const tiers = [
+    { n: 1, t: Number(p.price) },
+    { n: 2, t: p.bundle2_price == null ? null : Number(p.bundle2_price) },
+    { n: 3, t: p.bundle3_price == null ? null : Number(p.bundle3_price) },
+    { n: 4, t: p.bundle4_price == null ? null : Number(p.bundle4_price) },
+  ].filter(x => x.t != null && x.t > 0 && x.n <= q);
+  if (!tiers.length) return round2(Number(p.price) * q);
+  const best = tiers.reduce((a, b) => (b.t / b.n < a.t / a.n ? b : a));
+  return best.n === q ? round2(best.t) : round2(best.t / best.n * q);
+}
 
 async function promoUsageCount(promoId) {
   const [[row]] = await pool.query(
@@ -2506,7 +2545,21 @@ app.get('/api/products', async (req, res) => {
       sales: salesById[r.id] || 0,
       model_media: mediaByProduct[r.id] || []
     }));
-    res.json(products);
+    if (showAll) return res.json(products);
+
+    // витрина: вместо тяжёлых base64-картинок отдаём короткие ссылки (/media/...),
+    // браузер грузит фото по одному и кэширует — сайт открывается в разы быстрее
+    const publicProducts = products.map(p => {
+      const { cost_price, partner_id, ...rest } = p;
+      return {
+        ...rest,
+        image_data: mediaUrl(p.image_data, `/media/product/${p.id}/main`),
+        extra_images: (p.extra_images || []).map((src, i) => mediaUrl(src, `/media/product/${p.id}/extra/${i}`)),
+        model_media: p.model_media.map(m => ({ ...m, media_data: mediaUrl(m.media_data, `/media/model/${m.id}`) })),
+      };
+    });
+    res.set('Cache-Control', 'no-cache');
+    res.json(publicProducts);
   } catch (e) {
     console.error('Ошибка получения товаров:', e);
     res.status(500).json({ error: 'Не удалось получить товары' });
@@ -2522,6 +2575,82 @@ app.patch('/api/products/:id/active', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Ошибка изменения активности товара:', e);
     res.status(500).json({ error: 'Не удалось изменить статус товара' });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// публичные картинки/видео товаров: base64 из базы отдаём как обычный файл
+// ----------------------------------------------------------------------------
+const crypto = require('crypto');
+
+// data:-строку заменяем ссылкой с хэшем содержимого (?v=...), чтобы браузер мог
+// кэшировать файл надолго, а после замены фото в админке сразу брал новое
+function mediaUrl(src, url) {
+  if (!src) return src || null;
+  if (!String(src).startsWith('data:')) return src; // уже обычная ссылка
+  const v = crypto.createHash('md5').update(src).digest('hex').slice(0, 10);
+  return `${url}?v=${v}`;
+}
+
+function sendDataUrl(req, res, src) {
+  const m = /^data:([^;,]+)?((?:;[^;,]+)*?)(;base64)?,(.*)$/s.exec(String(src || ''));
+  if (!m) return res.status(404).end();
+  const body = m[3] ? Buffer.from(m[4], 'base64') : Buffer.from(decodeURIComponent(m[4]));
+  res.set('Content-Type', m[1] || 'application/octet-stream');
+  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.set('Accept-Ranges', 'bytes');
+  // iPhone (Safari) проигрывает видео только если сервер умеет отдавать файл частями
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+  if (range && (range[1] || range[2])) {
+    let start = range[1] ? Number(range[1]) : body.length - Number(range[2]);
+    let end = range[1] && range[2] ? Number(range[2]) : body.length - 1;
+    start = Math.max(0, start); end = Math.min(end, body.length - 1);
+    if (start > end) {
+      res.set('Content-Range', `bytes */${body.length}`);
+      return res.status(416).end();
+    }
+    res.status(206).set('Content-Range', `bytes ${start}-${end}/${body.length}`);
+    return res.send(body.subarray(start, end + 1));
+  }
+  res.send(body);
+}
+
+app.get('/media/product/:id/main', async (req, res) => {
+  try {
+    const [[row]] = await pool.query('SELECT image_data FROM products WHERE id = ?', [req.params.id]);
+    if (!row || !row.image_data) return res.status(404).end();
+    if (!String(row.image_data).startsWith('data:')) return res.redirect(row.image_data);
+    sendDataUrl(req, res, row.image_data);
+  } catch (e) {
+    console.error('Ошибка выдачи фото товара:', e);
+    res.status(500).end();
+  }
+});
+
+app.get('/media/product/:id/extra/:idx', async (req, res) => {
+  try {
+    const [[row]] = await pool.query('SELECT extra_images FROM products WHERE id = ?', [req.params.id]);
+    let list = row && row.extra_images;
+    if (typeof list === 'string') list = JSON.parse(list);
+    const src = Array.isArray(list) ? list[Number(req.params.idx)] : null;
+    if (!src) return res.status(404).end();
+    if (!String(src).startsWith('data:')) return res.redirect(src);
+    sendDataUrl(req, res, src);
+  } catch (e) {
+    console.error('Ошибка выдачи доп. фото товара:', e);
+    res.status(500).end();
+  }
+});
+
+app.get('/media/model/:id', async (req, res) => {
+  try {
+    const [[row]] = await pool.query('SELECT media_data FROM product_model_media WHERE id = ?', [req.params.id]);
+    if (!row || !row.media_data) return res.status(404).end();
+    if (!String(row.media_data).startsWith('data:')) return res.redirect(row.media_data);
+    sendDataUrl(req, res, row.media_data);
+  } catch (e) {
+    console.error('Ошибка выдачи фото/видео модели:', e);
+    res.status(500).end();
   }
 });
 

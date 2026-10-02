@@ -11,17 +11,11 @@
   ҲАМАБОЗОР — шаблони мағозаи интернетӣ (илҳом аз megamall.tj)
   --------------------------------------------------------------------------
   ЧИ БОЯД ИВАЗ КАРД / ЧТО НУЖНО ПОМЕНЯТЬ ПЕРЕД ЗАПУСКОМ:
-  1. PRODUCTS (тахминан хат ~360)   — рӯйхати молҳо, нарх, эмоҷи расм
-  2. WHATSAPP_PHONE (хат ~345)       — рақами WhatsApp-и шумо (бе +, бо коди кишвар)
-  3. TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (хат ~347-348) — барои фиристодани
-     фармоишҳо ба Telegram (нигар шарҳи дар поён)
-  4. Ном ва логотипи бренд (ҷустуҷӯи "ҲАМАБОЗОР" дар матн)
-
-  ЧАРО ТОКЕНИ TELEGRAM ДАР JS АСТ?
-  Ин versияи "клиент-ба-клиент" аст — сода, вале токен дар кодҳои сайт намоён
-  мешавад. Барои истифодаи ҷиддӣ беҳтар аст фармоишро ба сервери худ (ё
-  ба монанди Google-форма/Vercel function) фиристед ва аз он ҷо ба Telegram
-  диҳед, то токен пинҳон бимонад.
+  1. Молҳо / товары — добавляются в admin.html (хранятся в базе)
+  2. WHATSAPP_PHONE — рақами WhatsApp-и шумо (бе +, бо коди кишвар)
+  3. PROMO_CODE — промокод на первый заказ (такой же код должен быть создан
+     в admin.html → Промокоды, иначе покупатель увидит «промокод не найден»)
+  4. Ном ва логотипи бренд (ҷустуҷӯи "Imkon.Shop" дар матн)
 
   БАЗА ДАННЫХ (Railway + MySQL):
   Сайт обращается к своему собственному API-серверу (server.js), который
@@ -459,11 +453,24 @@ section.products{padding:28px 20px}
   display:flex;align-items:center;justify-content:center;gap:8px}
 .btn-wa:disabled,.btn-tg:disabled{opacity:.5}
 .field-error{color:var(--brick);font-size:11px;margin-top:8px;display:none}
+.field-error{font-size:12.5px;font-weight:600}
+/* нет в наличии / не выбран размер / заглушки при загрузке */
+.card-oos{font-size:11.5px;font-weight:700;color:#8a8478;white-space:nowrap}
+.pp-add-btn:disabled{background:#bdb7ab;cursor:not-allowed}
+.pp-variant-missing{animation:ppShake .45s ease;border-radius:10px;box-shadow:0 0 0 2px var(--brick)}
+@keyframes ppShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.card-skeleton{pointer-events:none}
+.card-skeleton .card-media,.card-skeleton .sk-line{background:linear-gradient(90deg,#eee9df 25%,#f6f2ea 50%,#eee9df 75%);background-size:200% 100%;animation:skShine 1.2s infinite linear}
+.card-skeleton .sk-line{height:12px;border-radius:6px;margin:8px 10px}
+@keyframes skShine{from{background-position:200% 0}to{background-position:-200% 0}}
+.grid-msg{grid-column:1/-1;text-align:center;color:#8a8478;padding:30px 0;font-size:14px}
+.grid-msg button{margin-top:12px;padding:10px 18px;border-radius:10px;background:var(--accent-green);color:#fff;font-weight:700;border:none}
 
 /* success */
 .success-box{text-align:center;padding:10px 4px}
 .success-box .em{font-size:48px}
 .success-box h3{margin-top:10px}
+.success-box .checkout-btn{width:100%;display:flex;justify-content:center}
 .success-box p{margin-top:8px;color:#6b655a;font-size:14px}
 
 /* toast */
@@ -704,7 +711,7 @@ footer p{margin-top:8px;font-size:14px}
     <div class="promo-card promo-card-promo" style="--promo-bg:var(--brick)">
       <div class="promo-title" data-i18n="promo1_title">Фармоиши аввалин −5%</div>
       <div class="promo-sub" data-i18n="promo1_sub">Барои фармоиши аввалини худ тавассути сайт</div>
-      <div class="promo-code">ПРОМОКОД: АВВАЛИН</div>
+      <div class="promo-code">ПРОМОКОД: <span class="js-promo-code">FIRST5</span></div>
     </div>
   </div>
 </section>
@@ -730,7 +737,7 @@ footer p{margin-top:8px;font-size:14px}
       <div class="promo-code-ic">%</div>
       <div>
         <div class="promo-code-title" data-i18n="promo_code_title">Тахфиф 5% барои хариди аввалин</div>
-        <div class="promo-code-value">Промокод: <b id="homePromoCode">FIRST5</b></div>
+        <div class="promo-code-value">Промокод: <b id="homePromoCode" class="js-promo-code">FIRST5</b></div>
       </div>
     </div>
     <button class="promo-code-btn" onclick="copyHomePromoCode()" data-i18n="promo_code_btn">Истифода баред</button>
@@ -815,30 +822,30 @@ footer p{margin-top:8px;font-size:14px}
 <!-- checkout modal -->
 <div class="modal-overlay" id="checkoutOverlay">
   <div class="modal">
-    <button class="modal-close-x" onclick="closeAll()" aria-label="Пӯшидан">✕</button>
+    <button class="modal-close-x" onclick="closeAll()" aria-label="✕">✕</button>
     <div id="checkoutForm">
       <h3 data-i18n="checkout_title">Маълумоти фармоиш</h3>
       <div class="checkout-order-summary" id="checkoutOrderSummary"></div>
       <div class="field">
         <label data-i18n="form_name">Ном</label>
-        <input id="custName" placeholder="">
+        <input id="custName" autocomplete="name" placeholder="">
       </div>
       <div class="field">
         <label data-i18n="form_phone">Рақами телефон</label>
-        <input id="custPhone" placeholder="+992 90 000 00 00">
+        <input id="custPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+992 90 000 00 00">
       </div>
       <div class="field">
         <label data-i18n="form_address">Суроға</label>
-        <input id="custAddress" placeholder="">
+        <input id="custAddress" autocomplete="street-address" data-i18n-ph="form_address_ph" placeholder="">
       </div>
       <div class="field">
         <label data-i18n="form_comment">Шарҳ (ихтиёрӣ)</label>
         <textarea id="custComment"></textarea>
       </div>
       <div class="field">
-        <label>Промокод (ихтиёрӣ)</label>
+        <label data-i18n="form_promo">Промокод (ихтиёрӣ)</label>
         <div style="display:flex;gap:8px">
-          <input id="custPromo" placeholder="HAMA10" style="text-transform:uppercase;flex:1">
+          <input id="custPromo" class="js-promo-ph" placeholder="FIRST5" autocapitalize="characters" style="text-transform:uppercase;flex:1" oninput="if(promoApplied) resetPromo()">
           <button type="button" class="btn-promo-apply" onclick="applyPromoCode()">OK</button>
         </div>
         <div id="promoResult" style="font-size:12px;margin-top:6px"></div>
@@ -875,6 +882,8 @@ footer p{margin-top:8px;font-size:14px}
       <div class="em">🎉</div>
       <h3 data-i18n="order_success_title">Фармоиши шумо қабул шуд!</h3>
       <p data-i18n="order_success_sub">Мо ба зудӣ бо шумо тамос мегирем. Ташаккур барои харид! 🙏</p>
+      <p id="successOrderInfo" style="margin-top:10px;font-size:14px"></p>
+      <a id="successWaLink" class="checkout-btn" target="_blank" rel="noopener" style="display:none;margin-top:14px;text-decoration:none;background:#25D366;align-items:center;justify-content:center;gap:6px;width:100%;box-sizing:border-box">💬 <span data-i18n="success_wa">Написать о заказе в WhatsApp</span></a>
       <button class="checkout-btn" style="margin-top:18px" onclick="closeAll()"><span data-i18n="close">Хуб шуд</span></button>
     </div>
   </div>
@@ -962,42 +971,14 @@ const CART_ICON_SM = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none
    ТАНЗИМОТ / НАСТРОЙКИ — ин қисматро иваз кунед
    ========================================================================== */
 const WHATSAPP_PHONE = "992987931204";          // рақами шумо, бе "+"
-const TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN";      // аз @BotFather
-const TELEGRAM_CHAT_ID   = "YOUR_CHAT_ID";        // аз @userinfobot ё @getidsbot
+const PROMO_CODE = "FIRST5";                     // промокод на первый заказ — тот же код создайте в admin.html → Промокоды
 
 /* ==========================================================================
    МОЛҲО / ТОВАРЫ — ин рӯйхатро бо молҳои воқеӣ иваз кунед
    ========================================================================== */
-// FALLBACK_PRODUCTS используется, только если сервер временно недоступен —
-// реальный список товаров подгружается через loadProducts() из базы данных
-let PRODUCTS = [
-  {id:1,  cat:'electronics', name_tj:'Гӯшмонакҳои бесим',    name_ru:'Беспроводные наушники', price:249, emoji:'🎧', tag:'top',
-    desc_tj:'Гӯшмонакҳои сифатнок бо садои возеҳ, батарея то 20 соат кор мекунад.', desc_ru:'Качественные наушники с чётким звуком, автономность до 20 часов.'},
-  {id:2,  cat:'electronics', name_tj:'Соати ҳушманд',        name_ru:'Умные часы',            price:890, emoji:'⌚', tag:'top',
-    desc_tj:'Назорати саломатӣ, огоҳиномаҳо ва зарядкунии тезкор дар як дастгоҳ.', desc_ru:'Мониторинг здоровья, уведомления и быстрая зарядка в одном устройстве.'},
-  {id:3,  cat:'electronics', name_tj:'Зарядкунаки бесим',    name_ru:'Беспроводная зарядка',  price:120, emoji:'🔌', tag:'new',
-    desc_tj:'Зарядкунии бидуни сим барои телефонҳои муосир — сода ва тезкор.', desc_ru:'Беспроводная зарядка для современных смартфонов — просто и быстро.'},
-  {id:4,  cat:'electronics', name_tj:'Баландгӯяки Bluetooth',name_ru:'Bluetooth-колонка',     price:320, emoji:'🔊', tag:null,
-    desc_tj:'Садои баланд ва аниқ барои хона ва берун, пайвасти осон.', desc_ru:'Громкий и чистый звук для дома и улицы, простое подключение.'},
-  {id:5,  cat:'electronics', name_tj:'Пауэрбанк 20000mAh',   name_ru:'Повербанк 20000mAh',    price:280, emoji:'🔋', tag:'new',
-    desc_tj:'Захираи калон — якчанд маротиба заряд кардани телефон дар сафар.', desc_ru:'Большой запас энергии — хватит зарядить телефон несколько раз в дороге.'},
-  {id:6,  cat:'clothing',    name_tj:'Куртаи мардона',       name_ru:'Мужская куртка',        price:450, emoji:'🧥', tag:'top',
-    desc_tj:'Матои гарм ва мустаҳкам барои мавсими хунук, андозаҳои гуногун.', desc_ru:'Тёплая и прочная ткань для холодного сезона, разные размеры.'},
-  {id:7,  cat:'clothing',    name_tj:'Ҷинси занона',         name_ru:'Женские джинсы',        price:260, emoji:'👖', tag:null,
-    desc_tj:'Матои сифатнок бо буриши муосир, барои ҳар рӯз мувофиқ.', desc_ru:'Качественная ткань современного кроя, подходит на каждый день.'},
-  {id:8,  cat:'clothing',    name_tj:'Куртаи пахтагӣ',       name_ru:'Хлопковая футболка',    price:90,  emoji:'👕', tag:'new',
-    desc_tj:'Пахтаи 100% нафис, нарм ба пӯст ва хунукиро хуб мегузаронад.', desc_ru:'100% хлопок, приятен к телу и хорошо пропускает воздух.'},
-  {id:9,  cat:'clothing',    name_tj:'Костюми варзишӣ',      name_ru:'Спортивный костюм',     price:380, emoji:'🏃', tag:null,
-    desc_tj:'Матои нафис барои машқ ва истироҳат, ҳаракатро маҳдуд намекунад.', desc_ru:'Мягкая ткань для спорта и отдыха, не сковывает движения.'},
-  {id:10, cat:'bags',        name_tj:'Ҷузвдони мактабӣ',     name_ru:'Школьный рюкзак',       price:210, emoji:'🎒', tag:'top',
-    desc_tj:'Ҷойи васеъ барои китобҳо ва ноутбук, пуштибанди мулоим.', desc_ru:'Вместительный рюкзак для книг и ноутбука, мягкие лямки.'},
-  {id:11, cat:'bags',        name_tj:'Сумкаи занона',        name_ru:'Женская сумка',         price:340, emoji:'👜', tag:'new',
-    desc_tj:'Тарҳи занона бо якчанд ҷайб, барои кор ва берун рафтан.', desc_ru:'Женский дизайн с несколькими отделениями — для работы и прогулок.'},
-  {id:12, cat:'bags',        name_tj:'Ҳамён',                name_ru:'Кошелёк',               price:95,  emoji:'👛', tag:null,
-    desc_tj:'Ҷойҳо барои корт ва пул, чарми сифатнок.', desc_ru:'Отделения для карт и денег, качественная кожа.'},
-  {id:13, cat:'bags',        name_tj:'Ҷузвдони сафарӣ',      name_ru:'Дорожная сумка',        price:460, emoji:'🧳', tag:null,
-    desc_tj:'Ҳаҷми калон барои сафарҳои дароз, мустаҳкам ва бодавом.', desc_ru:'Большой объём для дальних поездок, прочный и надёжный.'},
-];
+// товары подгружаются из базы через loadProducts(); пока идёт загрузка — показываем заглушки
+let PRODUCTS = [];
+let productsState = 'loading'; // loading | ready | error
 
 // подгружаем актуальные товары с сервера (управляются из admin.html)
 async function loadProducts(){
@@ -1005,7 +986,7 @@ async function loadProducts(){
     const res = await fetch('/api/products');
     if(!res.ok) throw new Error('http ' + res.status);
     const data = await res.json();
-    if(Array.isArray(data) && data.length){
+    if(Array.isArray(data)){
       const num = v => (v === null || v === undefined || v === '') ? null : Number(v);
       PRODUCTS = data.map(p => ({
         id: p.id,
@@ -1035,14 +1016,18 @@ async function loadProducts(){
         colors: p.colors || '',
         sizes: p.sizes || '',
         views: num(p.views) || 0,
+        stock: num(p.stock),
         extra_images: Array.isArray(p.extra_images) ? p.extra_images : [],
         seller_name: p.seller_name || '',
         model_media: Array.isArray(p.model_media) ? p.model_media : []
       }));
     }
+    productsState = 'ready';
   }catch(e){
-    console.warn('Не удалось загрузить товары с сервера, используем встроенный список:', e);
+    console.warn('Не удалось загрузить товары с сервера:', e);
+    productsState = 'error';
   }
+  loadCart(); // корзина из прошлого визита — сверяем с актуальным списком товаров
   shuffleArray(PRODUCTS); // разный порядок при каждой загрузке страницы
   renderTabs();
   renderProducts();
@@ -1134,6 +1119,17 @@ const I18N = {
     trust_privacy_title:'Маълумоти шахсӣ ҳифз карда мешавад', trust_privacy_sub:'Мо маълумоти шуморо ба шахсони сеюм намедиҳем',
     trust_delivery_title:'Таҳвили зуд', trust_delivery_sub:'Дар тамоми Тоҷикистон',
     trust_return_title:'Имконияти баргардонидан', trust_return_sub:'Дар давоми 14 рӯз',
+    out_of_stock:'Тамом шуд', remove:'Нест кардан',
+    choose_color:'Лутфан рангро интихоб кунед', choose_size:'Лутфан андозаро интихоб кунед',
+    form_promo:'Промокод (ихтиёрӣ)', form_address_ph:'Шаҳр, кӯча, хона, мавзеъ',
+    promo_checking:'Санҷиш...', promo_invalid:'Промокод нодуруст ё мӯҳлаташ гузаштааст',
+    promo_error:'Хатогӣ ҳангоми санҷиш', promo_discount:'Тахфиф', promo_to_pay:'Барои пардохт',
+    form_phone_error:'Рақами телефонро пурра нависед: +992 и 9 рақам',
+    form_address_error:'Лутфан суроғаи бурдарасониро нависед',
+    order_error:'Хатогӣ ҳангоми фиристодан. Бори дигар кӯшиш кунед.',
+    order_number:'Рақами фармоиш', success_wa:'Дар бораи фармоиш ба WhatsApp нависед',
+    load_error:'Молҳо бор нашуданд. Интернетро санҷед.', retry:'Аз нав кӯшиш кардан',
+    search_empty:'Чизе ёфт нашуд. Калимаи дигарро кӯшиш кунед.',
   },
   ru:{
     search_placeholder:'Поиск...',
@@ -1167,6 +1163,17 @@ const I18N = {
     trust_privacy_title:'Личные данные под защитой', trust_privacy_sub:'Мы не передаём ваши данные третьим лицам',
     trust_delivery_title:'Быстрая доставка', trust_delivery_sub:'По всему Таджикистану',
     trust_return_title:'Возможность возврата', trust_return_sub:'В течение 14 дней',
+    out_of_stock:'Нет в наличии', remove:'Удалить',
+    choose_color:'Пожалуйста, выберите цвет', choose_size:'Пожалуйста, выберите размер',
+    form_promo:'Промокод (необязательно)', form_address_ph:'Город, улица, дом, ориентир',
+    promo_checking:'Проверяю...', promo_invalid:'Промокод недействителен',
+    promo_error:'Ошибка проверки', promo_discount:'Скидка', promo_to_pay:'К оплате',
+    form_phone_error:'Введите номер полностью: +992 и 9 цифр',
+    form_address_error:'Пожалуйста, укажите адрес доставки',
+    order_error:'Ошибка при отправке. Попробуйте ещё раз.',
+    order_number:'Номер заказа', success_wa:'Написать о заказе в WhatsApp',
+    load_error:'Не удалось загрузить товары. Проверьте интернет.', retry:'Попробовать снова',
+    search_empty:'Ничего не найдено. Попробуйте другое слово.',
   }
 };
 
@@ -1185,9 +1192,56 @@ const CARD_BG = { electronics:'#EFE6D2', clothing:'#F3DEDA', bags:'#E4E9DA' };
    ========================================================================== */
 let lang = 'ru';
 let activeCat = 'all';
-let cart = {}; // {productId: qty}
-let cartPriceOverride = {}; // {productId: цена за 1 шт, если товар добавлен по пакетной цене}
-let cartVariantNote = {}; // {productId: "Цвет: ..., Размер: ..."}
+// корзина: {ключ строки: кол-во}; ключ = "id" или "id|Цвет: ..., Размер: ..." —
+// так одна футболка двух размеров лежит в корзине двумя отдельными строками
+let cart = {};
+let cartVariantNote = {}; // {ключ строки: "Цвет: ..., Размер: ..."}
+let cartLoaded = false;   // пока корзина не восстановлена из браузера — не перезаписываем сохранённую
+let promoApplied = null;  // {code, amount} — проверенный промокод
+
+function round2(n){ return Math.round((Number(n)||0)*100)/100; }
+function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function lineId(key){ return Number(String(key).split('|')[0]); }
+function lineKey(id, note){ return note ? id + '|' + note : String(id); }
+function jsKey(key){ return encodeURIComponent(key).replace(/'/g,'%27'); } // безопасно для onclick="...('...')"
+function findProduct(id){ return PRODUCTS.find(p=>p.id===Number(id)); }
+function hasVariants(p){ return !!((p.colors||'').trim() || (p.sizes||'').trim()); }
+function isOutOfStock(p){ return p.stock != null && p.stock <= 0; }
+function productQtyInCart(id){
+  return Object.entries(cart).reduce((s,[k,q])=> s + (lineId(k)===Number(id) ? q : 0), 0);
+}
+
+// сумма за q штук с учётом цен "2/3/4 шт" — самый выгодный вариант за штуку среди n <= q.
+// Та же формула на сервере (server.js, productLineTotal) — суммы на сайте и в заказе совпадают
+function productLineTotal(p, q){
+  const tiers = [
+    {n:1, t:p.price}, {n:2, t:p.bundle2_price}, {n:3, t:p.bundle3_price}, {n:4, t:p.bundle4_price},
+  ].filter(x => x.t != null && Number(x.t) > 0 && x.n <= q);
+  if(!tiers.length) return round2(p.price * q);
+  const best = tiers.reduce((a,b)=> (b.t/b.n < a.t/a.n ? b : a));
+  return best.n === q ? round2(best.t) : round2(best.t / best.n * q);
+}
+
+function saveCart(){
+  if(!cartLoaded) return;
+  try{ localStorage.setItem('hb_cart', JSON.stringify({ cart, notes: cartVariantNote })); }catch(e){}
+}
+function loadCart(){
+  if(productsState !== 'ready') return; // товары не загрузились — сохранённую корзину не трогаем
+  try{
+    const saved = JSON.parse(localStorage.getItem('hb_cart') || 'null');
+    if(saved && saved.cart){
+      for(const [key, qty] of Object.entries(saved.cart)){
+        const p = findProduct(lineId(key));
+        if(!p || isOutOfStock(p) || !(qty > 0)) continue; // товар убрали с сайта или закончился
+        cart[key] = (cart[key] || 0) + Math.floor(qty);
+        if(saved.notes && saved.notes[key]) cartVariantNote[key] = saved.notes[key];
+      }
+    }
+  }catch(e){}
+  cartLoaded = true;
+  updateCartUI();
+}
 
 /* ---------- рендер ---------- */
 function renderTabs(){
@@ -1215,22 +1269,35 @@ function renderProducts(){
   const grid = document.getElementById('productGrid');
   const searchVal = document.getElementById('searchInputHome').value || document.getElementById('searchInput').value || '';
   const q = searchVal.toLowerCase().trim();
+  if(productsState === 'loading'){
+    grid.innerHTML = Array.from({length:6}, () =>
+      `<div class="card card-skeleton"><div class="card-media-wrap"><div class="card-media"></div></div><div class="sk-line" style="width:80%"></div><div class="sk-line" style="width:45%"></div></div>`
+    ).join('');
+    renderTopSection();
+    return;
+  }
+  if(productsState === 'error' && !PRODUCTS.length){
+    grid.innerHTML = `<div class="grid-msg">${I18N[lang].load_error}<br><button onclick="productsState='loading';renderProducts();loadProducts()">${I18N[lang].retry}</button></div>`;
+    renderTopSection();
+    return;
+  }
   const list = PRODUCTS.filter(p=>{
     const matchCat = activeCat==='all' || p.cat===activeCat;
-    const name = (lang==='tj'?p.name_tj:p.name_ru).toLowerCase();
-    const matchQ = !q || name.includes(q);
+    // ищем сразу по обоим языкам и по описанию
+    const hay = [p.name_ru, p.name_tj, p.desc_ru, p.desc_tj].join(' ').toLowerCase();
+    const matchQ = !q || hay.includes(q);
     const matchFav = !showingFavoritesOnly || isFavorite(p.id);
     return matchCat && matchQ && matchFav;
   });
   grid.innerHTML = list.map(p=>renderCard(p)).join('') ||
-    `<p style="grid-column:1/-1;text-align:center;color:#8a8478;padding:30px 0">${showingFavoritesOnly ? (lang==='tj'?'Ҳанӯз чизе интихоб накардаед':'Пока ничего не добавлено') : '—'}</p>`;
+    `<p class="grid-msg">${showingFavoritesOnly ? (lang==='tj'?'Ҳанӯз чизе интихоб накардаед':'Пока ничего не добавлено') : (q ? I18N[lang].search_empty : '—')}</p>`;
 
   renderTopSection();
 }
 
 function renderTopSection(){
   const section = document.getElementById('topSection');
-  const topItems = PRODUCTS.filter(p=>p.tag==='top').slice(0,6);
+  const topItems = PRODUCTS.filter(p=>p.tag==='top' && !isOutOfStock(p)).slice(0,6);
   if(topItems.length===0){
     section.style.display = 'none';
     return;
@@ -1247,8 +1314,12 @@ function priceHtml(p){
   return `<div class="price-group"><span class="price-tag">${p.price} смн</span></div>`;
 }
 
-function unitPrice(id){
-  return cartPriceOverride[id] != null ? cartPriceOverride[id] : (PRODUCTS.find(p=>p.id==id)||{}).price || 0;
+// цена за штуку для строки корзины (учитывает скидку за количество по всем строкам этого товара)
+function unitPrice(key){
+  const p = findProduct(lineId(key));
+  if(!p) return 0;
+  const q = productQtyInCart(p.id);
+  return q > 0 ? round2(productLineTotal(p, q) / q) : p.price;
 }
 
 function mediaHtml(p){
@@ -1286,7 +1357,7 @@ function renderCard(p){
           ${mediaHtml(p)}
         </div>
         ${discountPct ? `<span class="card-discount-badge">−${discountPct}%</span>` : ''}
-        <button class="card-fav-btn ${isFav?'active':''}" onclick="event.stopPropagation();toggleFavorite(${p.id})">${isFav?HEART_ICON_FILLED:HEART_ICON}</button>
+        <button class="card-fav-btn ${isFav?'active':''}" onclick="event.stopPropagation();toggleFavorite(${p.id})" aria-label="${I18N[lang].nav_favorites}">${isFav?HEART_ICON_FILLED:HEART_ICON}</button>
         ${p.tag==='new' ? `<span class="card-ribbon">${lang==='tj'?'НАВ':'NEW'}</span>` : ''}
       </div>
       <div class="card-info">
@@ -1297,13 +1368,15 @@ function renderCard(p){
             <span class="card-price-now">${p.price} смн</span>
             ${p.old_price && p.old_price > p.price ? `<span class="card-price-old">${p.old_price} смн</span>` : ''}
           </div>
-          ${cart[p.id]
+          ${isOutOfStock(p)
+            ? `<span class="card-oos">${I18N[lang].out_of_stock}</span>`
+            : (!hasVariants(p) && cart[lineKey(p.id)])
             ? `<div class="card-qty-row" onclick="event.stopPropagation()">
-                 <button class="card-qty-btn" onclick="changeQty(${p.id},-1)">−</button>
-                 <span class="card-qty-val">${cart[p.id]}</span>
-                 <button class="card-qty-btn" onclick="changeQty(${p.id},1)">+</button>
+                 <button class="card-qty-btn" onclick="changeQty('${p.id}',-1)" aria-label="−">−</button>
+                 <span class="card-qty-val">${cart[lineKey(p.id)]}</span>
+                 <button class="card-qty-btn" onclick="changeQty('${p.id}',1)" aria-label="+">+</button>
                </div>`
-            : `<button class="card-buy-btn" onclick="event.stopPropagation();addToCart(${p.id})">${CART_ICON_SM}</button>`
+            : `<button class="card-buy-btn" onclick="event.stopPropagation();addToCart(${p.id})" aria-label="${I18N[lang].add_to_cart}">${CART_ICON_SM}</button>`
           }
         </div>
       </div>
@@ -1378,34 +1451,55 @@ function trackFunnelEvent(type, productId){
     type, product_id: productId, visitor_id: getVisitorId(), utm_source: utm.source||null,
   }) }).catch(()=>{});
 }
+// быстрое добавление с карточки: если у товара есть цвет/размер — сначала открываем
+// страницу товара, чтобы покупатель выбрал вариант (иначе заказ придёт без размера)
 function addToCart(id){
-  cart[id] = (cart[id]||0) + 1;
-  delete cartPriceOverride[id]; // обычное добавление — сбрасываем пакетную цену
-  delete cartVariantNote[id];
+  const p = findProduct(id);
+  if(!p) return;
+  if(isOutOfStock(p)){ showToast(I18N[lang].out_of_stock); return; }
+  if(hasVariants(p)){ openProduct(p.id); return; }
+  const key = lineKey(p.id);
+  cart[key] = (cart[key]||0) + 1;
   updateCartUI();
   showToast(I18N[lang].added);
   renderProducts();
-  trackFunnelEvent('cart', id);
+  trackFunnelEvent('cart', p.id);
 }
-function changeQty(id, delta){
-  cart[id] = (cart[id]||0) + delta;
-  if(cart[id]<=0){ delete cart[id]; delete cartPriceOverride[id]; delete cartVariantNote[id]; }
+function changeQty(key, delta){
+  key = decodeURIComponent(String(key));
+  cart[key] = (cart[key]||0) + delta;
+  if(cart[key]<=0){ delete cart[key]; delete cartVariantNote[key]; }
   updateCartUI();
   renderProducts();
+  if(ppCurrentId) updatePpAddBtnLabel();
 }
-function removeItem(id){ delete cart[id]; delete cartPriceOverride[id]; delete cartVariantNote[id]; updateCartUI(); }
+function removeItem(key){
+  key = decodeURIComponent(String(key));
+  delete cart[key]; delete cartVariantNote[key];
+  updateCartUI();
+  renderProducts();
+  if(ppCurrentId) updatePpAddBtnLabel();
+}
 
 function cartCount(){ return Object.values(cart).reduce((a,b)=>a+b,0); }
+// итог по суммам комплектов каждого товара — так же считает сервер
 function cartTotal(){
-  return Object.entries(cart).reduce((sum,[id,qty])=>{
-    return sum + unitPrice(id)*qty;
-  },0);
+  const ids = [...new Set(Object.keys(cart).map(lineId))];
+  return round2(ids.reduce((sum,id)=>{
+    const p = findProduct(id);
+    const q = productQtyInCart(id);
+    return sum + (p && q > 0 ? productLineTotal(p, q) : 0);
+  }, 0));
+}
+// итог к оплате с учётом проверенного промокода
+function cartPayable(){
+  return round2(Math.max(0, cartTotal() - (promoApplied ? promoApplied.amount : 0)));
 }
 
 function renderCartRecommendations(){
   const box = document.getElementById('drawerRecommend');
   if(!box) return;
-  const cartIds = Object.keys(cart).map(Number);
+  const cartIds = Object.keys(cart).map(lineId);
   if(cartIds.length === 0){ box.innerHTML = ''; return; }
   const cartCats = new Set(PRODUCTS.filter(p=>cartIds.includes(p.id)).map(p=>p.cat));
   let picks = PRODUCTS.filter(p => !cartIds.includes(p.id) && cartCats.has(p.cat));
@@ -1432,26 +1526,32 @@ function renderCheckoutOrderSummary(){
   const box = document.getElementById('checkoutOrderSummary');
   if(!box) return;
   const entries = Object.entries(cart);
-  box.innerHTML = entries.map(([id,qty])=>{
-    const p = PRODUCTS.find(p=>p.id==id);
+  box.innerHTML = entries.map(([key,qty])=>{
+    const p = findProduct(lineId(key));
     if(!p) return '';
     return `
       <div class="checkout-order-item">
         <div class="em">${mediaHtml(p)}</div>
         <div class="info">
-          <div class="name">${lang==='tj'?p.name_tj:p.name_ru}</div>
-          ${cartVariantNote[id] ? `<div class="variant">${cartVariantNote[id]}</div>` : ''}
+          <div class="name">${esc(lang==='tj'?p.name_tj:p.name_ru)}</div>
+          ${cartVariantNote[key] ? `<div class="variant">${esc(cartVariantNote[key])}</div>` : ''}
         </div>
         <div class="qty-x">× ${qty}</div>
-        <div class="price">${unitPrice(id)*qty} смн</div>
+        <div class="price">${round2(unitPrice(key)*qty)} смн</div>
       </div>`;
-  }).join('') + `<div class="checkout-order-total"><span>${I18N[lang].cart_total}</span><span>${cartTotal()} смн</span></div>`;
+  }).join('') + (promoApplied
+    ? `<div class="checkout-order-total" style="font-weight:600;color:var(--accent-green-dark)"><span>${I18N[lang].promo_discount} (${esc(promoApplied.code)})</span><span>−${promoApplied.amount} смн</span></div>`
+    : '')
+    + `<div class="checkout-order-total"><span>${I18N[lang].cart_total}</span><span>${cartPayable()} смн</span></div>`;
 }
 
 function updateCartUI(){
   document.getElementById('cartBadge').textContent = cartCount();
   document.getElementById('cartBadgePP').textContent = cartCount();
   document.getElementById('cartTotal').textContent = cartTotal() + ' смн';
+  saveCart();
+  // корзина изменилась — скидку по промокоду нужно пересчитать
+  if(promoApplied && promoApplied.subtotal !== cartTotal()) resetPromo();
   document.getElementById('checkoutBtn').disabled = cartCount()===0;
 
   const banner = document.getElementById('cartSavedBanner');
@@ -1464,20 +1564,23 @@ function updateCartUI(){
     renderCartRecommendations();
     return;
   }
-  box.innerHTML = entries.map(([id,qty])=>{
-    const p = PRODUCTS.find(p=>p.id==id);
+  box.innerHTML = entries.map(([key,qty])=>{
+    const p = findProduct(lineId(key));
     if(!p) return '';
+    const k = jsKey(key);
+    const unit = unitPrice(key);
     return `
       <div class="cart-row">
         <div class="em">${mediaHtml(p)}</div>
         <div class="info">
-          <div class="name">${lang==='tj'?p.name_tj:p.name_ru}</div>
-          <div class="price">${unitPrice(id)} смн</div>
+          <div class="name">${esc(lang==='tj'?p.name_tj:p.name_ru)}</div>
+          ${cartVariantNote[key] ? `<div class="variant" style="font-size:12px;color:#8a8478">${esc(cartVariantNote[key])}</div>` : ''}
+          <div class="price">${unit} смн${unit < p.price ? ` <span style="text-decoration:line-through;color:#8a8478;font-weight:400;font-size:12px">${p.price}</span>` : ''}</div>
           <div class="qty">
-            <button onclick="changeQty(${p.id},-1)">−</button>
+            <button onclick="changeQty('${k}',-1)" aria-label="−">−</button>
             <span>${qty}</span>
-            <button onclick="changeQty(${p.id},1)">+</button>
-            <span class="remove-x" onclick="removeItem(${p.id})">✕</span>
+            <button onclick="changeQty('${k}',1)" aria-label="+">+</button>
+            <span class="remove-x" onclick="removeItem('${k}')" role="button" aria-label="${I18N[lang].remove}">✕</span>
           </div>
         </div>
       </div>`;
@@ -1779,7 +1882,7 @@ function renderProductDetailRest(p){
       const perUnit = Math.round((t.price/t.qty)*100)/100;
       const isBest = perUnit === bestPerUnit && t.qty > 1;
       return `
-      <button type="button" class="pp-bundle-opt ${ (ppBundleQty ? ppBundleQty===t.qty : t.qty===1) ? 'active' : ''}" onclick="ppSelectBundle(${t.qty},${t.price})">
+      <button type="button" class="pp-bundle-opt ${ t.qty===ppQtyVal ? 'active' : ''}" onclick="ppSelectBundle(${t.qty},${t.price})">
         ${isBest ? `<span class="pp-bundle-hit">${lang==='tj'?'ХИТ':'ХИТ'}</span>` : ''}
         <span class="q">${t.qty} ${lang==='tj'?'дона':'шт'}</span>
         <span class="pp-bundle-total">${t.price} смн</span>
@@ -1869,23 +1972,41 @@ function ppChangeQty(delta){
   ppBundleTotal = null;
   renderProductDetail();
 }
+// ключ строки корзины для текущего выбора на странице товара
+function ppCurrentKey(){
+  const p = findProduct(ppCurrentId);
+  if(!p) return null;
+  const parts = [];
+  // подписи на русском независимо от языка сайта — так их читает админка, и строка
+  // корзины не раздваивается после переключения языка
+  if(ppSelectedColor) parts.push('Цвет: ' + ppSelectedColor);
+  if(ppSelectedSize) parts.push('Размер: ' + ppSelectedSize);
+  return lineKey(p.id, parts.join(', '));
+}
+
 function updatePpAddBtnLabel(){
   const label = document.getElementById('ppAddBtnLabel');
   const priceEl = document.getElementById('ppAddBtnPrice');
+  const btn = document.getElementById('ppAddBtn');
   if(!label || !ppCurrentId) return;
-  const p = PRODUCTS.find(x=>x.id===ppCurrentId);
-  const inCart = cart[ppCurrentId] || 0;
+  const p = findProduct(ppCurrentId);
+  if(!p) return;
+  if(isOutOfStock(p)){
+    label.textContent = I18N[lang].out_of_stock;
+    if(priceEl) priceEl.textContent = '';
+    if(btn) btn.disabled = true;
+    return;
+  }
+  if(btn) btn.disabled = false;
+  const inCart = cart[ppCurrentKey()] || 0;
   label.textContent = inCart
     ? (lang==='tj' ? `✓ Дар сабад (${inCart})` : `✓ В корзине (${inCart})`)
     : I18N[lang].add_to_cart;
-  if(priceEl && p){
-    const unitP = (ppBundleQty && ppBundleTotal) ? Math.round((ppBundleTotal/ppBundleQty)*100)/100 : p.price;
-    priceEl.textContent = (unitP * ppQtyVal) + ' смн';
-  }
+  if(priceEl) priceEl.textContent = productLineTotal(p, ppQtyVal) + ' смн';
 }
 
 function ppAddOrOpenCart(){
-  if(cart[ppCurrentId]){
+  if(cart[ppCurrentKey()]){
     openCart();
   }else{
     ppAddToCart();
@@ -1893,25 +2014,30 @@ function ppAddOrOpenCart(){
 }
 
 function ppAddToCart(){
-  if(!ppCurrentId) return;
-  cart[ppCurrentId] = (cart[ppCurrentId]||0) + ppQtyVal;
-  if(ppBundleQty && ppBundleTotal){
-    cartPriceOverride[ppCurrentId] = Math.round((ppBundleTotal / ppBundleQty) * 100) / 100;
-  }else{
-    delete cartPriceOverride[ppCurrentId];
+  const p = findProduct(ppCurrentId);
+  if(!p) return;
+  if(isOutOfStock(p)){ showToast(I18N[lang].out_of_stock); return; }
+  // цвет и размер обязательны, если они есть у товара
+  const needColor = (p.colors||'').split(',').some(s=>s.trim()) && !ppSelectedColor;
+  const needSize = (p.sizes||'').split(',').some(s=>s.trim()) && !ppSelectedSize;
+  if(needColor || needSize){
+    showToast(needColor ? I18N[lang].choose_color : I18N[lang].choose_size);
+    const el = document.getElementById(needColor ? 'ppColors' : 'ppSizes');
+    if(el){
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.classList.remove('pp-variant-missing'); void el.offsetWidth; el.classList.add('pp-variant-missing');
+    }
+    return;
   }
-  const variantParts = [];
-  if(ppSelectedColor) variantParts.push((lang==='tj'?'Ранг':'Цвет') + ': ' + ppSelectedColor);
-  if(ppSelectedSize) variantParts.push((lang==='tj'?'Андоза':'Размер') + ': ' + ppSelectedSize);
-  if(variantParts.length){
-    cartVariantNote[ppCurrentId] = variantParts.join(', ');
-  }else{
-    delete cartVariantNote[ppCurrentId];
-  }
+  const key = ppCurrentKey();
+  cart[key] = (cart[key]||0) + ppQtyVal;
+  const note = key.includes('|') ? key.slice(key.indexOf('|')+1) : '';
+  if(note) cartVariantNote[key] = note; else delete cartVariantNote[key];
   updateCartUI();
+  renderProducts();
   showToast(I18N[lang].added);
   updatePpAddBtnLabel();
-  trackFunnelEvent('cart', ppCurrentId);
+  trackFunnelEvent('cart', p.id);
 }
 
 /* ---------- drawer / overlay ---------- */
@@ -1945,71 +2071,78 @@ function goHome(){
 function openCheckout(){
   if(cartCount()===0) return;
   renderCheckoutOrderSummary();
+  document.getElementById('formError').style.display = 'none';
+  try{
+    const saved = JSON.parse(localStorage.getItem('hb_customer') || 'null');
+    if(saved){
+      ['custName','custPhone','custAddress'].forEach((id,i)=>{
+        const el = document.getElementById(id);
+        const v = [saved.name, saved.phone, saved.address][i];
+        if(el && !el.value && v) el.value = v;
+      });
+    }
+  }catch(e){}
   document.getElementById('checkoutOverlay').classList.add('show');
   trackFunnelEvent('checkout', null);
 }
 
 /* ---------- фармоиш / заказ ---------- */
-function buildOrderText(name, phone, address, comment){
-  const lines = Object.entries(cart).map(([id,qty])=>{
-    const p = PRODUCTS.find(p=>p.id==id);
-    const pname = lang==='tj'?p.name_tj:p.name_ru;
-    const note = cartVariantNote[id] ? ` (${cartVariantNote[id]})` : '';
-    return `• ${pname}${note} × ${qty} = ${unitPrice(id)*qty} смн`;
-  });
-  const head = lang==='tj' ? '🛒 ФАРМОИШИ НАВ — Imkon.Shop' : '🛒 НОВЫЙ ЗАКАЗ — Imkon.Shop';
-  const l = {
-    name: lang==='tj'?'Ном':'Имя', phone: lang==='tj'?'Телефон':'Телефон',
-    address: lang==='tj'?'Суроға':'Адрес', comment: lang==='tj'?'Шарҳ':'Комментарий',
-    total: lang==='tj'?'Ҷамъ':'Итого'
-  };
-  return [
-    head, '',
-    `${l.name}: ${name}`,
-    `${l.phone}: ${phone}`,
-    address ? `${l.address}: ${address}` : null,
-    comment ? `${l.comment}: ${comment}` : null,
-    '',
-    ...lines,
-    '',
-    `${l.total}: ${cartTotal()} смн`
-  ].filter(Boolean).join('\n');
+function resetPromo(){
+  promoApplied = null;
+  const box = document.getElementById('promoResult');
+  if(box) box.textContent = '';
+  if(document.getElementById('checkoutOverlay').classList.contains('show')) renderCheckoutOrderSummary();
 }
 
 async function applyPromoCode(){
   const input = document.getElementById('custPromo');
   const resultBox = document.getElementById('promoResult');
-  const code = input.value.trim();
+  const code = input.value.trim().toUpperCase();
+  promoApplied = null;
+  renderCheckoutOrderSummary();
   if(!code){ resultBox.textContent = ''; return; }
   resultBox.style.color = '#8a8478';
-  resultBox.textContent = lang==='tj' ? 'Санҷиш...' : 'Проверяю...';
+  resultBox.textContent = I18N[lang].promo_checking;
   try{
+    const subtotal = cartTotal();
     const res = await fetch('/api/promo-codes/validate', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ code, subtotal: cartTotal() })
+      body: JSON.stringify({ code, subtotal })
     });
-    const data = await res.json();
+    const data = await res.json().catch(()=>({}));
     if(!res.ok){
       resultBox.style.color = 'var(--brick)';
-      resultBox.textContent = data.error || (lang==='tj' ? 'Промокод нодуруст' : 'Промокод недействителен');
+      resultBox.textContent = lang==='tj' ? I18N.tj.promo_invalid : (data.error || I18N.ru.promo_invalid);
       return;
     }
+    promoApplied = { code: data.code || code, amount: Number(data.discount_amount) || 0, subtotal };
     resultBox.style.color = 'var(--accent-green-dark)';
-    resultBox.textContent = (lang==='tj' ? '✅ Тахфиф: ' : '✅ Скидка: ') + data.discount_amount + ' смн';
+    resultBox.textContent = `✅ ${I18N[lang].promo_discount}: −${promoApplied.amount} смн · ${I18N[lang].promo_to_pay}: ${cartPayable()} смн`;
+    renderCheckoutOrderSummary();
   }catch(e){
     console.error('Ошибка проверки промокода:', e);
     resultBox.style.color = 'var(--brick)';
-    resultBox.textContent = lang==='tj' ? 'Хатогӣ' : 'Ошибка проверки';
+    resultBox.textContent = I18N[lang].promo_error;
   }
 }
 
+// телефон Таджикистана: 9 цифр после +992 (можно вводить с пробелами, скобками, 8 или 992 в начале)
+function normalizePhone(raw){
+  let d = String(raw||'').replace(/\D/g,'');
+  if(d.startsWith('992')) d = d.slice(3);
+  else if(d.length === 10 && d.startsWith('8')) d = d.slice(1);
+  if(d.length !== 9) return null;
+  return '+992 ' + d.slice(0,2) + ' ' + d.slice(2,5) + ' ' + d.slice(5,7) + ' ' + d.slice(7);
+}
+
 async function saveOrderToDatabase(channel, name, phone, address, comment){
-  const items = Object.entries(cart).map(([id,qty])=>{
-    const p = PRODUCTS.find(x=>x.id===Number(id));
-    const item = { id: Number(id), name: lang==='tj'?p.name_tj:p.name_ru, qty, price:unitPrice(id) };
-    if(cartVariantNote[id]) item.variant = cartVariantNote[id];
+  const items = Object.entries(cart).map(([key,qty])=>{
+    const p = findProduct(lineId(key));
+    if(!p) return null;
+    const item = { id: p.id, name: lang==='tj'?p.name_tj:p.name_ru, qty, price:unitPrice(key) };
+    if(cartVariantNote[key]) item.variant = cartVariantNote[key];
     return item;
-  });
+  }).filter(Boolean);
   const promoInput = document.getElementById('custPromo');
   const promo_code = promoInput && promoInput.value.trim() ? promoInput.value.trim().toUpperCase() : null;
   const utm = getUtm();
@@ -2023,7 +2156,7 @@ async function saveOrderToDatabase(channel, name, phone, address, comment){
         customer_address: address || null,
         comment: comment || null,
         items,
-        total: cartTotal(),
+        total: cartPayable(),
         channel,
         promo_code,
         utm_source: utm.source || null,
@@ -2031,74 +2164,65 @@ async function saveOrderToDatabase(channel, name, phone, address, comment){
         utm_campaign: utm.campaign || null,
       })
     });
-    if(!res.ok) throw new Error('save order failed: ' + res.status);
-    return true;
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) return { ok:false, error: data.error || null };
+    return { ok:true, id: data.id, total: data.total };
   }catch(e){
     console.error('Ошибка сохранения заказа в базу данных:', e);
-    return false;
+    return { ok:false, error:null };
   }
 }
 
 async function submitOrder(channel){
   const name = document.getElementById('custName').value.trim();
-  const phone = document.getElementById('custPhone').value.trim();
+  const phoneInput = document.getElementById('custPhone');
   const address = document.getElementById('custAddress').value.trim();
   const comment = document.getElementById('custComment').value.trim();
   const err = document.getElementById('formError');
   const btn = document.getElementById('submitOrderBtn');
 
-  if(!name || !phone){ err.style.display='block'; return; }
+  const showErr = msg => { err.textContent = msg; err.style.display = 'block'; err.scrollIntoView({behavior:'smooth', block:'center'}); };
+  if(!name || !phoneInput.value.trim()){ showErr(I18N[lang].form_error); return; }
+  const phone = normalizePhone(phoneInput.value);
+  if(!phone){ showErr(I18N[lang].form_phone_error); phoneInput.focus(); return; }
+  if(!address){ showErr(I18N[lang].form_address_error); document.getElementById('custAddress').focus(); return; }
   err.style.display='none';
+  if(btn){ if(btn.disabled) return; btn.disabled = true; } // защита от двойного нажатия
 
-  if(btn){ btn.disabled = true; }
-
-  // сохраняем заказ в базу данных, чтобы он появился в admin.html
-  const ok = await saveOrderToDatabase(channel, name, phone, address, comment);
-
-  if(channel==='direct'){
-    if(btn){ btn.disabled = false; }
-    if(!ok){
-      err.textContent = lang==='tj' ? 'Хатогӣ ҳангоми фиристодан. Бори дигар кӯшиш кунед.' : 'Ошибка при отправке. Попробуйте ещё раз.';
-      err.style.display = 'block';
-      return;
-    }
-    finishOrder();
+  const result = await saveOrderToDatabase(channel, name, phone, address, comment);
+  if(btn){ btn.disabled = false; }
+  if(!result.ok){
+    showErr(result.error ? (lang==='tj' ? I18N.tj.order_error + ' (' + result.error + ')' : result.error) : I18N[lang].order_error);
     return;
   }
-
-  const text = buildOrderText(name, phone, address, comment);
-
-  if(channel==='whatsapp'){
-    window.open(`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(text)}`, '_blank');
-    finishOrder();
-  } else if(channel==='telegram'){
-    sendTelegramMessage(text)
-      .then(()=> finishOrder())
-      .catch(()=>{
-        // Агар токен танзим нашуда бошад, ба WhatsApp гузарем
-        alert(lang==='tj'
-          ? 'Хатогӣ дар фиристодан ба Telegram. Токенро дар код санҷед.'
-          : 'Ошибка отправки в Telegram. Проверьте токен в коде.');
-      });
-  }
+  // запоминаем имя/телефон/адрес — в следующий раз не придётся вводить заново
+  try{ localStorage.setItem('hb_customer', JSON.stringify({ name, phone, address })); }catch(e){}
+  finishOrder(result);
 }
 
-async function sendTelegramMessage(text){
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const res = await fetch(url, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text })
-  });
-  if(!res.ok) throw new Error('telegram send failed');
-  return res.json();
-}
-
-function finishOrder(){
+function finishOrder(result){
   document.getElementById('checkoutForm').style.display='none';
   document.getElementById('successBox').style.display='block';
+  const info = document.getElementById('successOrderInfo');
+  if(info){
+    info.innerHTML = result && result.id
+      ? `${I18N[lang].order_number}: <b>#${result.id}</b><br>${I18N[lang].cart_total}: <b>${round2(result.total)}&nbsp;смн</b>`
+      : '';
+  }
+  const wa = document.getElementById('successWaLink');
+  if(wa && result && result.id){
+    const msg = lang==='tj' ? `Салом! Дар бораи фармоиши #${result.id} савол дорам.` : `Здравствуйте! У меня вопрос по заказу #${result.id}.`;
+    wa.href = `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(msg)}`;
+    wa.style.display = 'flex';
+  }
   cart = {};
+  cartVariantNote = {};
+  promoApplied = null;
+  document.getElementById('custPromo').value = '';
+  document.getElementById('promoResult').textContent = '';
+  document.getElementById('custComment').value = '';
   updateCartUI();
+  renderProducts();
 }
 
 /* ---------- toast ---------- */
@@ -2120,8 +2244,14 @@ function setLang(l){
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     el.textContent = I18N[lang][el.dataset.i18n];
   });
-  document.getElementById('searchInput').placeholder = I18N[lang].search_placeholder;
-  document.getElementById('searchInputHome').placeholder = I18N[lang].search_placeholder;
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    el.placeholder = I18N[lang][el.dataset.i18nPh] || '';
+  });
+  document.querySelectorAll('.js-promo-code').forEach(el=>{ el.textContent = PROMO_CODE; });
+  document.querySelectorAll('.js-promo-ph').forEach(el=>{ el.placeholder = PROMO_CODE; });
+  document.documentElement.lang = l === 'tj' ? 'tg' : 'ru';
+  try{ localStorage.setItem('hb_lang', l); }catch(e){}
+  setupWaLinks(); // текст сообщения в WhatsApp — на выбранном языке
   renderTabs();
   renderProducts();
   updateCartUI();
@@ -2142,6 +2272,10 @@ function setupWaLinks(){
 }
 
 /* ---------- init ---------- */
+// покупатель исправляет поле — убираем старое сообщение об ошибке
+['custName','custPhone','custAddress'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{ document.getElementById('formError').style.display='none'; });
+});
 document.getElementById('searchInput').addEventListener('input', e => {
   document.getElementById('searchInputHome').value = e.target.value;
   renderProducts();
@@ -2153,8 +2287,8 @@ document.getElementById('searchInputHome').addEventListener('input', e => {
 renderTabs();
 renderProducts();
 updateCartUI();
-setLang('ru'); // сайт по умолчанию открывается на русском, покупатель может переключить на таджикский
-setupWaLinks();
+// по умолчанию — русский; если покупатель уже выбирал язык, открываем на нём
+setLang((()=>{ try{ return localStorage.getItem('hb_lang') === 'tj' ? 'tj' : 'ru'; }catch(e){ return 'ru'; } })());
 handleRoute();
 loadProducts();
 loadBanners();
