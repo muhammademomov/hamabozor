@@ -35,7 +35,7 @@ total = sum(s[1] for s in SEG)
 def tint():
     g = np.zeros((H, W, 4), np.uint8); g[..., :3] = NAVY
     y = np.arange(H)[:, None]
-    al = np.clip((y - 880) / 300, 0, 1) * 0.80
+    al = np.clip((y - 1040) / 160, 0, 1) * 0.70 - np.clip((y - 1380) / 120, 0, 1) * 0.30
     g[..., 3] = (al * 255).astype(np.uint8).repeat(W, 1)
     return Image.fromarray(g, "RGBA")
 
@@ -78,22 +78,22 @@ def overlay(i, s):
         d.text(((W - d.textlength(a.url, font=F(62))) / 2, 1665), a.url, font=F(62), fill=WHITE + (255,))
         t4 = "Megamall.tj"; d.text(((W - d.textlength(t4, font=F(40, False))) / 2, 1790), t4, font=F(40, False), fill=(170, 176, 192, 255))
     else:
-        y = 1170
+        y = 1108
         if num:
-            d.ellipse([70, y - 6, 150, y + 74], fill=GOLD + (255,))
-            d.text((110 - d.textlength(num, font=F(56)) / 2, y + 2), num, font=F(56), fill=NAVY + (255,))
-            d.text((175, y + 12), tag, font=F(46), fill=GOLD + (255,))
+            d.ellipse([70, y - 6, 140, y + 64], fill=GOLD + (255,))
+            d.text((105 - d.textlength(num, font=F(48)) / 2, y + 2), num, font=F(48), fill=NAVY + (255,))
+            d.text((162, y + 8), tag, font=F(42), fill=GOLD + (255,))
         elif tag:
-            d.text((70, y + 12), tag, font=F(46), fill=GOLD + (255,))
-        ty = y + 100 if (num or tag) else y + 60
+            d.text((70, y + 8), tag, font=F(42), fill=GOLD + (255,))
+        ty = y + 76 if (num or tag) else y + 40
         for k, ln in enumerate(lines):
-            draw_marked(d, ln, ty + k * 104, 86 if kind == "hook" else 78, x=70)
-        if sub: d.text((70, ty + len(lines) * 104 + 20), sub, font=F(46, False), fill=(225, 229, 240, 255))
+            draw_marked(d, ln, ty + k * 76, 62 if kind == "hook" else 58, x=70)
+        if sub: d.text((70, ty + len(lines) * 76 + 8), sub, font=F(36, False), fill=(225, 229, 240, 255))
     p = f"{T}/ov{i}.png"; im.save(p)
     return p
 
 # mask (blur feather)
-m = np.clip((np.arange(H)[:, None] - 880) / 300, 0, 1); m = (m * 255).astype(np.uint8).repeat(W, 1)
+yy_ = np.arange(H)[:, None]; m = np.clip((yy_ - 1060) / 70, 0, 1) * (1 - np.clip((yy_ - 1370) / 80, 0, 1)); m = (m * 255).astype(np.uint8).repeat(W, 1)
 Image.fromarray(m, "L").save(f"{T}/mask.png")
 
 parts = []
