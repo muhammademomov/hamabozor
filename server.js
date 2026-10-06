@@ -2464,6 +2464,49 @@ app.get('/api/finance/balance', requireAuth, async (req, res) => {
 // ----------------------------------------------------------------------------
 // ТОВАРЫ — публичный список (для сайта) + CRUD только для администратора
 // ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// «С этим часто берут»: пары товаров, которые покупатели реально заказывали вместе.
+// Считается по таблице orders (items), отдаёт только id товаров и счётчики —
+// никаких персональных данных. Кэш на 5 минут, чтобы не нагружать базу.
+//   ответ: { "<id товара>": [[<id другого товара>, <сколько раз вместе>], ...] }
+// ----------------------------------------------------------------------------
+let togetherCache = { at: 0, data: null };
+app.get('/api/together', async (req, res) => {
+  try {
+    if (togetherCache.data && Date.now() - togetherCache.at < 5 * 60 * 1000) {
+      return res.json(togetherCache.data);
+    }
+    const [orderRows] = await pool.query('SELECT items FROM orders ORDER BY id DESC LIMIT 5000');
+    const pairs = {};
+    for (const o of orderRows) {
+      let items = o.items;
+      if (typeof items === 'string') { try { items = JSON.parse(items); } catch (e) { items = []; } }
+      if (!Array.isArray(items)) continue;
+      const ids = Array.from(new Set(items.map(it => it && Number(it.id)).filter(Boolean)));
+      if (ids.length < 2 || ids.length > 12) continue; // слишком большие заказы — шум
+      for (const a of ids) {
+        for (const b of ids) {
+          if (a === b) continue;
+          pairs[a] = pairs[a] || {};
+          pairs[a][b] = (pairs[a][b] || 0) + 1;
+        }
+      }
+    }
+    const data = {};
+    for (const a of Object.keys(pairs)) {
+      data[a] = Object.entries(pairs[a])
+        .sort((x, y) => y[1] - x[1])
+        .slice(0, 8)
+        .map(([b, n]) => [Number(b), n]);
+    }
+    togetherCache = { at: Date.now(), data };
+    res.json(data);
+  } catch (e) {
+    console.error('Ошибка расчёта «часто берут вместе»:', e);
+    res.json({}); // витрина просто использует запасные правила
+  }
+});
+
 app.get('/api/products', async (req, res) => {
   try {
     const showAll = req.query.all === '1'; // ?all=1 — для админки (показывает и скрытые товары)
@@ -2564,7 +2607,7 @@ app.post('/api/products', requireAuth, async (req, res) => {
     bundle2_price, bundle3_price, bundle4_price,
     features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
     cost_price, stock, rating, rating_count, colors, sizes,
-    extra_images, seller_name, partner_id, received_at
+    extra_images, seller_name, partner_id, received_at, related_ids, scenarios
   } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
@@ -2577,8 +2620,8 @@ app.post('/api/products', requireAuth, async (req, res) => {
         bundle2_price, bundle3_price, bundle4_price,
         features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
         cost_price, stock, rating, rating_count, colors, sizes,
-        extra_images, seller_name, partner_id, received_at
-      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?, ?,?,?,?)`,
+        extra_images, seller_name, partner_id, received_at, related_ids, scenarios
+      ) VALUES (?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?,?,?,?, ?,?,?,?, ?,?, ?,?,?,?, ?,?)`,
       [
         cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
         image_data || null, subtitle_ru || null, subtitle_tj || null,
@@ -2587,7 +2630,8 @@ app.post('/api/products', requireAuth, async (req, res) => {
         cost_price || null, stock == null ? null : stock, rating || null, rating_count || null,
         colors || null, sizes || null,
         (Array.isArray(extra_images) && extra_images.length) ? JSON.stringify(extra_images) : null,
-        seller_name || null, partner_id || null, received_at || null
+        seller_name || null, partner_id || null, received_at || null,
+        related_ids || null, scenarios || null
       ]
     );
     res.json({ id: result.insertId });
@@ -2604,7 +2648,7 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
     bundle2_price, bundle3_price, bundle4_price,
     features_ru, features_tj, delivery_ru, delivery_tj, warranty_ru, warranty_tj,
     cost_price, stock, rating, rating_count, colors, sizes,
-    extra_images, seller_name, partner_id, received_at
+    extra_images, seller_name, partner_id, received_at, related_ids, scenarios
   } = req.body || {};
   if (!cat || !name_ru || !name_tj || price == null) {
     return res.status(400).json({ error: 'Не хватает обязательных полей товара' });
@@ -2617,7 +2661,8 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
         bundle2_price=?, bundle3_price=?, bundle4_price=?,
         features_ru=?, features_tj=?, delivery_ru=?, delivery_tj=?, warranty_ru=?, warranty_tj=?,
         cost_price=?, stock=?, rating=?, rating_count=?, colors=?, sizes=?,
-        extra_images=?, seller_name=?, partner_id=?, received_at=?
+        extra_images=?, seller_name=?, partner_id=?, received_at=?,
+        related_ids=COALESCE(?, related_ids), scenarios=COALESCE(?, scenarios)
        WHERE id=?`,
       [
         cat, name_ru, name_tj, price, old_price || null, emoji || '🛍️', tag || null, desc_ru || '', desc_tj || '',
@@ -2628,6 +2673,8 @@ app.put('/api/products/:id', requireAuth, async (req, res) => {
         colors || null, sizes || null,
         (Array.isArray(extra_images) && extra_images.length) ? JSON.stringify(extra_images) : null,
         seller_name || null, partner_id || null, received_at || null,
+        // поля не пришли (старая админка в кеше) — не трогаем; пришла пустая строка — очищаем
+        related_ids === undefined ? null : related_ids, scenarios === undefined ? null : scenarios,
         req.params.id
       ]
     );
@@ -3500,6 +3547,11 @@ async function ensureProductColumns() {
   await ensureColumn('products', 'seller_name', 'VARCHAR(255) NULL');
   await ensureColumn('products', 'active', 'TINYINT(1) NOT NULL DEFAULT 1');
   await ensureColumn('products', 'received_at', 'DATE NULL');
+  // «Соберите свою покупку»: ручные связи и сценарии (для витрины)
+  //   related_ids — id связанных товаров через запятую, например "12,15,31"
+  //   scenarios   — сценарии покупки через запятую: self,gift,home,work,trip,loved
+  await ensureColumn('products', 'related_ids', 'TEXT NULL');
+  await ensureColumn('products', 'scenarios', 'VARCHAR(255) NULL');
   // received_at — дата, когда партнёр привёз эту партию товара; точка отсчёта срока оплаты
   // для оптовых партнёров "в кредит". Если не заполнено вручную — считаем от даты создания товара.
 }
