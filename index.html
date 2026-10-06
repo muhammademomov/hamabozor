@@ -842,6 +842,23 @@ header{background:rgba(6,16,11,.93);z-index:50}
   .bottom-nav,.cart-bar{max-width:520px;margin-inline:auto}
   .promo-compact .promo-title{font-size:19px}
 }
+
+/* полоса «до бесплатной доставки» + «ряды» на главной */
+.ship-bar{margin:0 20px 6px;padding:12px 14px;border-radius:14px;background:rgba(34,224,122,.08);border:1px solid rgba(34,224,122,.22)}
+.ship-text{font-size:12.5px;font-weight:700;color:var(--indigo);margin-bottom:8px}
+.ship-bar.done .ship-text{color:var(--accent-green)}
+.ship-track{height:6px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
+.ship-fill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#16C566,#3BF08C);box-shadow:0 0 12px rgba(34,224,122,.7);transition:width .35s ease}
+.cart-bar{flex-wrap:wrap;row-gap:8px}
+.cart-bar-ship{flex-basis:100%}
+.cart-bar-ship-text{font-size:11.5px;font-weight:700;opacity:.85;margin-bottom:5px}
+.ship-track-on-accent{background:rgba(3,23,11,.25)}
+.ship-track-on-accent .ship-fill{background:var(--on-accent);box-shadow:none}
+.aisle-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;margin:14px 0 2px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.aisle-head:first-child{margin-top:0}
+.aisle-head h3{font-size:16px;display:flex;align-items:center;gap:8px}
+.aisle-head h3::before{content:"";width:4px;height:16px;border-radius:2px;background:var(--accent-green);box-shadow:0 0 10px rgba(34,224,122,.7)}
+.aisle-head button{background:rgba(34,224,122,.12);color:var(--accent-green);border:1px solid rgba(34,224,122,.3);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700}
 @media(prefers-reduced-motion:reduce){.promo-compact::after,.cart-bar.show{animation:none}}
 
 </style>
@@ -891,6 +908,7 @@ header{background:rgba(6,16,11,.93);z-index:50}
 <div class="cart-bar" id="cartBar" onclick="openCart()">
   <div class="cart-bar-info"><span class="cart-bar-count" id="cartBarCount">0</span><span id="cartBarTotal">0 смн</span></div>
   <div class="cart-bar-go" id="cartBarGo">Оформить →</div>
+  <div class="cart-bar-ship"><div class="cart-bar-ship-text" id="cartBarShipText"></div><div class="ship-track ship-track-on-accent"><div class="ship-fill" id="cartBarShipFill"></div></div></div>
 </div>
 
 <nav class="bottom-nav">
@@ -942,6 +960,7 @@ header{background:rgba(6,16,11,.93);z-index:50}
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     <span data-i18n="cart_saved_msg">Маҳсулот дар сабад захира карда мешавад</span>
   </div>
+  <div class="ship-bar" id="shipBar" style="display:none"><div class="ship-text" id="shipText"></div><div class="ship-track"><div class="ship-fill" id="shipFill"></div></div></div>
   <div class="drawer-items" id="drawerItems"></div>
   <div class="drawer-recommend" id="drawerRecommend"></div>
   <div class="drawer-foot">
@@ -952,7 +971,7 @@ header{background:rgba(6,16,11,.93);z-index:50}
         <div class="safe-purchase-sub" data-i18n="safe_purchase_sub">Маълумоти шумо ҳифз карда мешавад</div>
       </div>
     </div>
-    <div class="row-line"><span data-i18n="cart_delivery">Бурдарасонӣ</span><span data-i18n="cart_free">Ройгон 🚚</span></div>
+    <div class="row-line"><span data-i18n="cart_delivery">Бурдарасонӣ</span><span id="cartDeliveryVal">Ройгон 🚚</span></div>
     <div class="row-line total"><span data-i18n="cart_total">Ҷамъ</span><span id="cartTotal">0 смн</span></div>
     <button class="checkout-btn" id="checkoutBtn" onclick="openCheckout()" disabled>
       <span data-i18n="checkout_btn">Расмикунонии фармоиш</span>
@@ -1071,6 +1090,9 @@ header{background:rgba(6,16,11,.93);z-index:50}
         <div class="pp-seller-label" data-i18n="pp_seller_label">Фурӯшанда</div>
         <div class="pp-seller-name" id="ppSellerName"></div>
       </div>
+
+      <h3 class="pp-similar-label" data-i18n="pp_cross">С этим берут</h3>
+      <div class="similar-grid" id="ppCross"></div>
 
       <h3 class="pp-similar-label" data-i18n="pp_similar">Молҳои монанд</h3>
       <div class="similar-grid" id="ppSimilar"></div>
@@ -1271,7 +1293,9 @@ const I18N = {
     promo_code_title:'Тахфиф 5% барои хариди аввалин', promo_code_btn:'Истифода баред',
     more_fields:'Промокод ё шарҳ илова кунед', add_to_cart:'Илова кардан', added:'Илова шуд ✅',
     cart_title:'Сабади харид', cart_empty:'Сабад холӣ аст', cart_saved_msg:'Маҳсулот дар сабад захира карда мешавад',
-    cart_total:'Ҷамъ', cart_delivery:'Бурдарасонӣ', cart_free:'Ройгон 🚚',
+    cart_total:'Ҷамъ', cart_delivery:'Бурдарасонӣ', cart_free:'Ройгон 🚚', cart_paid:'Пулакӣ',
+    ship_add:'Боз {n} смн илова кунед — бурдарасонӣ ройгон мешавад', ship_done:'Бурдарасонии ройгон фаъол шуд 🎉',
+    pp_cross:'Бо ин одатан мехаранд', aisle_all:'Ҳама →',
     checkout_btn:'Расмикунонии фармоиш', checkout_title:'Маълумоти фармоиш',
     form_name:'Ном', form_phone:'Рақами телефон', form_address:'Суроға',
     form_comment:'Шарҳ (ихтиёрӣ)', form_error:'Лутфан ном ва рақами телефонро пур кунед',
@@ -1304,7 +1328,9 @@ const I18N = {
     promo_code_title:'Скидка 5% на первый заказ', promo_code_btn:'Применить',
     more_fields:'Добавить промокод или комментарий', add_to_cart:'В корзину', added:'Добавлено ✅',
     cart_title:'Корзина', cart_empty:'Корзина пуста', cart_saved_msg:'Товар сохранён в корзине',
-    cart_total:'Итого', cart_delivery:'Доставка', cart_free:'Бесплатно 🚚',
+    cart_total:'Итого', cart_delivery:'Доставка', cart_free:'Бесплатно 🚚', cart_paid:'Платная',
+    ship_add:'Добавьте ещё {n} смн — доставка бесплатно', ship_done:'Бесплатная доставка включена 🎉',
+    pp_cross:'С этим берут', aisle_all:'Все →',
     checkout_btn:'Оформить заказ', checkout_title:'Данные для заказа',
     form_name:'Имя', form_phone:'Номер телефона', form_address:'Адрес',
     form_comment:'Комментарий (необязательно)', form_error:'Пожалуйста, заполните имя и телефон',
@@ -1374,6 +1400,17 @@ function renderProducts(){
     const matchFav = !showingFavoritesOnly || isFavorite(p.id);
     return matchCat && matchQ && matchFav;
   });
+  if(activeCat==='all' && !q && !showingFavoritesOnly){
+    // «ряды магазина»: клиент идёт по категориям и по пути видит всё
+    const cats = Object.keys(CAT_LABELS).filter(c => c!=='all' && list.some(p=>p.cat===c));
+    grid.innerHTML = cats.map(c => {
+      const items = list.filter(p=>p.cat===c);
+      return `<div class="aisle-head"><h3>${CAT_LABELS[c][lang]}</h3>`+
+             (items.length>6 ? `<button onclick="filterCat('${c}')">${I18N[lang].aisle_all} ${items.length}</button>` : '')+
+             `</div>` + items.slice(0,6).map(p=>renderCard(p)).join('');
+    }).join('') || '';
+    return;
+  }
   grid.innerHTML = list.map(p=>renderCard(p)).join('') ||
     `<p style="grid-column:1/-1;text-align:center;color:#8a8478;padding:30px 0">${showingFavoritesOnly ? (lang==='tj'?'Ҳанӯз чизе интихоб накардаед':'Пока ничего не добавлено') : '—'}</p>`;
 
@@ -1542,17 +1579,41 @@ function cartTotal(){
   },0);
 }
 
+const FREE_DELIVERY_FROM = 99; // смн — от этой суммы доставка бесплатная
+
+/* подсказки «с этим берут»: товары ИЗ ДРУГИХ категорий (к сумке — зарядка),
+   недорогие, а если до бесплатной доставки не хватает — подходящие по цене «добивающие» */
+function pickCrossSell(excludeIds, baseCats, limit){
+  const gap = Math.max(0, FREE_DELIVERY_FROM - cartTotal());
+  const scored = PRODUCTS.filter(p => !excludeIds.includes(p.id)).map(p => {
+    let sc = baseCats.includes(p.cat) ? 0 : 3;                       // другая категория — лучше
+    if(gap > 0 && p.price >= gap && p.price <= gap*1.6 + 25) sc += 2; // закрывает порог доставки
+    if(p.price <= 120) sc += 1;                                       // дешёвое — берут «заодно»
+    if(p.tag === 'top') sc += 0.7;
+    return {p, sc: sc + Math.random()*0.5};
+  }).sort((a,b) => b.sc - a.sc);
+  const out = [], seenCats = new Set();
+  for(const x of scored){                                             // сначала по одному из каждой категории
+    if(out.length >= limit) break;
+    if(!seenCats.has(x.p.cat)){ out.push(x.p); seenCats.add(x.p.cat); }
+  }
+  for(const x of scored){ if(out.length >= limit) break; if(!out.includes(x.p)) out.push(x.p); }
+  return out;
+}
+
+function shipText(total){
+  return total >= FREE_DELIVERY_FROM
+    ? I18N[lang].ship_done
+    : I18N[lang].ship_add.replace('{n}', FREE_DELIVERY_FROM - total);
+}
+
 function renderCartRecommendations(){
   const box = document.getElementById('drawerRecommend');
   if(!box) return;
   const cartIds = Object.keys(cart).map(Number);
   if(cartIds.length === 0){ box.innerHTML = ''; return; }
-  const cartCats = new Set(PRODUCTS.filter(p=>cartIds.includes(p.id)).map(p=>p.cat));
-  let picks = PRODUCTS.filter(p => !cartIds.includes(p.id) && cartCats.has(p.cat));
-  if(picks.length < 4){
-    picks = picks.concat(PRODUCTS.filter(p => !cartIds.includes(p.id) && !picks.includes(p)));
-  }
-  picks = picks.slice(0, 3);
+  const cartCats = Array.from(new Set(PRODUCTS.filter(p=>cartIds.includes(p.id)).map(p=>p.cat)));
+  const picks = pickCrossSell(cartIds, cartCats, 3);
   if(!picks.length){ box.innerHTML = ''; return; }
   box.innerHTML = `
     <div class="drawer-recommend-title">${I18N[lang].cart_recommend_title}</div>
@@ -1593,11 +1654,24 @@ function updateCartUI(){
   document.getElementById('cartBadgePP').textContent = cartCount();
   document.getElementById('cartTotal').textContent = cartTotal() + ' смн';
   document.getElementById('checkoutBtn').disabled = cartCount()===0;
+  const total = cartTotal(), cnt = cartCount();
+  const shipBar = document.getElementById('shipBar');
+  if(shipBar){
+    shipBar.style.display = cnt>0 ? 'block' : 'none';
+    shipBar.classList.toggle('done', total >= FREE_DELIVERY_FROM);
+    document.getElementById('shipText').textContent = shipText(total);
+    document.getElementById('shipFill').style.width = Math.min(100, total/FREE_DELIVERY_FROM*100) + '%';
+  }
+  const dv = document.getElementById('cartDeliveryVal');
+  if(dv) dv.textContent = total >= FREE_DELIVERY_FROM ? I18N[lang].cart_free : I18N[lang].cart_paid;
   const cbar = document.getElementById('cartBar');
   if(cbar){
     document.getElementById('cartBarCount').textContent = cartCount();
     document.getElementById('cartBarTotal').textContent = cartTotal() + ' смн';
     document.getElementById('cartBarGo').textContent = lang==='tj' ? 'Расмӣ кардан →' : 'Оформить →';
+    document.getElementById('cartBarShipText').textContent = shipText(total);
+    document.getElementById('cartBarShipFill').style.width = Math.min(100, total/FREE_DELIVERY_FROM*100) + '%';
+    cbar.classList.toggle('done', total >= FREE_DELIVERY_FROM);
     cbar.classList.toggle('show', cartCount()>0);
     document.body.classList.toggle('has-cartbar', cartCount()>0);
   }
@@ -1970,7 +2044,9 @@ function renderProductDetailRest(p){
     sellerCardEl.style.display = 'none';
   }
 
-  const similar = PRODUCTS.filter(x=>x.cat===p.cat && x.id!==p.id).slice(0,6);
+  const cross = pickCrossSell([p.id], [p.cat], 4);
+  document.getElementById('ppCross').innerHTML = cross.map(s=>renderCard(s)).join('');
+  const similar = PRODUCTS.filter(x=>x.cat===p.cat && x.id!==p.id && !cross.includes(x)).slice(0,6);
   document.getElementById('ppSimilar').innerHTML = similar.map(s=>renderCard(s)).join('') ||
     `<p style="color:#8a8478;font-size:13px">—</p>`;
 }
@@ -2120,7 +2196,8 @@ function buildOrderText(name, phone, address, comment){
     '',
     ...lines,
     '',
-    `${l.total}: ${cartTotal()} смн`
+    `${l.total}: ${cartTotal()} смн`,
+    (lang==='tj'?'Бурдарасонӣ':'Доставка') + ': ' + (cartTotal() >= FREE_DELIVERY_FROM ? (lang==='tj'?'ройгон':'бесплатно') : (lang==='tj'?'пулакӣ':'платная'))
   ].filter(Boolean).join('\n');
 }
 
