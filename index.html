@@ -123,7 +123,7 @@ svg{width:24px;height:24px;flex-shrink:0}
 .sec-head .t-sub{margin-top:2px;font-size:13.5px}
 
 /* сценарии */
-.scn-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
+.scn-grid{display:grid;gap:var(--s3)}
 .scn{position:relative;overflow:hidden;text-align:left;border-radius:var(--r-lg);padding:var(--s4);min-height:156px;display:flex;flex-direction:column;justify-content:space-between;transition:transform .15s ease,box-shadow .2s}
 .scn:active{transform:scale(.98)}
 .scn-ic{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center}
@@ -215,7 +215,7 @@ svg{width:24px;height:24px;flex-shrink:0}
 .ship.done .ship-bar i{background:var(--green)}
 
 /* нижняя навигация */
-.bnav{position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(255,255,255,.96);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px calc(6px + env(safe-area-inset-bottom));min-height:var(--nav-h)}
+.bnav{position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(255,255,255,.96);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding:6px 4px calc(6px + env(safe-area-inset-bottom));min-height:var(--nav-h)}
 .bn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;color:var(--muted);font-size:11px;font-weight:600;position:relative;transition:color .2s}
 .bn svg{width:24px;height:24px}
 .bn.on{color:var(--ink)}
@@ -491,11 +491,167 @@ body.has-chip{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @keyframes shine{to{background-position:-200% 0}}
 
+/* ======== v2.1: по макету ======== */
+/* шапка */
+.icon-b .fav-dot{position:absolute;top:3px;right:1px;left:auto;min-width:16px;height:16px;border-radius:99px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--bg)}
+.icon-b .nbadge{top:3px;right:0;left:auto;border-color:var(--bg)}
+.hdr-act{gap:2px}
+.pill-btn{margin-right:4px}
+.dnav{display:none}
+
+/* hero */
+.hero-img{position:relative;border-radius:var(--r-xl);overflow:hidden;margin-top:var(--s2);background-size:cover;background-position:center}
+.hero-img.photo{min-height:420px;display:flex;align-items:flex-end;color:#fff}
+.hero-img.plain{background:var(--sand);color:var(--ink)}
+.hero-pic{aspect-ratio:16/12;display:flex;align-items:center;justify-content:center;font-size:96px;background:var(--bg-2);overflow:hidden}
+.hero-pic img{width:100%;height:100%;object-fit:cover}
+.hero-in{padding:var(--s5);width:100%}
+.hero-in h1{font-size:30px;line-height:1.08;font-weight:800;letter-spacing:-.03em}
+.hero-in p{margin-top:8px;font-size:15px;opacity:.85}
+.hero-search{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:56px;margin-top:var(--s4);padding:0 6px 0 var(--s5);background:#fff;color:var(--muted);border-radius:999px;font-size:15px;text-align:left;box-shadow:var(--sh-2)}
+.hero-search i{width:44px;height:44px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center}
+.hero-search i svg{width:20px;height:20px}
+
+/* сценарии: фото-карточки */
+.scn-grid{grid-template-columns:1fr 1fr}
+.scn2{background:var(--surface);border-radius:var(--r-lg);padding:8px 8px 4px;text-align:center;box-shadow:var(--sh-1);display:flex;flex-direction:column;transition:transform .15s}
+.scn2:active{transform:scale(.98)}
+.scn2-img{aspect-ratio:4/3;border-radius:var(--r-md);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:48px}
+.scn2-img img{width:100%;height:100%;object-fit:cover}
+.scn2-img svg{width:40px;height:40px}
+.scn2 span{padding:10px 0 8px;font-weight:700;font-size:15px}
+.promo-kit{display:flex;align-items:stretch;justify-content:space-between;gap:var(--s3);width:100%;margin-top:var(--s3);background:var(--sand);border-radius:var(--r-lg);padding:var(--s4);text-align:left;overflow:hidden}
+.promo-kit>div:first-child{display:flex;flex-direction:column;gap:6px;justify-content:center}
+.promo-kit b{font-size:19px;font-weight:800;letter-spacing:-.02em;max-width:200px;line-height:1.15}
+.promo-kit span{font-size:13px;color:var(--ink-2);max-width:200px}
+.promo-kit i{width:40px;height:40px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;margin-top:6px}
+.promo-kit i svg{width:20px;height:20px}
+.pk-img{width:42%;max-width:170px;min-height:110px;border-radius:var(--r-md);overflow:hidden;background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:56px}
+.pk-img img{width:100%;height:100%;object-fit:cover}
+
+/* категории: фото сверху, подпись снизу */
+.catp{background:var(--surface);border-radius:var(--r-lg);padding:8px 8px 4px;text-align:left;box-shadow:var(--sh-1);display:flex;flex-direction:column;transition:transform .15s}
+.catp:active{transform:scale(.98)}
+.catp-img{aspect-ratio:4/3;border-radius:var(--r-md);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:44px}
+.catp-img img{width:100%;height:100%;object-fit:cover}
+.catp-img svg{width:38px;height:38px}
+.catp-t{padding:10px 4px 8px;display:flex;flex-direction:column}
+.catp-t b{font-size:15px;font-weight:700}
+.catp-t span{font-size:12.5px;color:var(--muted)}
+
+/* страница сценария */
+.scn-cover{aspect-ratio:16/9;border-radius:var(--r-xl);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:72px}
+.scn-cover img{width:100%;height:100%;object-fit:cover}
+.scn-cover svg{width:56px;height:56px}
+.gchips{display:flex;gap:var(--s4);overflow-x:auto;scrollbar-width:none;margin:var(--s5) calc(var(--s4) * -1) 0;padding:2px var(--s4)}
+.gchips::-webkit-scrollbar{display:none}
+.gchip{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;min-width:72px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.gchip i{width:64px;height:64px;border-radius:50%;background:var(--surface);border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;transition:all .2s}
+.gchip i svg{width:26px;height:26px}
+.gchip.on i{background:var(--ink);border-color:var(--ink);color:#fff}
+.gchip.on{color:var(--ink)}
+.sbar{position:fixed;left:var(--s3);right:var(--s3);bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px);z-index:56;display:none;flex-direction:column;align-items:center;gap:6px;padding:10px;background:rgba(247,244,238,.96);border-radius:var(--r-lg);box-shadow:var(--sh-3)}
+body.scn-view .sbar{display:flex}
+body.scn-view .chip-cart{display:none}
+body.scn-view{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 130px)}
+.sbar .badge-save{align-self:center}
+
+/* «Соберите свою покупку»: тизер и лист */
+.kit-teaser{display:flex;align-items:center;gap:var(--s3);width:100%;background:var(--sand);border-radius:var(--r-lg);padding:var(--s3) var(--s4);text-align:left;margin-top:var(--s4)}
+.kit-teaser .kit-ic{background:#fff}
+.kt-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.kt-t b{font-size:16px;font-weight:800;letter-spacing:-.01em}
+.kt-th{display:flex}
+.kt-th i{width:34px;height:34px;border-radius:50%;background:#fff;border:2px solid var(--sand);margin-left:-10px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:16px}
+.kt-th i:first-child{margin-left:0}
+.kt-th img{width:100%;height:100%;object-fit:cover}
+.kit-teaser>svg{width:20px;height:20px;color:var(--ink)}
+.sheet.tall{min-height:72vh}
+.sheet .kit{background:transparent;box-shadow:none;padding:0}
+.kit-row{background:var(--surface);border-radius:var(--r-md);border-top:none;padding:var(--s2) var(--s3) var(--s2) var(--s2);margin-bottom:var(--s2);box-shadow:var(--sh-1)}
+.kit-row:first-child{border-top:none}
+.kit-row .rec-img{width:64px;height:64px}
+.kit-row .badge-n{white-space:nowrap}
+.kit-rows{display:flex;flex-direction:column}
+.kit-foot{border-top:none;margin-top:var(--s2);padding-top:0}
+.kit-sum{flex-direction:column;align-items:center;text-align:center;gap:8px}
+.kit-sum-n{font-size:15px;color:var(--ink-2)}
+.kit-sum-n b{color:var(--ink);font-weight:800}
+.kit-row.on .ck,.ck.on{background:var(--ink);border-color:var(--ink)}
+
+/* мини-сетка рекомендаций */
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2)}
+.mini{cursor:pointer;min-width:0}
+.mini-img{position:relative;aspect-ratio:1/1;border-radius:var(--r-md);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:40px;overflow:hidden;box-shadow:var(--sh-1)}
+.mini-img img{width:100%;height:100%;object-fit:cover}
+.mini-add{position:absolute;right:6px;bottom:6px}
+.mini .padd{width:36px;height:36px}
+.mini .padd svg{width:18px;height:18px}
+.mini .pstep{height:36px;box-shadow:var(--sh-1);background:#fff}
+.mini .pstep button{width:28px;height:36px}
+.mini .pstep b{min-width:14px;font-size:13px}
+.mini .pstep svg{width:16px;height:16px}
+.mini-n{font-size:12.5px;font-weight:600;margin-top:8px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:31px}
+.mini-p{font-size:13.5px;font-weight:800;margin-top:2px}
+.mini-p s{font-size:11.5px;font-weight:500;color:var(--muted);margin-left:5px}
+
+/* корзина по макету */
+.promo-row{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);background:var(--surface);border-radius:var(--r-md);padding:6px 6px 6px var(--s4);margin-top:var(--s3);box-shadow:var(--sh-1)}
+.promo-l{font-weight:700;font-size:14px;flex-shrink:0}
+.promo-in{display:flex;align-items:center;flex:1;gap:8px}
+.promo-in input{flex:1;min-width:0;border:none;outline:none;background:none;font-size:15px;font-family:inherit;text-align:right;color:var(--ink);min-height:44px}
+.promo-in button{width:44px;height:44px;border-radius:12px;background:var(--bg-2);display:flex;align-items:center;justify-content:center}
+.promo-in button svg{width:18px;height:18px}
+.ci .pstep{height:40px}
+.ci .pstep button{width:36px;height:40px}
+
+/* быстрая покупка */
+.qb-img{aspect-ratio:4/3;border-radius:var(--r-lg);overflow:hidden;background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:80px}
+.qb-img img{width:100%;height:100%;object-fit:cover}
+.tip{display:flex;align-items:center;gap:var(--s3);background:var(--sand);border-radius:var(--r-md);padding:var(--s3) var(--s4);font-size:13.5px;font-weight:600;line-height:1.3}
+.tip svg{width:28px;height:28px;flex-shrink:0}
+
+/* профиль: бонусный баннер */
+.bonus{display:flex;align-items:center;gap:var(--s3);width:100%;margin-top:var(--s4);background:var(--sand);border-radius:var(--r-lg);padding:var(--s4);text-align:left}
+.bonus b{display:block;font-size:16px}
+.bonus span:not(.l-ic){font-size:13px;color:var(--ink-2)}
+.bonus .l-ic{width:44px;height:44px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* страница товара по макету */
+.pp-gallery{display:flex;flex-direction:row-reverse;gap:var(--s2);align-items:flex-start}
+.pp-gallery-main{flex:1;min-width:0}
+.pp-gallery-thumbs{flex-direction:column;margin-top:0;width:60px;flex-shrink:0;overflow:visible}
+.pp-gallery-share{position:absolute;top:64px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;z-index:2}
+.pp-gallery-share svg{width:20px;height:20px}
+.pp-short{font-size:14.5px;line-height:1.5;color:var(--ink-2);margin-top:var(--s3)}
+.pp-price-card .pp-variant:first-of-type{margin-top:var(--s4)}
+.pp-sec{margin-top:var(--s6)}
+
+@media(min-width:700px){
+  .scn-grid{grid-template-columns:repeat(3,1fr)}
+  .hero-img.photo{min-height:480px}
+  .hero-img.plain{display:grid;grid-template-columns:1.1fr 1fr}
+  .hero-img.plain .hero-pic{aspect-ratio:auto;min-height:340px;order:2}
+  .hero-img.plain .hero-in{display:flex;flex-direction:column;justify-content:center;padding:var(--s8)}
+  .hero-in h1{font-size:40px}
+  .mgrid{grid-template-columns:repeat(4,1fr)}
+  .dnav{display:flex}
+  .sbar{left:50%;right:auto;width:520px;transform:translateX(-50%);bottom:var(--s5)}
+  .sheet.tall{min-height:0}
+}
+@media(min-width:1000px){.scn-grid{grid-template-columns:repeat(6,1fr)}.scn2-img{font-size:36px}}
+
+.pprice b{white-space:nowrap}
+.prow{flex-wrap:wrap}
+.pcard .pstep{height:40px}
+.pcard .pstep button{width:32px;height:40px}
+.pcard .padd{width:40px;height:40px}
+
 </style>
 </head>
 <body>
 
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></symbol><symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></symbol><symbol id="i-bag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></symbol><symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.4A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></symbol><symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.4 7-5.4s6.2 1.8 7 5.4"/></symbol><symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15L6 16.5z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol><symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></symbol><symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V4.5h4V7M7 7l.8 12.5h8.4L17 7M10.5 11v5M13.5 11v5"/></symbol><symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></symbol><symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></symbol><symbol id="i-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3 3v3h-7z"/><circle cx="7" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/></symbol><symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.8v5.7c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V5.8L12 3z"/><path d="M9 12l2.2 2.2L15.5 10"/></symbol><symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol><symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol><symbol id="i-gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M12 9v11M4 13h16"/><path d="M12 9c-2.5 0-4-1-4-2.6S9.3 4 10.7 4C12 4 12 6 12 9zm0 0c2.5 0 4-1 4-2.6S14.7 4 13.3 4C12 4 12 6 12 9z"/></symbol><symbol id="i-house" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10l8-6 8 6v10z"/><path d="M9.5 20v-6h5v6"/></symbol><symbol id="i-brief" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5M3.5 13h17"/></symbol><symbol id="i-plane" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4.5L3 11l6.5 2.5L12 20l2.5-5.5L21 4.5z"/><path d="M9.5 13.5L21 4.5"/></symbol><symbol id="i-love" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19.5s-6.5-4-6.5-9.2a3.6 3.6 0 0 1 6.5-2.1 3.6 3.6 0 0 1 6.5 2.1c0 5.2-6.5 9.2-6.5 9.2z"/><path d="M12 11v3M10.5 12.5h3"/></symbol><symbol id="i-shirt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4L3.5 6.5l1.8 3.7L8 9v11h8V9l2.7 1.2 1.8-3.7L16 4a4 4 0 0 1-8 0z"/></symbol><symbol id="i-shoe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15.5V9l4 1.5 3-3.5 3 3.5 7 2.5v2.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol><symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/></symbol><symbol id="i-handbag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l1.5 11h-17L5 9z"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2"/></symbol><symbol id="i-cosm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21v-7h6v7zM10 14V9l2-5 2 5v5"/></symbol><symbol id="i-glasses" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="14" r="3.3"/><circle cx="17" cy="14" r="3.3"/><path d="M10.3 14h3.4M3.7 14L5 8M20.3 14L19 8"/></symbol><symbol id="i-lamp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8l2 8H6l2-8zM12 12v7M8.5 20h7"/></symbol><symbol id="i-dumb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8v8M3.5 10v4M18 8v8M20.5 10v4M6 12h12"/></symbol><symbol id="i-cube" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol><symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></symbol><symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></symbol><symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.7 6.5-11A6.5 6.5 0 0 0 5.5 10C5.5 15.3 12 21 12 21z"/><circle cx="12" cy="10" r="2.4"/></symbol><symbol id="i-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12.2V4.5h7.7l9 9a1.6 1.6 0 0 1 0 2.2l-5.5 5.5a1.6 1.6 0 0 1-2.2 0l-9-9z"/><circle cx="8" cy="9" r="1.3"/></symbol><symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5A8 8 0 0 1 8.2 18.6L4 20l1.4-4A8 8 0 1 1 20 11.5z"/></symbol><symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 4 5.6 4 9s-1.4 6.4-4 9c-2.6-2.6-4-5.6-4-9s1.4-6.4 4-9z"/></symbol><symbol id="i-bagplus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8M12 11.5v5M9.5 14h5"/></symbol><symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></symbol><symbol id="i-star" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2.8 14.9 8.7 21.4 9.6 16.7 14.2 17.8 20.7 12 17.6 6.2 20.7 7.3 14.2 2.6 9.6 9.1 8.7"/></symbol></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></symbol><symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></symbol><symbol id="i-bag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></symbol><symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.4A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></symbol><symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.4 7-5.4s6.2 1.8 7 5.4"/></symbol><symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15L6 16.5z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></symbol><symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></symbol><symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol><symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V4.5h4V7M7 7l.8 12.5h8.4L17 7M10.5 11v5M13.5 11v5"/></symbol><symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></symbol><symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></symbol><symbol id="i-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3 3v3h-7z"/><circle cx="7" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/></symbol><symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.8v5.7c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V5.8L12 3z"/><path d="M9 12l2.2 2.2L15.5 10"/></symbol><symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol><symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol><symbol id="i-gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M12 9v11M4 13h16"/><path d="M12 9c-2.5 0-4-1-4-2.6S9.3 4 10.7 4C12 4 12 6 12 9zm0 0c2.5 0 4-1 4-2.6S14.7 4 13.3 4C12 4 12 6 12 9z"/></symbol><symbol id="i-house" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10l8-6 8 6v10z"/><path d="M9.5 20v-6h5v6"/></symbol><symbol id="i-brief" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5M3.5 13h17"/></symbol><symbol id="i-plane" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4.5L3 11l6.5 2.5L12 20l2.5-5.5L21 4.5z"/><path d="M9.5 13.5L21 4.5"/></symbol><symbol id="i-love" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19.5s-6.5-4-6.5-9.2a3.6 3.6 0 0 1 6.5-2.1 3.6 3.6 0 0 1 6.5 2.1c0 5.2-6.5 9.2-6.5 9.2z"/><path d="M12 11v3M10.5 12.5h3"/></symbol><symbol id="i-shirt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4L3.5 6.5l1.8 3.7L8 9v11h8V9l2.7 1.2 1.8-3.7L16 4a4 4 0 0 1-8 0z"/></symbol><symbol id="i-shoe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15.5V9l4 1.5 3-3.5 3 3.5 7 2.5v2.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol><symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 18h2"/></symbol><symbol id="i-handbag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l1.5 11h-17L5 9z"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2"/></symbol><symbol id="i-cosm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21v-7h6v7zM10 14V9l2-5 2 5v5"/></symbol><symbol id="i-glasses" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="14" r="3.3"/><circle cx="17" cy="14" r="3.3"/><path d="M10.3 14h3.4M3.7 14L5 8M20.3 14L19 8"/></symbol><symbol id="i-lamp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8l2 8H6l2-8zM12 12v7M8.5 20h7"/></symbol><symbol id="i-dumb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8v8M3.5 10v4M18 8v8M20.5 10v4M6 12h12"/></symbol><symbol id="i-cube" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol><symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></symbol><symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></symbol><symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.7 6.5-11A6.5 6.5 0 0 0 5.5 10C5.5 15.3 12 21 12 21z"/><circle cx="12" cy="10" r="2.4"/></symbol><symbol id="i-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12.2V4.5h7.7l9 9a1.6 1.6 0 0 1 0 2.2l-5.5 5.5a1.6 1.6 0 0 1-2.2 0l-9-9z"/><circle cx="8" cy="9" r="1.3"/></symbol><symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5A8 8 0 0 1 8.2 18.6L4 20l1.4-4A8 8 0 1 1 20 11.5z"/></symbol><symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 4 5.6 4 9s-1.4 6.4-4 9c-2.6-2.6-4-5.6-4-9s1.4-6.4 4-9z"/></symbol><symbol id="i-bagplus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8M12 11.5v5M9.5 14h5"/></symbol><symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 12v7h14v-7"/></symbol><symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></symbol><symbol id="i-star" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2.8 14.9 8.7 21.4 9.6 16.7 14.2 17.8 20.7 12 17.6 6.2 20.7 7.3 14.2 2.6 9.6 9.1 8.7"/></symbol></svg>
 
 <header class="hdr" id="hdr">
   <div class="wrap hdr-in">
@@ -508,8 +664,9 @@ body.has-chip{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8
     </nav>
     <div class="hdr-act">
       <button class="pill-btn" id="langBtn" onclick="toggleLangQuick()" aria-label="Language">TJ</button>
-      <button class="icon-b" onclick="openNotifications()" aria-label="Уведомления"><svg><use href="#i-bell"/></svg></button>
-      <button class="icon-b" id="deskCart" onclick="openCart()" aria-label="Корзина" style="display:none"><svg><use href="#i-bag"/></svg><span class="nbadge" id="deskBadge">0</span></button>
+      <button class="icon-b" onclick="openSearch()" aria-label="Поиск"><svg><use href="#i-search"/></svg></button>
+      <button class="icon-b" onclick="go('favorites')" aria-label="Избранное"><svg><use href="#i-heart"/></svg><span class="fav-dot" id="favDot" hidden>0</span></button>
+      <button class="icon-b" id="hdrCart" onclick="openCart()" aria-label="Корзина"><svg><use href="#i-bag"/></svg><span class="nbadge" id="deskBadge">0</span></button>
     </div>
   </div>
 </header>
@@ -527,6 +684,8 @@ body.has-chip{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8
   </div>
 </main>
 
+<div class="sbar" id="scnBar"><button class="btn" id="scnBarBtn" onclick="kitAddAll('scn',this)"></button><div class="badge-save" id="scnBarSave" hidden></div></div>
+
 <div class="chip-cart" id="chipCart">
   <div><b id="chipTotal">0 смн</b><span id="chipCount"></span></div>
   <button onclick="openCart()" id="chipBtn">Корзина</button>
@@ -536,7 +695,6 @@ body.has-chip{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8
   <button class="bn on" data-v="home" onclick="go('home')"><svg><use href="#i-home"/></svg><span data-i18n="nav_home">Главная</span></button>
   <button class="bn" data-v="catalog" onclick="go('catalog')"><svg><use href="#i-grid"/></svg><span data-i18n="nav_catalog">Каталог</span></button>
   <button class="bn" id="bnCart" onclick="openCart()"><svg><use href="#i-bag"/></svg><span data-i18n="nav_cart">Корзина</span><span class="nbadge" id="cartBadge">0</span></button>
-  <button class="bn" data-v="favorites" onclick="go('favorites')"><svg><use href="#i-heart"/></svg><span data-i18n="nav_fav">Избранное</span><span class="fav-dot" id="favDot" hidden>0</span></button>
   <button class="bn" data-v="profile" onclick="go('profile')"><svg><use href="#i-user"/></svg><span data-i18n="nav_profile">Профиль</span></button>
 </nav>
 
@@ -624,6 +782,7 @@ body.has-chip{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8
 
       <div class="pp-card pp-price-card">
         <div id="ppPrice"></div>
+        <p class="pp-short" id="ppShort"></p>
         <div class="pp-variant" id="ppColors"></div>
         <div class="pp-variant" id="ppSizes"></div>
       </div>
@@ -638,16 +797,16 @@ body.has-chip{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8
         <button class="btn" id="ppAddBtnInline" onclick="ppAddOrOpenCart()"><span id="ppAddBtnLabelInline">В корзину</span><span id="ppAddBtnPriceInline"></span></button>
       </div>
 
+      <div class="pp-sec" id="ppKitWrap"></div>
+      <div class="pp-sec" id="ppOftenWrap"></div>
+      <div class="pp-sec" id="ppNeedWrap"></div>
+
       <div class="pp-benefits">
         <div class="pp-benefit"><svg><use href="#i-truck"/></svg><span data-i18n="b_delivery">Быстрая доставка</span></div>
         <div class="pp-benefit"><svg><use href="#i-shield"/></svg><span data-i18n="b_quality">Гарантия качества</span></div>
         <div class="pp-benefit"><svg><use href="#i-lock"/></svg><span data-i18n="b_pay">Удобная оплата</span></div>
       </div>
       <div class="pp-badges" id="ppBadges"></div>
-
-      <div class="pp-sec" id="ppKitWrap"></div>
-      <div class="pp-sec" id="ppOftenWrap"></div>
-      <div class="pp-sec" id="ppNeedWrap"></div>
 
       <div class="pp-card">
         <div class="pp-desc-label" data-i18n="pp_desc_label">Описание</div>
@@ -957,26 +1116,6 @@ const FREE_DELIVERY_FROM = 99; // смн — от этой суммы доста
 
 /* подсказки «с этим берут»: товары ИЗ ДРУГИХ категорий (к сумке — зарядка),
    недорогие, а если до бесплатной доставки не хватает — подходящие по цене «добивающие» */
-function renderCheckoutOrderSummary(){
-  const box = document.getElementById('checkoutOrderSummary');
-  if(!box) return;
-  const entries = Object.entries(cart);
-  box.innerHTML = entries.map(([id,qty])=>{
-    const p = PRODUCTS.find(p=>p.id==id);
-    if(!p) return '';
-    return `
-      <div class="checkout-order-item">
-        <div class="em">${mediaHtml(p)}</div>
-        <div class="info">
-          <div class="name">${lang==='tj'?p.name_tj:p.name_ru}</div>
-          ${cartVariantNote[id] ? `<div class="variant">${cartVariantNote[id]}</div>` : ''}
-        </div>
-        <div class="qty-x">× ${qty}</div>
-        <div class="price">${unitPrice(id)*qty} смн</div>
-      </div>`;
-  }).join('') + `<div class="checkout-order-total"><span>${I18N[lang].cart_total}</span><span>${cartTotal()} смн</span></div>`;
-}
-
 /* ---------- страница товара ---------- */
 let ppCurrentId = null;
 let ppQtyVal = 1;
@@ -1121,7 +1260,8 @@ function ppGalleryBadges(p){
       ${showTop ? `<span class="pp-gallery-badge-top">${lang==='tj'?'ТОП':'ТОП'}</span>` : ''}
       ${discountPct ? `<span class="pp-gallery-badge-sale">−${discountPct}%</span>` : ''}
     </div>
-    <button type="button" class="pp-gallery-fav ${isFav?'active':''}" onclick="event.stopPropagation();toggleFavorite(${p.id});renderProductDetail()">${isFav?HEART_ICON_FILLED:HEART_ICON}</button>`;
+    <button type="button" class="pp-gallery-fav ${isFav?'active':''}" onclick="event.stopPropagation();toggleFavorite(${p.id});renderProductDetail()">${isFav?HEART_ICON_FILLED:HEART_ICON}</button>
+    <button type="button" class="pp-gallery-share" onclick="event.stopPropagation();shareProduct(${p.id})" aria-label="share">${ic('share')}</button>`;
 }
 
 function ppRenderGallery(p){
@@ -1575,6 +1715,18 @@ const D = {
   trust_fast:['Быстро','Зуд'], remove:['Удалить','Нест кардан'], order_no:['Заказ №','Фармоиши №'], status_new:['Принят','Қабул шуд'],
   popular_q:['Популярные запросы','Дархостҳои маъмул'], promo_first:['Скидка 5% на первый заказ','Тахфифи 5% барои фармоиши аввал'], promo_ship:['Бесплатная доставка от 99 смн','Бурдарасонии ройгон аз 99 смн'],
   stock_out:['Нет в наличии','Мавҷуд нест'], hero_trip_btn:['Собрать набор','Маҷмӯа ҷамъ кардан'],
+  hero_t:['Всё, что нужно, в одном месте','Ҳама чизи зарурӣ дар як ҷо'], hero_s:['Вы пришли за одним, а найдёте гораздо больше','Шумо барои як чиз омадед, вале хеле бештарро меёбед'],
+  kit_sub_for:['С этими товарами ваша покупка будет выглядеть ещё лучше','Бо ин молҳо харидатон боз ҳам беҳтар менамояд'], together:['Выгодное вместе','Якҷоя фоидаовар'],
+  scn_card_t:['Соберите свою покупку','Харидатонро ҷамъ кунед'], scn_card_s:['Мы подскажем, что ещё может пригодиться','Мо мегӯем, ки боз чӣ лозим мешавад'],
+  promo_ph:['Введите код','Рамзро ворид кунед'], total_sum:['Общая сумма','Маблағи умумӣ'], promo_row:['Промокод','Промокод'],
+  promo_ok:['Промокод применён','Промокод татбиқ шуд'], promo_bad:['Промокод недействителен','Промокод нодуруст аст'],
+  qb_tip:['Добавьте ещё товары на {n} смн и получите бесплатную доставку','Боз молҳо ба маблағи {n} смн илова кунед ва бурдарасонии ройгон гиред'], qb_free:['Доставка будет бесплатной','Бурдарасонӣ ройгон мешавад'],
+  bonus_t:['Бонусы и скидки','Бонусҳо ва тахфифҳо'], bonus_s:['Будьте в курсе акций и специальных предложений','Аз аксияҳо ва пешниҳодҳои махсус огоҳ бошед'],
+  buyer:['Покупатель','Харидор'], all_cats:['Все категории','Ҳамаи категорияҳо'], share:['Поделиться','Мубодила'], link_copied:['Ссылка скопирована','Истинод нусха шуд'],
+  save_up:['Выгода до {n}','Фоида то {n}'], collect_sum:['Собрать всё — {n}','Ҳамаро ҷамъ кардан — {n}'], pick_sum:['Добавить выбранные — {n}','Иловаи интихобшуда — {n}'],
+  choose_color:['Выберите цвет','Рангро интихоб кунед'], choose_size:['Выберите размер','Андозаро интихоб кунед'], color:['Цвет','Ранг'], size:['Размер','Андоза'], qty:['Количество','Миқдор'],
+  reviews:['отзыва','шарҳ'], add_n:['Добавить всё ({n})','Ҳамаро илова кардан ({n})'], add_sel_n:['Добавить выбранные ({n})','Иловаи интихобшуда ({n})'],
+  choose_for:['Выберите, что добавить','Интихоб кунед, ки чӣ илова шавад'],
 };
 Object.keys(D).forEach(k => { I18N.ru[k] = D[k][0]; I18N.tj[k] = D[k][1]; });
 const T = (k, vars) => { let s = (I18N[lang] && I18N[lang][k]) || I18N.ru[k] || k; if(vars) for(const v in vars) s = s.replace('{'+v+'}', vars[v]); return s; };
@@ -1754,7 +1906,7 @@ function flyToCart(src){
     const card = src.closest('.pcard,.rec,.kit-row,.ci,.so-item') || src;
     const img = card.querySelector('img');
     const r = (img || src).getBoundingClientRect();
-    const target = (window.innerWidth >= 700 ? $('deskCart') : $('bnCart'));
+    const target = (window.innerWidth >= 700 ? $('hdrCart') : $('bnCart'));
     if(!target) return;
     const tr = target.getBoundingClientRect(); if(!tr.width) return;
     const el = document.createElement('div'); el.className = 'fly';
@@ -1775,7 +1927,34 @@ function cardActionHtml(p){
   const q = cart[p.id];
   return q
     ? `<div class="pstep" onclick="event.stopPropagation()"><button onclick="changeQty(${p.id},-1)" aria-label="−">${ic('minus')}</button><b>${q}</b><button onclick="changeQty(${p.id},1)" aria-label="+">${ic('plus')}</button></div>`
-    : `<button class="padd" onclick="event.stopPropagation();addToCart(${p.id},this)" aria-label="${T('add_to_cart')}">${ic('plus')}</button>`;
+    : `<button class="padd" onclick="event.stopPropagation();quickAdd(${p.id},this)" aria-label="${T('add_to_cart')}">${ic('plus')}</button>`;
+}
+let QB = null;
+function quickAdd(id, el){
+  const p = byId(id); if(!p) return;
+  if((p.colors||'').trim() || (p.sizes||'').trim()) openQuick(id); else addToCart(id, el);
+}
+function openQuick(id){ QB = {id, color:null, size:null, qty:1}; openSheet({title:'', body:'', foot:'<div id="qbFoot" style="display:contents"></div>', tall:true}); qbRender(); }
+function qbOpts(p){ return {colors:(p.colors||'').split(',').map(x=>x.trim()).filter(Boolean), sizes:(p.sizes||'').split(',').map(x=>x.trim()).filter(Boolean)}; }
+function qbRender(){
+  const p = byId(QB.id), o = qbOpts(p), d = discPct(p), st = cartStats();
+  const total = p.price * QB.qty, gap = FREE_DELIVERY_FROM - (st.pay + total);
+  $('sheetHead').innerHTML = `<div style="flex:1"></div><button class="x-b" onclick="closeSheet()" aria-label="×">${ic('x')}</button>`;
+  $('sheetBody').innerHTML = `<div class="qb-img">${pImgHtml(p)}</div><h3 class="t-h1" style="margin-top:16px">${esc(pName(p))}</h3>
+    <div class="pp-price-flat" style="margin-top:6px"><span class="now" style="font-size:28px">${money(p.price)}</span>${d ? `<span class="old">${money(p.old_price)}</span><span class="pct">−${d}%</span>` : ''}</div>
+    ${o.colors.length ? `<div class="pp-variant"><div class="pp-variant-label">${esc(T('color'))}${QB.color ? ': ' + esc(QB.color) : ''}</div><div class="pp-variant-opts">${o.colors.map(c => `<button type="button" class="pp-color-swatch ${QB.color===c?'active':''}" style="--sw-color:${colorToHex(c)}" title="${esc(c)}" onclick="QB.color='${c.replace(/'/g,"\\'")}';qbRender()"></button>`).join('')}</div></div>` : ''}
+    ${o.sizes.length ? `<div class="pp-variant"><div class="pp-variant-label">${esc(T('size'))}${QB.size ? ': ' + esc(QB.size) : ''}</div><div class="pp-variant-opts">${o.sizes.map(z => `<button type="button" class="pp-chip ${QB.size===z?'active':''}" onclick="QB.size='${z.replace(/'/g,"\\'")}';qbRender()">${esc(z)}</button>`).join('')}</div></div>` : ''}
+    <div class="pp-variant"><div class="pp-variant-label">${esc(T('qty'))}</div><div class="pstep" style="display:inline-flex;height:52px"><button style="height:52px;width:48px" onclick="QB.qty=Math.max(1,QB.qty-1);qbRender()">${ic('minus')}</button><b style="min-width:30px;font-size:17px">${QB.qty}</b><button style="height:52px;width:48px" onclick="QB.qty++;qbRender()">${ic('plus')}</button></div></div>`;
+  $('qbFoot').innerHTML = `<div class="tip">${ic('truck')}<span>${esc(gap > 0 ? T('qb_tip',{n: Math.ceil(gap)}) : T('qb_free'))}</span></div><button class="btn" onclick="qbAdd(this)">${esc(T('add_to_cart'))} · ${money(total)}</button>`;
+}
+function qbAdd(btn){
+  const p = byId(QB.id), o = qbOpts(p);
+  if(o.colors.length && !QB.color){ showToast(T('choose_color')); return; }
+  if(o.sizes.length && !QB.size){ showToast(T('choose_size')); return; }
+  const id = p.id; cart[id] = (cart[id]||0) + QB.qty; delete cartPriceOverride[id];
+  const parts = []; if(QB.color) parts.push(T('color') + ': ' + QB.color); if(QB.size) parts.push(T('size') + ': ' + QB.size);
+  if(parts.length) cartVariantNote[id] = parts.join(', '); else delete cartVariantNote[id];
+  flyToCart(btn); closeSheet(); updateCartUI(); syncCardActions(id); showToast(I18N[lang].added); trackFunnelEvent('cart', id);
 }
 function syncCardActions(id){
   const p = byId(id); if(!p) return;
@@ -1845,7 +2024,6 @@ function updateCartUI(){
   ['cartBadge','deskBadge','cartBadgePP'].forEach(id => { const b = $(id); if(!b) return; b.textContent = st.count; b.classList.toggle('show', st.count > 0); });
   if(st.count > lastCartCount) bumpBadges();
   lastCartCount = st.count;
-  const dc = $('deskCart'); if(dc) dc.style.display = window.innerWidth >= 700 ? 'flex' : 'none';
   // плавающая сводка
   const chip = $('chipCart');
   if(chip){
@@ -1861,26 +2039,48 @@ function updateCartUI(){
   if(typeof ppCurrentId !== 'undefined' && ppCurrentId){ updatePpAddBtnLabel(); kitRefreshAll(); }
 }
 
+function miniHtml(p){
+  return `<div class="mini" onclick="openProduct(${p.id})"><div class="mini-img">${pImgHtml(p)}<div class="mini-add" data-act="${p.id}">${cardActionHtml(p)}</div></div><div class="mini-n">${esc(pName(p))}</div><div class="mini-p">${money(p.price)}${discPct(p) ? `<s>${money(p.old_price)}</s>` : ''}</div></div>`;
+}
+const miniGrid = list => `<div class="mgrid">${list.map(miniHtml).join('')}</div>`;
 function almostBlockHtml(context){
-  const picks = cartSuggestions(4); const st = cartStats();
+  const picks = cartSuggestions(3); const st = cartStats();
   if(!picks.length || !st.count) return '';
   const many = st.count >= 3;
   return `<div class="sec"><div class="sec-head"><div>
       <h3 class="t-h2">${many ? '🛒 ' + esc(T('almost_title')) : esc(T('complete_title'))}</h3>
       <p class="t-sub">${many ? esc(lang==='tj' ? `Дар сабади шумо аллакай ${st.count} мол ҳаст. Шояд боз чизе лозим шавад.` : `В вашей корзине уже ${cntWord(st.count)}. Кажется, вам может понадобиться ещё кое-что.`) : esc(T('may_need'))}</p></div></div>
-      <div class="recs">${picks.map(p => recRowHtml(p, true)).join('')}</div></div>`;
+      ${miniGrid(picks)}</div>`;
 }
 
+let appliedPromo = null, promoBusy = false;
+function promoAmount(){ return appliedPromo ? Math.min(appliedPromo.amount, cartStats().pay) : 0; }
+function payTotal(){ return Math.max(0, cartStats().pay - promoAmount()); }
+async function applyCartPromo(silent){
+  const inp = $('cartPromo'); const code = (inp ? inp.value : (appliedPromo && appliedPromo.code) || '').trim(); const box = $('cartPromoMsg');
+  if(!code){ appliedPromo = null; if(!silent) renderCart(); return; }
+  const st = cartStats(); promoBusy = true;
+  try{
+    const res = await fetch('/api/promo-codes/validate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code, subtotal: st.pay})});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'bad');
+    appliedPromo = {code: data.code || code.toUpperCase(), amount: Number(data.discount_amount) || 0, subtotal: st.pay};
+    const ci = $('custPromo'); if(ci) ci.value = appliedPromo.code;
+  }catch(e){ appliedPromo = null; if(box && !silent){ box.textContent = T('promo_bad'); box.style.color = 'var(--red)'; } promoBusy = false; if(silent) renderCart(); return; }
+  promoBusy = false; renderCart();
+}
 function renderCart(){
   const body = $('csBody'), foot = $('checkoutBtn');
   const st = cartStats();
   $('csCount').textContent = st.count ? cntWord(st.count) : '';
   $('csTitle').textContent = T('cart_title');
   if(!st.count){
+    appliedPromo = null;
     body.innerHTML = `<div class="empty"><div class="em">🛍️</div><h3 class="t-h2">${esc(T('empty_cart'))}</h3><p class="t-sub">${esc(T('empty_cart_sub'))}</p><button class="btn" onclick="closeCart();go('home')">${esc(T('choose_scn'))}</button></div>`;
     foot.disabled = true; $('checkoutBtnLabel').textContent = T('checkout'); return;
   }
-  const gap = FREE_DELIVERY_FROM - st.pay;
+  if(appliedPromo && appliedPromo.subtotal !== st.pay && !promoBusy){ promoBusy = true; setTimeout(() => applyCartPromo(true), 0); }
+  const gap = FREE_DELIVERY_FROM - st.pay, promo = promoAmount(), pay = Math.max(0, st.pay - promo);
   const items = Object.entries(cart).map(([id,qty]) => {
     const p = byId(id); if(!p) return '';
     return `<div class="ci"><div class="ci-img" onclick="closeCart();openProduct(${p.id})">${pImgHtml(p)}</div>
@@ -1890,15 +2090,18 @@ function renderCart(){
       <button class="ci-del" onclick="removeItem(${p.id})" aria-label="${esc(T('remove'))}">${ic('trash')}</button></div>`;
   }).join('');
   const ship = `<div class="ship ${gap<=0?'done':''}"><div class="ship-t">${ic('truck')}<span>${esc(gap>0 ? T('free_left',{n:Math.ceil(gap)}) : T('free_done'))}</span></div><div class="ship-bar"><i style="width:${Math.min(100, st.pay/FREE_DELIVERY_FROM*100)}%"></i></div></div>`;
-  const sum = `<div class="sum"><h3 class="t-h2" style="margin-bottom:8px">${esc(T('your_purchase'))}</h3>
-    <div class="sum-row"><span>${esc(cntWord(st.count))}</span><span></span></div>
-    <div class="sum-row"><span>${esc(T('goods'))}</span><b>${money(st.goods)}</b></div>
+  const promoRow = `<div class="promo-row"><span class="promo-l">${esc(T('promo_row'))}</span><div class="promo-in"><input id="cartPromo" placeholder="${esc(T('promo_ph'))}" value="${esc(appliedPromo ? appliedPromo.code : '')}" style="text-transform:uppercase" onkeydown="if(event.key==='Enter')applyCartPromo()"><button onclick="applyCartPromo()" aria-label="OK">${ic('chev')}</button></div></div><div id="cartPromoMsg" class="t-small" style="min-height:0;margin:6px 4px 0;${appliedPromo ? 'color:var(--green)' : ''}">${appliedPromo ? '✓ ' + esc(T('promo_ok')) : ''}</div>`;
+  const sum = `<div class="sum"><div class="sum-row"><span>${esc(T('your_purchase'))}</span><span>${esc(cntWord(st.count))}</span></div>
+    <div class="sum-row"><span>${esc(T('total_sum'))}</span><b>${money(st.goods)}</b></div>
     ${st.disc > 0 ? `<div class="sum-row disc"><span>${esc(T('discount'))}</span><b>−${money(st.disc)}</b></div>` : ''}
+    ${promo > 0 ? `<div class="sum-row disc"><span>${esc(T('promo_row'))} ${esc(appliedPromo.code)}</span><b>−${money(promo)}</b></div>` : ''}
     <div class="sum-row"><span>${esc(T('delivery'))}</span><b>${gap<=0 ? esc(T('delivery_free')) : esc(T('delivery_calc'))}</b></div>
-    <div class="sum-row tot"><span>${esc(T('to_pay'))}</span><b>${money(st.pay)}</b></div>
-    ${st.disc > 0 ? `<div class="save-note">${ic('sparkle')}${esc(T('you_save'))} ${money(st.disc)}</div>` : ''}</div>`;
-  body.innerHTML = `<div class="cart-list">${items}</div><div style="margin-top:16px">${ship}</div>${almostBlockHtml('cart')}<div class="sec" style="margin-top:24px">${sum}</div>`;
-  foot.disabled = false; $('checkoutBtnLabel').textContent = T('checkout') + ' · ' + money(st.pay);
+    <div class="sum-row tot"><span>${esc(T('to_pay'))}</span><b>${money(pay)}</b></div>
+    ${(st.disc + promo) > 0 ? `<div class="save-note">${ic('sparkle')}${esc(T('you_save'))} ${money(st.disc + promo)}</div>` : ''}</div>`;
+  const keep = document.activeElement && document.activeElement.id === 'cartPromo' ? $('cartPromo').value : null;
+  body.innerHTML = `<div class="cart-list">${items}</div><div style="margin-top:12px">${ship}</div>${promoRow}${almostBlockHtml('cart')}<div class="sec" style="margin-top:24px">${sum}</div>`;
+  if(keep !== null) $('cartPromo').value = keep;
+  foot.disabled = false; $('checkoutBtnLabel').textContent = T('checkout') + ' · ' + money(pay);
 }
 function openCart(){
   closeSheet(); closeSearch();
@@ -1914,7 +2117,8 @@ function closeCart(){
 
 /* ---------- универсальный bottom sheet ---------- */
 let sheetClose = null;
-function openSheet({title, sub, body, foot, onClose}){
+function openSheet({title, sub, body, foot, onClose, tall}){
+  $('sheet').classList.toggle('tall', !!tall);
   $('sheetHead').innerHTML = `<div><h3 class="t-h1">${title}</h3>${sub ? `<p class="t-sub" style="margin-top:4px">${sub}</p>` : ''}</div><button class="x-b" onclick="closeSheet()" aria-label="×">${ic('x')}</button>`;
   $('sheetBody').innerHTML = body || ''; $('sheetFoot').innerHTML = foot || ''; $('sheetFoot').style.display = foot ? 'flex' : 'none';
   sheetClose = onClose || null;
@@ -1931,103 +2135,100 @@ function closeSheet(){
    Компонент «Соберите свою покупку» (чек-лист товаров + «Добавить всё»)
    ========================================================================== */
 const KITS = {};
+
+
+
 function kitHtml(id, cfg){
-  // cfg: {items:[p], base:p|null, title, sub, preselect, btn, scrollTo}
   const sig = (cfg.base ? cfg.base.id : '') + ':' + cfg.items.map(p => p.id).join(',');
   const prev = KITS[id];
   KITS[id] = {cfg, sig, on: (prev && prev.sig === sig) ? prev.on : new Set(cfg.preselect ? cfg.items.filter(p => !cart[p.id]).map(p => p.id) : [])};
   return `<div class="kit" id="kit-${id}">${kitInner(id)}</div>`;
 }
-function kitInner(id){
-  const k = KITS[id], cfg = k.cfg;
-  const rows = [];
-  if(cfg.base){
-    const b = cfg.base, bq = (typeof ppQtyVal !== 'undefined' ? ppQtyVal : 1);
-    rows.push(`<div class="kit-row base on"><span class="ck on">${ic('check')}</span><div class="rec-img">${pImgHtml(b)}</div><div class="rec-t"><b>${esc(pName(b))}</b><span>${money(kitBaseUnit(b))}${bq>1?` × ${bq}`:''}</span></div><span class="badge-n">${cart[b.id] ? esc(T('in_cart')) : esc(T('this_item'))}</span></div>`);
-  }
-  cfg.items.forEach(p => {
-    const inC = !!cart[p.id], on = k.on.has(p.id);
-    rows.push(`<div class="kit-row ${on?'on':''} ${inC?'incart':''}" onclick="${inC ? '' : `kitToggle('${id}',${p.id})`}"><span class="ck ${on?'on':''}">${ic('check')}</span><div class="rec-img">${pImgHtml(p)}</div><div class="rec-t"><b>${esc(pName(p))}</b><span>${money(p.price)}</span>${discPct(p)?`<s>${money(p.old_price)}</s>`:''}</div>${inC ? `<span class="badge-n">${esc(T('in_cart'))}</span>` : `<button class="x-b" style="width:36px;height:36px;background:var(--bg-2)" onclick="event.stopPropagation();openProduct(${p.id})" aria-label="i">${ic('chev')}</button>`}</div>`);
-  });
-  const t = kitTotals(id);
-  const addable = t.selected;
-  const label = cfg.btn || (addable && addable === cfg.items.filter(p=>!cart[p.id]).length ? T('add_all') : T('add_selected'));
-  return `<div class="kit-head"><div class="kit-ic">${ic('bagplus')}</div><div><h3 class="t-h2">${esc(cfg.title || T('kit_title'))}</h3><p class="t-small" style="margin-top:2px">${esc(cfg.sub || T('kit_sub'))}</p></div></div>
-    <div class="kit-rows">${rows.join('')}</div>
-    <div class="kit-foot"><div class="kit-sum"><div><b>${esc(cntWord(t.count))} · ${money(t.sum)}</b>${t.save > 0 ? `<div class="badge-save" style="margin-top:6px">${esc(T('you_save'))} ${money(t.save)}</div>` : ''}</div></div>
-    <button class="btn" onclick="kitAddAll('${id}',this)" ${(!cfg.base && !addable) ? 'disabled' : ''}>${ic('bagplus')}<span>${esc(label)}${addable ? ` (${addable})` : ''}</span></button></div>`;
+function kitRowHtml(id, p, on, inC, opts){
+  opts = opts || {};
+  const open = opts.noOpen ? '' : `onclick="event.stopPropagation();openProduct(${p.id})"`;
+  return `<div class="kit-row ${on?'on':''} ${inC?'incart':''}" ${(inC||opts.base) ? '' : `onclick="kitToggle('${id}',${p.id})"`}>
+    <div class="rec-img" ${open}>${pImgHtml(p)}</div>
+    <div class="rec-t"><b>${esc(pName(p))}</b><span>${money(opts.base ? kitBaseUnit(p) : p.price)}</span>${discPct(p)?`<s>${money(p.old_price)}</s>`:''}</div>
+    ${inC ? `<span class="badge-n">${esc(T('in_cart'))}</span>` : ''}
+    <span class="ck ${(on||opts.base)?'on':''}">${ic('check')}</span></div>`;
 }
-function kitBaseUnit(b){
-  if(typeof ppBundleQty !== 'undefined' && ppBundleQty && ppBundleTotal) return Math.round((ppBundleTotal/ppBundleQty)*100)/100;
-  return b.price;
+function kitCounts(id){
+  const k = KITS[id], cfg = k.cfg;
+  const n = cfg.items.filter(p => !cart[p.id]).length;
+  const sel = cfg.items.filter(p => k.on.has(p.id) && !cart[p.id]).length;
+  const baseAdd = (cfg.base && !cart[cfg.base.id]) ? 1 : 0;
+  return {n, sel, toAdd: sel + baseAdd, baseAdd};
+}
+function kitInner(id){
+  const k = KITS[id], cfg = k.cfg, rows = [];
+  if(cfg.base) rows.push(kitRowHtml(id, cfg.base, true, !!cart[cfg.base.id], {base:true, noOpen:true}));
+  cfg.items.forEach(p => rows.push(kitRowHtml(id, p, k.on.has(p.id), !!cart[p.id], {noOpen: cfg.noOpen})));
+  const t = kitTotals(id), c = kitCounts(id);
+  const allSel = c.sel === c.n;
+  const label = (cfg.base ? (c.baseAdd ? '' : '') : '') + T(allSel ? 'add_n' : 'add_sel_n', {n: c.toAdd});
+  return `${cfg.noHead ? '' : `<div class="kit-head"><div class="kit-ic">${ic('bagplus')}</div><div><h3 class="t-h2">${esc(cfg.title || T('kit_title'))}</h3><p class="t-small" style="margin-top:2px">${esc(cfg.sub || T('kit_sub'))}</p></div></div>`}
+    <div class="kit-rows">${rows.join('')}</div>
+    <div class="kit-foot">
+      ${cfg.noFootBtn ? '' : `<button class="btn" onclick="kitAddAll('${id}',this)" ${c.toAdd ? '' : 'disabled'}>${ic('bagplus')}<span>${esc(label)}</span></button>`}
+      <div class="kit-sum"><div class="kit-sum-n">${esc(cntWord(t.count))} · <b>${money(t.sum)}</b></div>${t.save > 0 ? `<div class="badge-save">${ic('sparkle')}${esc(T('you_save'))} ${money(t.save)}</div>` : ''}</div>
+      ${cfg.after ? `<button class="btn btn-ghost" onclick="closeSheet()">${esc(T('keep_going'))}</button>` : ''}
+    </div>`;
 }
 function kitTotals(id){
   const k = KITS[id], cfg = k.cfg; let count = 0, sum = 0, save = 0, selected = 0;
   if(cfg.base && !cart[cfg.base.id]){ const q = (typeof ppQtyVal !== 'undefined' ? ppQtyVal : 1); count += q; sum += kitBaseUnit(cfg.base)*q; if(cfg.base.old_price > cfg.base.price) save += (cfg.base.old_price - cfg.base.price)*q; }
   cfg.items.forEach(p => { if(k.on.has(p.id) && !cart[p.id]){ count++; selected++; sum += p.price; if(p.old_price > p.price) save += p.old_price - p.price; } });
-  // что уже лежит в корзине — тоже часть покупки
-  if(!cfg.base){ const st = cartStats(); count += st.count; sum += st.pay; }
-  else if(cart[cfg.base.id]){ const st = cartStats(); count += st.count; sum += st.pay; }
+  if(!cfg.noCart && (!cfg.base || cart[cfg.base.id])){ const st = cartStats(); count += st.count; sum += st.pay; }
   return {count, sum, save, selected};
 }
+function kitRefresh(id){ const el = $('kit-' + id); if(el && KITS[id]) el.innerHTML = kitInner(id); if(id === 'scn') scnBarRefresh(); }
+function kitAddAll(id, btn){
+  const k = KITS[id]; if(!k) return; const cfg = k.cfg; let added = 0;
+  if(cfg.base && !cart[cfg.base.id]){ ppAddToCart(true); added++; }
+  cfg.items.forEach(p => { if(k.on.has(p.id) && !cart[p.id]){ addToCart(p.id, null, {silent:true}); trackFunnelEvent('cart', p.id); added++; } });
+  if(!added) return;
+  flyToCart(btn); updateCartUI(); cfg.items.forEach(p => syncCardActions(p.id));
+  showToast(T('added_n', {n: added}));
+  k.on.clear(); kitRefresh(id);
+  if(id === 'sheet') closeSheet();
+}
+function openKitSheet(baseId, after){
+  const p = byId(baseId); if(!p) return;
+  delete KITS.sheet; // каждый раз — заново (выбор не должен «протекать» между шторками)
+  const items = suggestFor(p).kit.filter(x => !after || !cart[x.id]); if(!items.length) return;
+  const html = kitHtml('sheet', {items, base: p, preselect: !after, noHead: true, after: !!after, noOpen: true});
+  openSheet({title: esc(T(after ? 'complete_q' : 'kit_title')), sub: esc(T('kit_sub_for')), body: html, foot: '', tall: true});
+}
+function maybeOfferComplete(id){
+  if(offeredFor.has(id)) return false; const p = byId(id); if(!p) return false;
+  if(!suggestFor(p).kit.filter(x => !cart[x.id]).length) return false;
+  offeredFor.add(id);
+  setTimeout(() => { if($('productPage').classList.contains('show') && !$('sheet').classList.contains('show')) openKitSheet(id, true); }, 350);
+  return true;
+}
+
+function kitBaseUnit(b){
+  if(typeof ppBundleQty !== 'undefined' && ppBundleQty && ppBundleTotal) return Math.round((ppBundleTotal/ppBundleQty)*100)/100;
+  return b.price;
+}
+
 function kitToggle(id, pid){
   const k = KITS[id]; if(!k) return;
   if(k.on.has(pid)) k.on.delete(pid); else k.on.add(pid);
   kitRefresh(id);
 }
-function kitRefresh(id){ const el = $('kit-' + id); if(el && KITS[id]) el.innerHTML = kitInner(id); }
-function kitRefreshAll(){ Object.keys(KITS).forEach(id => { if($('kit-' + id)) kitRefresh(id); }); }
-function kitAddAll(id, btn){
-  const k = KITS[id]; if(!k) return; const cfg = k.cfg;
-  let added = 0;
-  if(cfg.base && !cart[cfg.base.id]){ ppAddToCart(true); added++; }
-  cfg.items.forEach(p => { if(k.on.has(p.id) && !cart[p.id]){ addToCart(p.id, null, {silent:true}); trackFunnelEvent('cart', p.id); added++; } });
-  if(!added){ if(cfg.base) { openCart(); } return; }
-  flyToCart(btn);
-  updateCartUI(); cfg.items.forEach(p => syncCardActions(p.id));
-  showToast(T('added_n', {n: added}));
-  if(btn){ btn.classList.add('is-added'); setTimeout(() => btn.classList.remove('is-added'), 1200); }
-  k.on.clear(); kitRefresh(id);
-}
 
-/* ---------- после «В корзину» на странице товара: мягкое предложение ---------- */
+function kitRefreshAll(){ Object.keys(KITS).forEach(id => { if($('kit-' + id)) kitRefresh(id); }); }
+
+
 const offeredFor = new Set();
-function maybeOfferComplete(id){
-  if(offeredFor.has(id)) return false; const p = byId(id); if(!p) return false;
-  const sug = suggestFor(p).kit.filter(x => !cart[x.id]); if(!sug.length) return false;
-  offeredFor.add(id);
-  setTimeout(() => {
-    if(!$('productPage').classList.contains('show')) return;
-    const kid = 'after';
-    const html = kitHtmlAfter(kid, sug);
-    openSheet({title: esc(T('complete_q')), sub: esc(T('kit_sub')), body: html.body, foot: html.foot});
-    kitAfterRefresh(kid);
-  }, 350);
-  return true;
-}
-function kitHtmlAfter(id, items){
-  KITS[id] = {cfg:{items, base:null}, on:new Set()};
-  return {body:`<div class="kit-rows" id="kit-${id}-rows"></div>`, foot:`<div class="kit-sum"><div><b id="kit-${id}-sum"></b></div><button class="link" onclick="kitSelectAll('${id}')">${esc(T('add_all'))}</button></div>
-    <button class="btn" id="kit-${id}-btn" onclick="kitAddAfter('${id}',this)"></button><button class="btn btn-ghost" onclick="closeSheet()">${esc(T('keep_going'))}</button>`};
-}
-function kitAfterRefresh(id){
-  const k = KITS[id]; if(!k) return;
-  $('kit-' + id + '-rows').innerHTML = k.cfg.items.map(p => {
-    const inC = !!cart[p.id], on = k.on.has(p.id);
-    return `<div class="kit-row ${on?'on':''} ${inC?'incart':''}" onclick="${inC?'':`kitToggleAfter('${id}',${p.id})`}"><span class="ck ${on?'on':''}">${ic('check')}</span><div class="rec-img">${pImgHtml(p)}</div><div class="rec-t"><b>${esc(pName(p))}</b><span>${money(p.price)}</span>${discPct(p)?`<s>${money(p.old_price)}</s>`:''}</div>${inC?`<span class="badge-n">${esc(T('in_cart'))}</span>`:''}</div>`;
-  }).join('');
-  const st = cartStats(); let n = 0, sum = 0;
-  k.cfg.items.forEach(p => { if(k.on.has(p.id) && !cart[p.id]){ n++; sum += p.price; } });
-  $('kit-' + id + '-sum').textContent = cntWord(st.count + n) + ' · ' + money(st.pay + sum);
-  const b = $('kit-' + id + '-btn'); b.disabled = n === 0; b.textContent = T('add_selected') + (n ? ` (${n})` : '');
-}
-function kitToggleAfter(id,pid){ const k = KITS[id]; if(k.on.has(pid)) k.on.delete(pid); else k.on.add(pid); kitAfterRefresh(id); }
-function kitSelectAll(id){ const k = KITS[id]; k.cfg.items.forEach(p => { if(!cart[p.id]) k.on.add(p.id); }); kitAfterRefresh(id); }
-function kitAddAfter(id, btn){
-  const k = KITS[id]; let n = 0;
-  k.cfg.items.forEach(p => { if(k.on.has(p.id) && !cart[p.id]){ addToCart(p.id, null, {silent:true}); trackFunnelEvent('cart', p.id); n++; } });
-  if(!n) return; flyToCart(btn); updateCartUI(); showToast(T('added_n',{n})); k.on.clear(); closeSheet();
-}
+
+
+
+
+
+
 
 /* ==========================================================================
    Маршруты и виды
@@ -2058,6 +2259,7 @@ function showView(v, arg){
   if(v === 'home') renderHome(); else if(v === 'catalog') renderCatalog(); else if(v === 'scenario') renderScenario(arg); else if(v === 'favorites') renderFavorites(); else renderProfile();
   const el = $('view-' + v); el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
   if(!same) window.scrollTo(0, 0);
+  document.body.classList.toggle('scn-view', v === 'scenario'); if(v !== 'scenario') scnBarRefresh();
 }
 function renderCurrent(){ showView(curView, curArg); }
 
@@ -2066,30 +2268,42 @@ function bannersHtml(){
   if(!BANNERS.length) return '';
   return `<div class="hrow" style="margin-top:16px">${BANNERS.map(b => `<div style="flex:0 0 86%;border-radius:22px;overflow:hidden;scroll-snap-align:start;cursor:pointer" ${b.link_url ? `onclick="window.open('${esc(b.link_url)}','_blank')"` : ''}><img src="${b.image_data}" alt="" style="width:100%;aspect-ratio:2.2/1;object-fit:cover"></div>`).join('')}</div>`;
 }
+function heroHtml(){
+  const ban = BANNERS[0] && BANNERS[0].image_data;
+  const top = popularList().find(p => p.image_data) || popularList()[0];
+  const pill = `<button class="hero-search" onclick="openSearch()"><span>${esc(T('search_btn'))}</span><i>${ic('chev')}</i></button>`;
+  const text = `<h1>${esc(T('hero_t'))}</h1><p>${esc(T('hero_s'))}</p>${pill}`;
+  if(ban) return `<div class="hero-img photo" style="background-image:linear-gradient(180deg,rgba(22,21,19,.04) 30%,rgba(22,21,19,.78)),url('${ban}')"><div class="hero-in">${text}</div></div>`;
+  return `<div class="hero-img plain"><div class="hero-pic">${top ? pImgHtml(top) : ''}</div><div class="hero-in">${text}</div></div>`;
+}
+function scnVisual(s){
+  const items = scnProducts(s);
+  const f = items.find(p => p.image_data) || items[0];
+  return f ? pImgHtml(f) : ic(s.icon);
+}
 function renderHome(){
   const v = $('view-home');
-  if(!productsReady){ v.innerHTML = `<div class="hero"><h1 class="t-display">${esc(T('home_title'))}</h1></div>${skeleton(4)}`; return; }
+  if(!productsReady){ v.innerHTML = `<div class="hero-img plain" style="min-height:300px"></div>${skeleton(4)}`; return; }
   const pop = popularList().slice(0, 8);
   const news = PRODUCTS.filter(p => p.tag === 'new' && inStock(p)).slice(0, 8);
-  const cats = presentCats();
+  const cats = presentCats(), top = pop[0];
   v.innerHTML = `
-    <div class="hero"><h1 class="t-display">${esc(T('home_title'))}</h1><p class="t-sub">${esc(T('home_sub'))}</p>
-      <button class="search-field" onclick="openSearch()">${ic('search')}<span>${esc(T('search_btn'))}</span></button></div>
-    ${bannersHtml()}
+    ${heroHtml()}
+    <div class="sec"><h2 class="t-h1">${esc(T('home_title'))}</h2><p class="t-sub" style="margin-top:6px">${esc(T('home_sub'))}</p></div>
     <div class="scn-grid" style="margin-top:16px">${SCN.map(s => {
-      const items = scnProducts(s), L = s[lang==='tj'?'tj':'ru'];
-      return `<button class="scn tint-${s.tint}" onclick="go('scenario','${s.key}')"><div><div class="scn-ic">${ic(s.icon)}</div><h3>${esc(L[0])}</h3><p>${esc(L[1])}</p></div>
-        <div class="scn-thumbs">${items.slice(0,3).map(p => `<i>${pImgHtml(p)}</i>`).join('')}</div></button>`;
+      const L = s[lang==='tj'?'tj':'ru'];
+      return `<button class="scn2" onclick="go('scenario','${s.key}')"><div class="scn2-img tint-${s.tint}">${scnVisual(s)}</div><span>${esc(L[0])}</span></button>`;
     }).join('')}</div>
+    ${top ? `<button class="promo-kit" onclick="openProduct(${top.id})"><div><b>${esc(T('scn_card_t'))}</b><span>${esc(T('scn_card_s'))}</span><i>${ic('chev')}</i></div><div class="pk-img">${pImgHtml(top)}</div></button>` : ''}
     ${almostBlockHtml('home')}
-    ${pop.length ? `<div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('popular'))}</h3><button class="link" onclick="catState.cat='all';go('catalog')">${esc(T('see_all'))} ${ic('chev','')}</button></div><div class="hrow">${pop.map(renderCard).join('')}</div></div>` : ''}
+    ${pop.length ? `<div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('popular'))}</h3><button class="link" onclick="catState.cat='all';go('catalog')">${esc(T('see_all'))} ${ic('chev')}</button></div><div class="hrow">${pop.map(renderCard).join('')}</div></div>` : ''}
     ${news.length ? `<div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('newest'))}</h3></div><div class="hrow">${news.map(renderCard).join('')}</div></div>` : ''}
     <div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('cats'))}</h3></div><div class="cat-grid">${cats.map(catCardHtml).join('')}</div></div>
     <div class="trust3"><div class="pp-benefit">${ic('truck')}${esc(T('b_delivery'))}</div><div class="pp-benefit">${ic('shield')}${esc(T('b_quality'))}</div><div class="pp-benefit">${ic('lock')}${esc(T('b_pay'))}</div></div>`;
 }
 function catCardHtml(c){
   const first = PRODUCTS.find(p => p.cat === c.cat && p.image_data) || PRODUCTS.find(p => p.cat === c.cat);
-  return `<button class="catc tint-${catTint(c.cat)}" onclick="catState.cat='${c.cat}';catState.q='';go('catalog')"><div class="catc-vis">${first ? pImgHtml(first) : ic(catIcon(c.cat))}</div><h3>${esc(catLabel(c.cat))}</h3><span>${esc(cntWord(c.n))}</span></button>`;
+  return `<button class="catp" onclick="catState.cat='${c.cat}';catState.q='';go('catalog')"><div class="catp-img tint-${catTint(c.cat)}">${first ? pImgHtml(first) : ic(catIcon(c.cat))}</div><div class="catp-t"><b>${esc(catLabel(c.cat))}</b><span>${esc(cntWord(c.n))}</span></div></button>`;
 }
 
 /* ---------- каталог ---------- */
@@ -2145,15 +2359,25 @@ function renderScenario(key){
   const groups = (s.groups || []).map(g => ({g, list: all.filter(g.test)})).filter(x => x.list.length);
   const list = (scnGroup >= 0 && groups[scnGroup]) ? groups[scnGroup].list : all;
   const kitItems = scnKit(s);
+  const cover = all.find(p => p.image_data);
+  const GIC = ['cube','handbag','glasses','phone','cosm'];
   v.innerHTML = `
     <div class="back-row"><button class="icon-b" onclick="history.length>1?history.back():go('home')" aria-label="←">${ic('back')}</button></div>
-    <div class="scn-hero tint-${s.tint}"><div class="scn-ic" style="width:52px;height:52px">${ic(s.icon)}</div>
-      <h1 class="t-h1" style="margin-top:12px">${esc(L[2])}</h1><p class="t-sub">${esc(L[1])}</p>
-      <button class="btn btn-sm" style="margin-top:16px" onclick="document.getElementById('scnKit').scrollIntoView({behavior:'smooth',block:'center'})">${ic('bagplus')}${esc(T('scn_build'))}</button></div>
-    ${groups.length > 1 ? `<div class="chips" style="margin-top:16px"><button class="chip ${scnGroup<0?'on':''}" onclick="scnGroup=-1;renderScenario('${key}')">${esc(T('all'))}</button>${groups.map((x,i) => `<button class="chip ${scnGroup===i?'on':''}" onclick="scnGroup=${i};renderScenario('${key}')">${esc(x.g[lang==='tj'?'tj':'ru'])}</button>`).join('')}</div>` : ''}
+    <div class="scn-cover tint-${s.tint}">${cover ? pImgHtml(cover) : `<span>${ic(s.icon)}</span>`}</div>
+    <h1 class="t-h1" style="margin-top:16px">${esc(L[0])}</h1><p class="t-sub" style="margin-top:4px">${esc(L[2])}</p>
+    ${groups.length > 1 ? `<div class="gchips"><button class="gchip ${scnGroup<0?'on':''}" onclick="scnGroup=-1;renderScenario('${key}')"><i>${ic('grid')}</i><span>${esc(T('all'))}</span></button>${groups.map((x,i) => `<button class="gchip ${scnGroup===i?'on':''}" onclick="scnGroup=${i};renderScenario('${key}')"><i>${ic(x.g.ic || GIC[i % GIC.length])}</i><span>${esc(x.g[lang==='tj'?'tj':'ru'])}</span></button>`).join('')}</div>` : ''}
     <div class="sec" style="margin-top:20px"><div class="sec-head"><h3 class="t-h2">${esc(T('scn_popular'))}</h3><span class="badge-n">${list.length}</span></div><div class="pgrid">${list.slice(0,12).map(renderCard).join('')}</div></div>
-    <div class="sec" id="scnKit">${kitHtml('scn', {items: kitItems, base: null, preselect: true, title: T('scn_build'), sub: L[2], btn: T('collect_all')})}</div>`;
-  // в сценарии показываем «Весь набор»
+    <div class="sec" id="scnKit">${kitHtml('scn', {items: kitItems, base: null, preselect: true, noCart: true, noFootBtn: true, title: T('scn_build'), sub: L[2]})}</div>`;
+  scnBarRefresh();
+}
+function scnBarRefresh(){
+  const bar = $('scnBar'); if(!bar) return;
+  if(curView !== 'scenario' || !KITS.scn || !$('kit-scn')){ document.body.classList.remove('scn-view'); return; }
+  const t = kitTotals('scn'), n = KITS.scn.cfg.items.filter(p => !cart[p.id]).length;
+  document.body.classList.add('scn-view');
+  $('scnBarBtn').disabled = !t.selected;
+  $('scnBarBtn').textContent = T(t.selected === n ? 'collect_sum' : 'pick_sum', {n: money(t.sum)});
+  const sv = $('scnBarSave'); sv.hidden = !(t.save > 0); sv.textContent = T('save_up', {n: money(t.save)});
 }
 
 /* ---------- избранное ---------- */
@@ -2173,7 +2397,7 @@ function renderProfile(){
   const row = (icn, label, n, fn) => `<button class="lrow" onclick="${fn}"><span class="l-ic">${ic(icn)}</span>${esc(label)}<span class="l-n">${n==null?'':n}</span>${ic('chev','chev')}</button>`;
   v.innerHTML = `<div class="hero" style="padding-bottom:8px"><h1 class="t-h1">${esc(T('nav_profile'))}</h1></div>
     <div class="prof-card"><div class="avatar">${esc((profile.name||'?').trim().charAt(0).toUpperCase() || '?')}</div>
-      <div style="flex:1;min-width:0"><b style="font-size:17px">${esc(profile.name || T('guest'))}</b><div class="t-small">${esc(profile.phone || T('login_sub'))}</div></div>
+      <div style="flex:1;min-width:0"><b style="font-size:17px">${esc(profile.name || T('guest'))}</b><div class="t-small">${esc(profile.phone || T('buyer'))}</div></div>
       <button class="btn btn-sm btn-soft" onclick="openLogin()">${esc(logged ? T('save') : T('login'))}</button></div>
     <div class="list" style="margin-top:16px">
       ${row('box', T('my_orders'), profile.orders.length || '', 'openOrders()')}
@@ -2184,6 +2408,7 @@ function renderProfile(){
       ${row('info', T('help'), '', 'openHelp()')}
       ${row('globe', T('language'), lang==='tj'?'Тоҷикӣ':'Русский', 'toggleLangQuick()')}
     </div>
+    <button class="bonus" onclick="openNotifications()"><span class="l-ic">${ic('gift')}</span><div><b>${esc(T('bonus_t'))}</b><span>${esc(T('bonus_s'))}</span></div></button>
     ${logged ? `<button class="btn btn-ghost" style="margin-top:16px" onclick="logout()">${esc(T('logout'))}</button>` : ''}
     <p class="t-small" style="margin-top:12px;text-align:center;color:var(--muted)">${esc(T('saved_here'))}</p>`;
 }
@@ -2263,10 +2488,12 @@ function setSearch(t){ const i = $('searchInputHome'); i.value = t; renderSearch
 /* ---------- блоки на странице товара ---------- */
 function renderPpBlocks(p){
   const s = suggestFor(p);
-  $('ppKitWrap').innerHTML = s.kit.length ? kitHtml('pp', {items: s.kit, base: p, preselect: true}) : '';
-  const rec = (title, list) => list.length ? `<h3 class="t-h2">${esc(title)}</h3><div class="recs">${list.map(x => recRowHtml(x, true)).join('')}</div>` : '';
-  $('ppOftenWrap').innerHTML = rec(T('often_title'), s.often);
-  $('ppNeedWrap').innerHTML = rec(T('need_title'), s.need);
+  $('ppKitWrap').innerHTML = s.kit.length ? `<button class="kit-teaser" onclick="openKitSheet(${p.id})"><div class="kit-ic">${ic('bagplus')}</div><div class="kt-t"><b>${esc(T('kit_title'))}</b><span class="badge-save">${ic('sparkle')}${esc(T('together'))}</span></div><div class="kt-th">${s.kit.slice(0,3).map(x => `<i>${pImgHtml(x)}</i>`).join('')}</div>${ic('chev')}</button>` : '';
+  const blk = (title, list) => list.length ? `<h3 class="t-h2" style="margin-bottom:12px">${esc(title)}</h3>${miniGrid(list)}` : '';
+  $('ppOftenWrap').innerHTML = blk(T('often_title'), s.often);
+  $('ppNeedWrap').innerHTML = blk(T('need_title'), s.need);
+  const d = (lang==='tj' ? p.desc_tj : p.desc_ru) || '';
+  const sh = $('ppShort'); if(sh){ sh.textContent = d.length > 130 ? d.slice(0,130).trim() + '…' : d; sh.style.display = d ? 'block' : 'none'; }
 }
 
 /* ---------- оформление заказа ---------- */
@@ -2281,6 +2508,7 @@ function openCheckout(){
   if(!$('custName').value) $('custName').value = profile.name || '';
   if(!$('custPhone').value) $('custPhone').value = profile.phone || '';
   if(!$('custAddress').value) $('custAddress').value = profile.addresses[0] || '';
+  if(appliedPromo && !$('custPromo').value) $('custPromo').value = appliedPromo.code;
   $('checkoutOverlay').classList.add('show'); document.body.style.overflow = 'hidden';
   trackFunnelEvent('checkout', null);
 }
@@ -2296,7 +2524,7 @@ function rememberOrder(){
 function finishOrder(){
   rememberOrder();
   $('checkoutForm').style.display = 'none'; $('successBox').style.display = 'block';
-  cart = {}; cartPriceOverride = {}; cartVariantNote = {};
+  cart = {}; cartPriceOverride = {}; cartVariantNote = {}; appliedPromo = null;
   closeCart(); updateCartUI(); if(curView==='profile') renderProfile();
   document.querySelectorAll('[data-act]').forEach(el => { const p = byId(el.dataset.act); if(p) el.innerHTML = cardActionHtml(p); });
 }
@@ -2347,10 +2575,24 @@ function handleRoute(){
 window.addEventListener('popstate', handleRoute);
 window.addEventListener('hashchange', route);
 window.addEventListener('scroll', () => { $('hdr').classList.toggle('scrolled', window.scrollY > 4); }, {passive:true});
-window.addEventListener('resize', () => { const dc = $('deskCart'); if(dc) dc.style.display = window.innerWidth >= 700 ? 'flex' : 'none'; });
 $('searchInputHome').addEventListener('input', e => renderSearch(e.target.value));
 $('searchInputHome').addEventListener('keydown', e => { if(e.key === 'Enter'){ catState.q = e.target.value.trim(); catState.cat = 'all'; closeSearch(); go('catalog'); } });
 document.addEventListener('keydown', e => { if(e.key === 'Escape'){ if($('searchOv').classList.contains('show')) closeSearch(); else if($('sheet').classList.contains('show')) closeSheet(); else if($('checkoutOverlay').classList.contains('show')) closeCheckout(); else if($('cartSheet').classList.contains('show')) closeCart(); } });
+
+function renderCheckoutOrderSummary(){
+  const box = $('checkoutOrderSummary'); if(!box) return;
+  const rows = Object.entries(cart).map(([id,qty]) => {
+    const p = byId(id); if(!p) return '';
+    return `<div class="checkout-order-item"><div class="em">${pImgHtml(p)}</div><div class="info"><div class="name">${esc(pName(p))}</div>${cartVariantNote[id] ? `<div class="variant">${esc(cartVariantNote[id])}</div>` : ''}</div><div class="qty-x">× ${qty}</div><div class="price">${money(unitPrice(id)*qty)}</div></div>`;
+  }).join('');
+  const promo = promoAmount();
+  box.innerHTML = rows + (promo > 0 ? `<div class="checkout-order-item"><div class="info"><div class="name" style="color:var(--green)">${esc(T('promo_row'))} ${esc(appliedPromo.code)}</div></div><div class="price" style="color:var(--green)">−${money(promo)}</div></div>` : '') + `<div class="checkout-order-total"><span>${esc(T('to_pay'))}</span><span>${money(payTotal())}</span></div>`;
+}
+function shareProduct(id){
+  const p = byId(id); if(!p) return; const url = location.origin + productUrl(p);
+  if(navigator.share){ navigator.share({title: pName(p), url}).catch(()=>{}); }
+  else{ try{ navigator.clipboard && navigator.clipboard.writeText(url); }catch(e){} showToast(T('link_copied')); }
+}
 
 
 function updatePpAddBtnLabel(){
