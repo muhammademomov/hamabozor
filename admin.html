@@ -178,7 +178,7 @@ const TOKEN_KEY='hamabozor_admin_token';
 const STATUS_LABEL={new:'Новый',progress:'В обработке',done:'Выполнен',cancel:'Отменён'};
 const STATUS_COLOR={new:'#ff9500',progress:'#16A34A',done:'#34c759',cancel:'#ff3b30'};
 const MOBILE_STATUS_BADGE={new:{bg:'#EAF1FF',color:'#3B82F6',label:'Новый'},progress:{bg:'#FDF3DF',color:'#e58e0f',label:'В обработке'},done:{bg:'#E7F6EC',color:'#16A34A',label:'Выполнен'},cancel:{bg:'#FDEAEA',color:'#ff3b30',label:'Отменён'}};
-const CAT_LABEL={electronics:'Электроника',clothing:'Одежда',bags:'Сумки'};
+const CAT_LABEL={electronics:'Электроника',clothing:'Одежда',bags:'Сумки',shoes:'Обувь',accessories:'Аксессуары',cosmetics:'Косметика',home:'Для дома',sport:'Спорт'};
 const NAV=[
   {label:'Главное',items:[['dashboard','Дашборд'],['analytics','Аналитика'],['orders','Заказы'],['products','Товары'],['hr','Кадры'],['logistics','Курьеры']]},
   {label:'Инструменты',items:[['marketing','Маркетинг'],['finance','Финансы'],['purchasing','Закупки'],['partners','Партнёры'],['banners','Баннеры']]},
@@ -1091,7 +1091,7 @@ function renderProducts(){
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
       <input class="field" style="flex:1;min-width:220px;max-width:300px" placeholder="Поиск по названию..." value="${esc(state.productSearch)}" oninput="state.productSearch=this.value; renderProducts()">
       <select class="field" style="width:auto" onchange="state.productCat=this.value; renderProducts()">
-        <option value="all">Все категории</option><option value="electronics">Электроника</option><option value="clothing">Одежда</option><option value="bags">Сумки</option>
+        <option value="all">Все категории</option><option value="electronics">Электроника</option><option value="clothing">Одежда</option><option value="shoes">Обувь</option><option value="accessories">Аксессуары</option><option value="cosmetics">Косметика</option><option value="home">Для дома</option><option value="sport">Спорт</option><option value="bags">Сумки</option>
       </select>
       <button class="btn btn-primary" style="margin-left:auto" onclick="openProductModal()">+ Добавить товар</button>
     </div>
@@ -1133,7 +1133,7 @@ async function openProductModal(p){
 
       <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Цена и скидка за количество</div></div>
       <div>${lbl('Категория')}
-        <select id="pm_cat" class="field">${['electronics','clothing','bags'].map(c=>`<option value="${c}" ${p&&p.cat===c?'selected':''}>${CAT_LABEL[c]}</option>`).join('')}</select></div>
+        <select id="pm_cat" class="field">${['electronics','clothing','bags','shoes','accessories','cosmetics','home','sport'].map(c=>`<option value="${c}" ${p&&p.cat===c?'selected':''}>${CAT_LABEL[c]}</option>`).join('')}</select></div>
       <div>${lbl('Тег')}
         <select id="pm_tag" class="field"><option value="">Без тега</option><option value="new" ${p&&p.tag==='new'?'selected':''}>Новинка</option><option value="hit" ${p&&p.tag==='hit'?'selected':''}>Хит</option><option value="sale" ${p&&p.tag==='sale'?'selected':''}>Скидка</option></select></div>
       <div>${lbl('Цена продажи (за 1 шт) *')}<input id="pm_price" type="number" class="field" value="${p&&p.price!=null?p.price:''}"></div>
@@ -1168,6 +1168,10 @@ async function openProductModal(p){
       <div>${lbl('Доставка (тадж.)')}<input id="pm_delivery_tj" class="field" value="${esc(p&&p.delivery_tj)}"></div>
       <div>${lbl('Гарантия (рус.)')}<input id="pm_warranty_ru" class="field" placeholder="Гарантия 30 дней" value="${esc(p&&p.warranty_ru)}"></div>
       <div>${lbl('Гарантия (тадж.)')}<input id="pm_warranty_tj" class="field" value="${esc(p&&p.warranty_tj)}"></div>
+
+      <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Соберите свою покупку (витрина)</div></div>
+      <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Связанные товары — ID через запятую (например 12,15,31). Если пусто, сайт подберёт сам по реальным заказам и категориям</label><input id="pm_related" class="field" placeholder="12,15,31" value="${esc(p&&p.related_ids)}"></div>
+      <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Сценарии покупки через запятую: self (для себя), gift (подарок), home (для дома), work (для работы), trip (для поездки), loved (для близкого человека)</label><input id="pm_scenarios" class="field" placeholder="trip,gift" value="${esc(p&&p.scenarios)}"></div>
 
       <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Продавец и партнёр</div></div>
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Продавец / поставщик</label><input id="pm_seller_name" class="field" value="${esc(p&&p.seller_name)}"></div>
@@ -1236,6 +1240,7 @@ function saveProduct(){
     warranty_ru:v('pm_warranty_ru'), warranty_tj:v('pm_warranty_tj'),
     seller_name:v('pm_seller_name'), partner_id:v('pm_partner_id')?Number(v('pm_partner_id')):null,
     received_at:v('pm_received_at')||null,
+    related_ids:v('pm_related'), scenarios:v('pm_scenarios'),
     image_data: img.style.display!=='none'?img.src:null, extra_images:pmExtraImages };
   const req = pmEditId ? apiFetch('/api/products/'+pmEditId,{method:'PUT',body:JSON.stringify(payload)}) : apiFetch('/api/products',{method:'POST',body:JSON.stringify(payload)});
   req.then(()=>{ closeModal(); loadProducts(); flash('Товар сохранён'); }).catch(e=>{ document.getElementById('pmError').textContent=e.message; });
