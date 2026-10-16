@@ -214,3 +214,47 @@ CREATE TABLE IF NOT EXISTS banners (
   sort_order  INT NOT NULL DEFAULT 0,
   created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ---------------------------------------------------------------------------
+-- КАРГО (личный кабинет клиента, посылки). Таблицы также создаются сами при старте сервера (cargo.js).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS cargo_customers (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  name           VARCHAR(255) NOT NULL,
+  phone          VARCHAR(30)  NOT NULL,
+  password_hash  VARCHAR(100) NOT NULL,
+  cargo_code     VARCHAR(20),
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_cargo_phone (phone),
+  UNIQUE KEY uq_cargo_code (cargo_code)
+);
+
+CREATE TABLE IF NOT EXISTS cargo_parcels (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  customer_id  INT NULL,
+  track_code   VARCHAR(60) NOT NULL,
+  description  VARCHAR(255),
+  status       VARCHAR(20) NOT NULL DEFAULT 'expected',
+  weight_kg    DECIMAL(10,3) NULL,
+  price        DECIMAL(10,2) NULL,
+  paid         TINYINT(1) NOT NULL DEFAULT 0,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_cargo_track (track_code),
+  INDEX idx_cargo_parcels_customer (customer_id),
+  INDEX idx_cargo_parcels_status (status)
+);
+
+CREATE TABLE IF NOT EXISTS cargo_parcel_events (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  parcel_id   INT NOT NULL,
+  status      VARCHAR(20) NOT NULL,
+  note        VARCHAR(255),
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_cargo_events_parcel (parcel_id)
+);
+
+CREATE TABLE IF NOT EXISTS cargo_settings (
+  `key` VARCHAR(50) PRIMARY KEY,
+  value TEXT NOT NULL
+);
