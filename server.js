@@ -3599,6 +3599,7 @@ async function ensureSchema() {
   await ensureCourierTables();
   await ensurePartnerTables();
   await ensurePurchasesTable();
+  await ensureCargoTables();
   await ensureFinanceTables();
   await ensureMarketingTables();
   await ensureVisitsTable();
@@ -3722,6 +3723,9 @@ app.patch('/api/banners/:id/move', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Не удалось переместить баннер' });
   }
 });
+
+// карго: личный кабинет клиента + управление посылками (см. cargo.js)
+const { ensureCargoTables } = require('./cargo')({ app, pool, requireAuth, jwt, bcrypt, JWT_SECRET });
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

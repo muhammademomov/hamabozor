@@ -181,9 +181,9 @@ const MOBILE_STATUS_BADGE={new:{bg:'#EAF1FF',color:'#3B82F6',label:'Новый'}
 const CAT_LABEL={electronics:'Электроника',clothing:'Одежда',bags:'Сумки',shoes:'Обувь',accessories:'Аксессуары',cosmetics:'Косметика',home:'Для дома',sport:'Спорт'};
 const NAV=[
   {label:'Главное',items:[['dashboard','Дашборд'],['analytics','Аналитика'],['orders','Заказы'],['products','Товары'],['hr','Кадры'],['logistics','Курьеры']]},
-  {label:'Инструменты',items:[['marketing','Маркетинг'],['finance','Финансы'],['purchasing','Закупки'],['partners','Партнёры'],['banners','Баннеры']]},
+  {label:'Инструменты',items:[['marketing','Маркетинг'],['finance','Финансы'],['purchasing','Закупки'],['partners','Партнёры'],['banners','Баннеры'],['cargo','Карго']]},
 ];
-const TITLES={dashboard:'Дашборд',analytics:'Аналитика',orders:'Заказы',products:'Товары',hr:'Кадры',logistics:'Курьеры',marketing:'Маркетинг',finance:'Финансы',purchasing:'Закупки',partners:'Партнёры',banners:'Баннеры'};
+const TITLES={dashboard:'Дашборд',analytics:'Аналитика',orders:'Заказы',products:'Товары',hr:'Кадры',logistics:'Курьеры',marketing:'Маркетинг',finance:'Финансы',purchasing:'Закупки',partners:'Партнёры',banners:'Баннеры',cargo:'Карго'};
 function money(n){ return (Math.round((Number(n)||0)*100)/100).toLocaleString('ru-RU')+' смн'; }
 function fmtDate(s){ if(!s) return '—'; try{ return new Date(s).toLocaleDateString('ru-RU'); }catch(e){ return s; } }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -477,6 +477,7 @@ function loadSection(section){
   else if(section==='marketing') loadMarketingTab(state.marketingTab);
   else if(section==='hr') loadEmployees();
   else if(section==='banners') loadBanners();
+  else if(section==='cargo') loadCargo();
 }
 
 /* ---------------- DASHBOARD ---------------- */
@@ -2276,6 +2277,83 @@ function renderBanners(){
 function onBannerFile(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ apiFetch('/api/banners',{method:'POST',body:JSON.stringify({image_data:r.result})}).then(loadBanners).catch(err=>flash(err.message)); }; r.readAsDataURL(f); e.target.value=''; }
 function deleteBanner(id){ if(!confirm('Удалить баннер?')) return; apiFetch('/api/banners/'+id,{method:'DELETE'}).then(loadBanners).catch(e=>flash(e.message)); }
 function moveBanner(id,direction){ apiFetch('/api/banners/'+id+'/move',{method:'PATCH',body:JSON.stringify({direction})}).then(loadBanners).catch(e=>flash(e.message)); }
+
+/* ---------------- КАРГО ---------------- */
+const CARGO_ST=[['expected','Ожидается'],['warehouse','На складе в Китае'],['transit','В пути'],['arrived','Прибыла в Душанбе'],['delivered','Выдана'],['lost','Потеряна']];
+const cargoStName=k=>(CARGO_ST.find(x=>x[0]===k)||[k,k])[1];
+state.cargoTab=state.cargoTab||'parcels'; state.cargoStatus=state.cargoStatus||'all'; state.cargoQ=state.cargoQ||'';
+function loadCargo(){
+  const tabs=[['parcels','Посылки'],['customers','Клиенты'],['settings','Настройки']];
+  const bar=`<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">${tabs.map(([id,l])=>`<button class="btn ${state.cargoTab===id?'btn-primary':'btn-secondary'}" onclick="state.cargoTab='${id}';loadCargo()">${l}</button>`).join('')}</div>`;
+  const c=document.getElementById('content');
+  c.innerHTML=bar+'<div id="cargoBody" style="color:#86868b;padding:30px;text-align:center">Загрузка…</div>';
+  if(state.cargoTab==='parcels') loadCargoParcels();
+  else if(state.cargoTab==='customers') loadCargoCustomers();
+  else loadCargoSettings();
+}
+function loadCargoParcels(){
+  const qs=new URLSearchParams(); if(state.cargoStatus!=='all') qs.set('status',state.cargoStatus); if(state.cargoQ) qs.set('q',state.cargoQ);
+  apiFetch('/api/admin/cargo/parcels?'+qs).then(rows=>{ cache.cargoParcels=rows; renderCargoParcels(); }).catch(e=>flash(e.message));
+}
+function renderCargoParcels(){
+  const rows=cache.cargoParcels||[];
+  document.getElementById('cargoBody').innerHTML=`
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center;text-align:left">
+      <input id="cargoSearch" placeholder="Поиск: трек, код клиента, телефон, имя" value="${esc(state.cargoQ)}" style="flex:1;min-width:220px" onkeydown="if(event.key==='Enter'){state.cargoQ=this.value.trim();loadCargoParcels()}">
+      <select onchange="state.cargoStatus=this.value;loadCargoParcels()"><option value="all">Все статусы</option>${CARGO_ST.map(([k,l])=>`<option value="${k}" ${state.cargoStatus===k?'selected':''}>${l}</option>`).join('')}</select>
+      <button class="btn btn-primary" onclick="cargoAddParcel()">+ Принять посылку</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;text-align:left">${rows.length?rows.map(p=>`
+      <div class="card" style="padding:14px">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+          <div><b style="font-size:15px">${esc(p.track_code)}</b>
+            <div style="font-size:12px;color:#86868b;margin-top:2px">${p.customer_name?`${esc(p.customer_name)} · ${esc(p.cargo_code)} · ${esc(p.customer_phone)}`:'<span style="color:#c0392b">Без владельца — клиент ещё не добавил этот трек-код</span>'}${p.description?` · ${esc(p.description)}`:''}</div></div>
+          <select onchange="cargoPatch(${p.id},{status:this.value})">${CARGO_ST.map(([k,l])=>`<option value="${k}" ${p.status===k?'selected':''}>${l}</option>`).join('')}</select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+          <label style="font-size:12px;color:#6e6e73">Вес, кг <input type="number" step="0.001" min="0" value="${p.weight_kg??''}" style="width:90px" onchange="cargoPatch(${p.id},{weight_kg:this.value})"></label>
+          <label style="font-size:12px;color:#6e6e73">Цена, смн <input type="number" step="0.01" min="0" value="${p.price??''}" style="width:100px" onchange="cargoPatch(${p.id},{price:this.value})"></label>
+          <label style="font-size:13px"><input type="checkbox" ${p.paid?'checked':''} onchange="cargoPatch(${p.id},{paid:this.checked},true)"> Оплачено</label>
+          <span style="flex:1"></span>
+          <span style="font-size:12px;color:#86868b">${fmtDate(p.updated_at)}</span>
+          <button class="btn btn-danger" style="padding:4px 10px" onclick="cargoDeleteParcel(${p.id})">✕</button>
+        </div>
+      </div>`).join(''):'<div style="color:#86868b;padding:30px;text-align:center">Посылок нет</div>'}</div>`;
+}
+function cargoPatch(id,body,silent){
+  apiFetch('/api/admin/cargo/parcels/'+id,{method:'PATCH',body:JSON.stringify(body)}).then(()=>{ if(!silent) flash('Сохранено'); loadCargoParcels(); }).catch(e=>{ flash(e.message); loadCargoParcels(); });
+}
+function cargoDeleteParcel(id){ if(!confirm('Удалить посылку?')) return; apiFetch('/api/admin/cargo/parcels/'+id,{method:'DELETE'}).then(loadCargoParcels).catch(e=>flash(e.message)); }
+function cargoAddParcel(){
+  const track=prompt('Трек-код посылки (с китайского склада):'); if(!track) return;
+  const code=prompt('Код клиента (например HB1001). Можно оставить пустым — посылка будет без владельца:')||'';
+  const weight=prompt('Вес в кг (можно пропустить):')||'';
+  apiFetch('/api/admin/cargo/parcels',{method:'POST',body:JSON.stringify({track_code:track,cargo_code:code,weight_kg:weight,status:'warehouse'})})
+    .then(()=>{ flash('Посылка принята'); loadCargoParcels(); }).catch(e=>flash(e.message));
+}
+function loadCargoCustomers(){
+  apiFetch('/api/admin/cargo/customers').then(rows=>{
+    document.getElementById('cargoBody').innerHTML=`<div class="card" style="padding:0;overflow:auto;text-align:left"><table style="width:100%;border-collapse:collapse;font-size:13.5px">
+      <tr style="text-align:left;color:#86868b"><th style="padding:10px 14px">Код</th><th>Имя</th><th>Телефон</th><th>Посылок</th><th>Регистрация</th></tr>
+      ${rows.map(c=>`<tr style="border-top:1px solid #eee"><td style="padding:10px 14px"><b>${esc(c.cargo_code)}</b></td><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${c.parcels}</td><td>${fmtDate(c.created_at)}</td></tr>`).join('')||'<tr><td colspan="5" style="padding:30px;text-align:center;color:#86868b">Клиентов пока нет</td></tr>'}
+    </table></div>`;
+  }).catch(e=>flash(e.message));
+}
+function loadCargoSettings(){
+  apiFetch('/api/admin/cargo/settings').then(s=>{
+    document.getElementById('cargoBody').innerHTML=`<div class="card" style="padding:18px;text-align:left;display:flex;flex-direction:column;gap:14px;max-width:640px">
+      <label style="font-size:13px;font-weight:600">Адрес склада в Китае
+        <textarea id="cgAddress" rows="5" style="width:100%;margin-top:6px" placeholder="收件人: {code}&#10;电话: ...&#10;地址: ...">${esc(s.address)}</textarea>
+        <span style="font-weight:400;font-size:12px;color:#86868b">Вместо <b>{code}</b> клиенту подставится его личный код (например HB1001). Адрес берёте у логистической компании.</span></label>
+      <label style="font-size:13px;font-weight:600">Цена за 1 кг, смн <input id="cgPrice" type="number" step="0.01" min="0" value="${esc(s.price_per_kg)}" style="width:140px;margin-left:8px"></label>
+      <label style="font-size:13px;font-weight:600">Телефон для связи <input id="cgPhoneS" value="${esc(s.contact_phone)}" style="width:200px;margin-left:8px"></label>
+      <div><button class="btn btn-primary" onclick="saveCargoSettings()">Сохранить</button></div></div>`;
+  }).catch(e=>flash(e.message));
+}
+function saveCargoSettings(){
+  apiFetch('/api/admin/cargo/settings',{method:'PUT',body:JSON.stringify({address:document.getElementById('cgAddress').value,price_per_kg:document.getElementById('cgPrice').value,contact_phone:document.getElementById('cgPhoneS').value})})
+    .then(()=>flash('Сохранено')).catch(e=>flash(e.message));
+}
 </script>
 </body>
 </html>
