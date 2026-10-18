@@ -258,3 +258,28 @@ CREATE TABLE IF NOT EXISTS cargo_settings (
   `key` VARCHAR(50) PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- карго v2: пункты выдачи, кошелёк, доставка до дома (также создаются сами при старте сервера, см. cargo.js)
+CREATE TABLE IF NOT EXISTS cargo_pickup_points (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(120) NOT NULL,
+  address     VARCHAR(255),
+  sort_order  INT NOT NULL DEFAULT 0,
+  active      TINYINT(1) NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS cargo_wallet_tx (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  customer_id  INT NOT NULL,
+  amount       DECIMAL(12,2) NOT NULL,
+  kind         VARCHAR(20) NOT NULL,
+  note         VARCHAR(255),
+  parcel_id    INT NULL,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_cargo_tx_customer (customer_id)
+);
+
+ALTER TABLE cargo_customers ADD COLUMN pickup_point_id INT NULL;
+ALTER TABLE cargo_customers ADD COLUMN balance DECIMAL(12,2) NOT NULL DEFAULT 0;
+ALTER TABLE cargo_parcels ADD COLUMN delivery_address VARCHAR(500) NULL;
+ALTER TABLE cargo_parcels ADD COLUMN delivery_requested TINYINT(1) NOT NULL DEFAULT 0;

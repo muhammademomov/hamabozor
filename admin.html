@@ -2279,7 +2279,7 @@ function deleteBanner(id){ if(!confirm('Удалить баннер?')) return; 
 function moveBanner(id,direction){ apiFetch('/api/banners/'+id+'/move',{method:'PATCH',body:JSON.stringify({direction})}).then(loadBanners).catch(e=>flash(e.message)); }
 
 /* ---------------- КАРГО ---------------- */
-const CARGO_ST=[['expected','Ожидается'],['warehouse','На складе в Китае'],['transit','В пути'],['arrived','Прибыла в Душанбе'],['delivered','Выдана'],['lost','Потеряна']];
+const CARGO_ST=[['expected','Ожидание'],['warehouse','Груз принят'],['transit','В пути'],['sorting','В сортировочном центре'],['ready','Готов к выдаче'],['courier','Доставляется курьером'],['delivered','Груз получен'],['lost','Потерян']];
 const cargoStName=k=>(CARGO_ST.find(x=>x[0]===k)||[k,k])[1];
 state.cargoTab=state.cargoTab||'parcels'; state.cargoStatus=state.cargoStatus||'all'; state.cargoQ=state.cargoQ||'';
 function loadCargo(){
@@ -2307,7 +2307,8 @@ function renderCargoParcels(){
       <div class="card" style="padding:14px">
         <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
           <div><b style="font-size:15px">${esc(p.track_code)}</b>
-            <div style="font-size:12px;color:#86868b;margin-top:2px">${p.customer_name?`${esc(p.customer_name)} · ${esc(p.cargo_code)} · ${esc(p.customer_phone)}`:'<span style="color:#c0392b">Без владельца — клиент ещё не добавил этот трек-код</span>'}${p.description?` · ${esc(p.description)}`:''}</div></div>
+            <div style="font-size:12px;color:#86868b;margin-top:2px">${p.customer_name?`${esc(p.customer_name)} · ${esc(p.cargo_code)} · ${esc(p.customer_phone)}`:'<span style="color:#c0392b">Без владельца — клиент ещё не добавил этот трек-код</span>'}${p.description?` · ${esc(p.description)}`:''}${p.pickup_name?` · ПВЗ: ${esc(p.pickup_name)}`:''}</div>
+            ${p.delivery_requested?`<div style="font-size:12.5px;color:#0a7d4b;margin-top:4px;font-weight:600">🛵 Заказана доставка: ${esc(p.delivery_address||'')}</div>`:''}</div>
           <select onchange="cargoPatch(${p.id},{status:this.value})">${CARGO_ST.map(([k,l])=>`<option value="${k}" ${p.status===k?'selected':''}>${l}</option>`).join('')}</select>
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
@@ -2334,24 +2335,41 @@ function cargoAddParcel(){
 function loadCargoCustomers(){
   apiFetch('/api/admin/cargo/customers').then(rows=>{
     document.getElementById('cargoBody').innerHTML=`<div class="card" style="padding:0;overflow:auto;text-align:left"><table style="width:100%;border-collapse:collapse;font-size:13.5px">
-      <tr style="text-align:left;color:#86868b"><th style="padding:10px 14px">Код</th><th>Имя</th><th>Телефон</th><th>Посылок</th><th>Регистрация</th></tr>
-      ${rows.map(c=>`<tr style="border-top:1px solid #eee"><td style="padding:10px 14px"><b>${esc(c.cargo_code)}</b></td><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${c.parcels}</td><td>${fmtDate(c.created_at)}</td></tr>`).join('')||'<tr><td colspan="5" style="padding:30px;text-align:center;color:#86868b">Клиентов пока нет</td></tr>'}
+      <tr style="text-align:left;color:#86868b"><th style="padding:10px 14px">Код</th><th>Имя</th><th>Телефон</th><th>ПВЗ</th><th>Посылок</th><th>Баланс</th><th></th></tr>
+      ${rows.map(c=>`<tr style="border-top:1px solid #eee"><td style="padding:10px 14px"><b>${esc(c.cargo_code)}</b></td><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${esc(c.pickup_name||'—')}</td><td>${c.parcels}</td><td><b>${money(c.balance)}</b></td><td style="padding-right:14px"><button class="btn btn-secondary" style="padding:4px 10px" onclick="cargoWallet(${c.id},'${esc(c.cargo_code)}')">± Баланс</button></td></tr>`).join('')||'<tr><td colspan="7" style="padding:30px;text-align:center;color:#86868b">Клиентов пока нет</td></tr>'}
     </table></div>`;
   }).catch(e=>flash(e.message));
 }
+function cargoWallet(id,code){
+  const a=prompt('Клиент '+code+'. Сумма пополнения в сомони (для списания/корректировки — со знаком минус):'); if(a===null||a.trim()==='') return;
+  const note=prompt('Комментарий (например: «Перевод на карту», «Наличные»):')||'';
+  apiFetch('/api/admin/cargo/customers/'+id+'/wallet',{method:'POST',body:JSON.stringify({amount:a.replace(',','.'),note})}).then(()=>{ flash('Баланс обновлён'); loadCargoCustomers(); }).catch(e=>flash(e.message));
+}
 function loadCargoSettings(){
-  apiFetch('/api/admin/cargo/settings').then(s=>{
+  Promise.all([apiFetch('/api/admin/cargo/settings'),apiFetch('/api/admin/cargo/pickup-points')]).then(([s,pts])=>{
     document.getElementById('cargoBody').innerHTML=`<div class="card" style="padding:18px;text-align:left;display:flex;flex-direction:column;gap:14px;max-width:640px">
-      <label style="font-size:13px;font-weight:600">Адрес склада в Китае
-        <textarea id="cgAddress" rows="5" style="width:100%;margin-top:6px" placeholder="收件人: {code}&#10;电话: ...&#10;地址: ...">${esc(s.address)}</textarea>
+      <label style="font-size:13px;font-weight:600">Адрес склада в Китае (строка «详细地址»)
+        <textarea id="cgAddress" rows="4" style="width:100%;margin-top:6px" placeholder="浙江省义乌市…路1580号A幢一楼1号门-1#{code}">${esc(s.address)}</textarea>
         <span style="font-weight:400;font-size:12px;color:#86868b">Вместо <b>{code}</b> клиенту подставится его личный код (например HB1001). Адрес берёте у логистической компании.</span></label>
+      <label style="font-size:13px;font-weight:600">Телефон склада (строка «手机号») <input id="cgWhPhone" value="${esc(s.warehouse_phone)}" style="width:220px;margin-left:8px"></label>
       <label style="font-size:13px;font-weight:600">Цена за 1 кг, смн <input id="cgPrice" type="number" step="0.01" min="0" value="${esc(s.price_per_kg)}" style="width:140px;margin-left:8px"></label>
-      <label style="font-size:13px;font-weight:600">Телефон для связи <input id="cgPhoneS" value="${esc(s.contact_phone)}" style="width:200px;margin-left:8px"></label>
-      <div><button class="btn btn-primary" onclick="saveCargoSettings()">Сохранить</button></div></div>`;
+      <label style="font-size:13px;font-weight:600">Ваш телефон для связи <input id="cgPhoneS" value="${esc(s.contact_phone)}" style="width:200px;margin-left:8px"></label>
+      <label style="font-size:13px;font-weight:600">Как пополнить кошелёк (реквизиты)
+        <textarea id="cgPayInfo" rows="3" style="width:100%;margin-top:6px" placeholder="Карта Visa 0000 0000 0000 0000, Алиф: +992 ...">${esc(s.payment_info)}</textarea></label>
+      <div><button class="btn btn-primary" onclick="saveCargoSettings()">Сохранить</button></div></div>
+    <div class="card" style="padding:18px;text-align:left;max-width:640px;margin-top:16px">
+      <div style="font-weight:700;margin-bottom:10px">Пункты выдачи (ПВЗ)</div>
+      ${pts.map(p=>`<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #eee"><div style="flex:1"><b>${esc(p.name)}</b><div style="font-size:12px;color:#86868b">${esc(p.address||'')}</div></div><button class="btn btn-danger" style="padding:4px 10px" onclick="cargoDelPickup(${p.id})">✕</button></div>`).join('')||'<div style="color:#86868b;font-size:13px">Пока нет пунктов выдачи</div>'}
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><input id="ppName" placeholder="Название, например: 82 мкр" style="flex:1;min-width:160px"><input id="ppAddr" placeholder="Адрес (необязательно)" style="flex:1;min-width:160px"><button class="btn btn-primary" onclick="cargoAddPickup()">+ Добавить</button></div></div>`;
   }).catch(e=>flash(e.message));
 }
+function cargoAddPickup(){
+  const name=document.getElementById('ppName').value.trim(); if(!name) return flash('Укажите название');
+  apiFetch('/api/admin/cargo/pickup-points',{method:'POST',body:JSON.stringify({name,address:document.getElementById('ppAddr').value})}).then(loadCargoSettings).catch(e=>flash(e.message));
+}
+function cargoDelPickup(id){ if(!confirm('Удалить пункт выдачи?')) return; apiFetch('/api/admin/cargo/pickup-points/'+id,{method:'DELETE'}).then(loadCargoSettings).catch(e=>flash(e.message)); }
 function saveCargoSettings(){
-  apiFetch('/api/admin/cargo/settings',{method:'PUT',body:JSON.stringify({address:document.getElementById('cgAddress').value,price_per_kg:document.getElementById('cgPrice').value,contact_phone:document.getElementById('cgPhoneS').value})})
+  apiFetch('/api/admin/cargo/settings',{method:'PUT',body:JSON.stringify({address:document.getElementById('cgAddress').value,price_per_kg:document.getElementById('cgPrice').value,contact_phone:document.getElementById('cgPhoneS').value,warehouse_phone:document.getElementById('cgWhPhone').value,payment_info:document.getElementById('cgPayInfo').value})})
     .then(()=>flash('Сохранено')).catch(e=>flash(e.message));
 }
 </script>

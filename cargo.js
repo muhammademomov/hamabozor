@@ -5,7 +5,8 @@
 // никогда не пройдёт проверку requireAuth (админскую).
 // ----------------------------------------------------------------------------
 
-const STATUSES = ['expected', 'warehouse', 'transit', 'arrived', 'delivered', 'lost'];
+// ожидание → принят на складе → в пути → сортировка → готов к выдаче → курьер → получен (+ потерян)
+const STATUSES = ['expected', 'warehouse', 'transit', 'sorting', 'ready', 'courier', 'delivered', 'lost'];
 
 const DEFAULT_ADDRESS =
   'Адрес склада в Китае пока не указан — администратор добавит его в разделе «Карго».\nВаш код: {code}';
@@ -103,7 +104,43 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
         value   TEXT NOT NULL
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cargo_pickup_points (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        name        VARCHAR(120) NOT NULL,
+        address     VARCHAR(255),
+        sort_order  INT NOT NULL DEFAULT 0,
+        active      TINYINT(1) NOT NULL DEFAULT 1
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cargo_wallet_tx (
+        id           INT AUTO_INCREMENT PRIMARY KEY,
+        customer_id  INT NOT NULL,
+        amount       DECIMAL(12,2) NOT NULL,
+        kind         VARCHAR(20) NOT NULL,
+        note         VARCHAR(255),
+        parcel_id    INT NULL,
+        created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_cargo_tx_customer (customer_id)
+      )
+    `);
+    await ensureColumn('cargo_customers', 'pickup_point_id', 'INT NULL');
+    await ensureColumn('cargo_customers', 'balance', 'DECIMAL(12,2) NOT NULL DEFAULT 0');
+    await ensureColumn('cargo_parcels', 'delivery_address', 'VARCHAR(500) NULL');
+    await ensureColumn('cargo_parcels', 'delivery_requested', 'TINYINT(1) NOT NULL DEFAULT 0');
+    // старый статус «Прибыла в Душанбе» теперь называется «В сортировочном центре»
+    await pool.query("UPDATE cargo_parcels SET status = 'sorting' WHERE status = 'arrived'");
+    await pool.query("UPDATE cargo_parcel_events SET status = 'sorting' WHERE status = 'arrived'");
     console.log('Таблицы карго готовы.');
+  }
+
+  async function ensureColumn(table, column, definition) {
+    const [rows] = await pool.query(
+      'SELECT COUNT(*) AS cnt FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
+      [table, column]
+    );
+    if (rows[0].cnt === 0) await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 
   async function addEvent(parcelId, status, note) {
@@ -174,12 +211,12 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
   app.get('/api/cargo/me', requireCustomer, async (req, res) => {
     try {
       const [[c]] = await pool.query(
-        'SELECT id, name, phone, cargo_code FROM cargo_customers WHERE id = ?',
+        'SELECT id, name, phone, cargo_code, balance, pickup_point_id FROM cargo_customers WHERE id = ?',
         [req.customerId]
       );
       if (!c) return res.status(401).json({ error: 'Аккаунт не найден' });
       const [parcels] = await pool.query(
-        'SELECT id, track_code, description, status, weight_kg, price, paid, created_at, updated_at FROM cargo_parcels WHERE customer_id = ? ORDER BY updated_at DESC, id DESC',
+        'SELECT id, track_code, description, status, weight_kg, price, paid, delivery_address, delivery_requested, created_at, updated_at FROM cargo_parcels WHERE customer_id = ? ORDER BY updated_at DESC, id DESC',
         [c.id]
       );
       let events = [];
@@ -191,17 +228,92 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
       }
       const byParcel = {};
       events.forEach(e => { (byParcel[e.parcel_id] = byParcel[e.parcel_id] || []).push(e); });
+      const [tx] = await pool.query(
+        'SELECT id, amount, kind, note, parcel_id, created_at FROM cargo_wallet_tx WHERE customer_id = ? ORDER BY id DESC LIMIT 100',
+        [c.id]
+      );
+      const [points] = await pool.query(
+        'SELECT id, name, address FROM cargo_pickup_points WHERE active = 1 ORDER BY sort_order, id'
+      );
       const template = await getSetting('address', DEFAULT_ADDRESS);
       res.json({
-        customer: { name: c.name, phone: c.phone, code: c.cargo_code },
-        address: template.split('{code}').join(c.cargo_code),
+        customer: { name: c.name, phone: c.phone, code: c.cargo_code, pickup_point_id: c.pickup_point_id },
+        balance: Number(c.balance) || 0,
+        warehouse: {
+          recipient: c.cargo_code,
+          phone: await getSetting('warehouse_phone', ''),
+          address: template.split('{code}').join(c.cargo_code),
+        },
         price_per_kg: Number(await getSetting('price_per_kg', 0)) || 0,
         contact_phone: await getSetting('contact_phone', ''),
+        payment_info: await getSetting('payment_info', ''),
+        pickup_points: points,
+        transactions: tx,
         parcels: parcels.map(p => ({ ...p, events: byParcel[p.id] || [] })),
       });
     } catch (e) {
       console.error('Ошибка кабинета карго:', e);
       res.status(500).json({ error: 'Не удалось загрузить кабинет' });
+    }
+  });
+
+  // выбрать пункт выдачи (ПВЗ)
+  app.post('/api/cargo/pickup', requireCustomer, async (req, res) => {
+    const id = Number((req.body || {}).pickup_point_id);
+    try {
+      if (id) {
+        const [[pt]] = await pool.query('SELECT id FROM cargo_pickup_points WHERE id = ? AND active = 1', [id]);
+        if (!pt) return res.status(404).json({ error: 'Пункт выдачи не найден' });
+      }
+      await pool.query('UPDATE cargo_customers SET pickup_point_id = ? WHERE id = ?', [id || null, req.customerId]);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: 'Не удалось сохранить' });
+    }
+  });
+
+  // заказать доставку курьером до дома для всех посылок, которые уже готовы к выдаче
+  app.post('/api/cargo/delivery', requireCustomer, async (req, res) => {
+    const address = String((req.body || {}).address || '').trim().slice(0, 500);
+    if (address.length < 5) return res.status(400).json({ error: 'Укажите адрес доставки' });
+    try {
+      const [r] = await pool.query(
+        "UPDATE cargo_parcels SET delivery_requested = 1, delivery_address = ? WHERE customer_id = ? AND status IN ('sorting', 'ready')",
+        [address, req.customerId]
+      );
+      if (!r.affectedRows) return res.status(400).json({ error: 'Пока нет посылок, готовых к выдаче' });
+      res.json({ ok: true, parcels: r.affectedRows });
+    } catch (e) {
+      res.status(500).json({ error: 'Не удалось оформить доставку' });
+    }
+  });
+
+  // оплатить посылку с баланса кошелька
+  app.post('/api/cargo/parcels/:id/pay', requireCustomer, async (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [[c]] = await conn.query('SELECT id, balance FROM cargo_customers WHERE id = ? FOR UPDATE', [req.customerId]);
+      const [[p]] = await conn.query('SELECT id, track_code, price, paid FROM cargo_parcels WHERE id = ? AND customer_id = ? FOR UPDATE', [req.params.id, req.customerId]);
+      if (!c || !p) { await conn.rollback(); return res.status(404).json({ error: 'Посылка не найдена' }); }
+      if (p.paid) { await conn.rollback(); return res.status(400).json({ error: 'Посылка уже оплачена' }); }
+      if (p.price == null) { await conn.rollback(); return res.status(400).json({ error: 'Стоимость ещё не рассчитана' }); }
+      const price = Number(p.price);
+      if (Number(c.balance) < price) { await conn.rollback(); return res.status(400).json({ error: 'Недостаточно средств — пополните кошелёк' }); }
+      await conn.query('UPDATE cargo_customers SET balance = balance - ? WHERE id = ?', [price, c.id]);
+      await conn.query('UPDATE cargo_parcels SET paid = 1 WHERE id = ?', [p.id]);
+      await conn.query(
+        'INSERT INTO cargo_wallet_tx (customer_id, amount, kind, note, parcel_id) VALUES (?, ?, ?, ?, ?)',
+        [c.id, -price, 'payment', 'Оплата посылки ' + p.track_code, p.id]
+      );
+      await conn.commit();
+      res.json({ ok: true });
+    } catch (e) {
+      await conn.rollback();
+      console.error('Ошибка оплаты посылки:', e);
+      res.status(500).json({ error: 'Не удалось оплатить' });
+    } finally {
+      conn.release();
     }
   });
 
@@ -254,6 +366,8 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
         address: await getSetting('address', ''),
         price_per_kg: await getSetting('price_per_kg', ''),
         contact_phone: await getSetting('contact_phone', ''),
+        warehouse_phone: await getSetting('warehouse_phone', ''),
+        payment_info: await getSetting('payment_info', ''),
       });
     } catch (e) {
       res.status(500).json({ error: 'Не удалось получить настройки' });
@@ -270,6 +384,8 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
         await setSetting('price_per_kg', b.price_per_kg === '' ? '0' : String(n));
       }
       if (b.contact_phone != null) await setSetting('contact_phone', String(b.contact_phone).slice(0, 50));
+      if (b.warehouse_phone != null) await setSetting('warehouse_phone', String(b.warehouse_phone).slice(0, 50));
+      if (b.payment_info != null) await setSetting('payment_info', String(b.payment_info).slice(0, 2000));
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: 'Не удалось сохранить настройки' });
@@ -288,8 +404,9 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
     }
     try {
       const [rows] = await pool.query(
-        `SELECT p.*, c.name AS customer_name, c.phone AS customer_phone, c.cargo_code
+        `SELECT p.*, c.name AS customer_name, c.phone AS customer_phone, c.cargo_code, pp.name AS pickup_name
            FROM cargo_parcels p LEFT JOIN cargo_customers c ON c.id = p.customer_id
+           LEFT JOIN cargo_pickup_points pp ON pp.id = c.pickup_point_id
           ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
           ORDER BY p.updated_at DESC, p.id DESC LIMIT 500`,
         params
@@ -385,13 +502,74 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
   app.get('/api/admin/cargo/customers', requireAuth, async (req, res) => {
     try {
       const [rows] = await pool.query(
-        `SELECT c.id, c.name, c.phone, c.cargo_code, c.created_at, COUNT(p.id) AS parcels
-           FROM cargo_customers c LEFT JOIN cargo_parcels p ON p.customer_id = c.id
+        `SELECT c.id, c.name, c.phone, c.cargo_code, c.balance, c.created_at, pp.name AS pickup_name, COUNT(p.id) AS parcels
+           FROM cargo_customers c
+           LEFT JOIN cargo_parcels p ON p.customer_id = c.id
+           LEFT JOIN cargo_pickup_points pp ON pp.id = c.pickup_point_id
           GROUP BY c.id ORDER BY c.id DESC LIMIT 500`
       );
       res.json(rows);
     } catch (e) {
       res.status(500).json({ error: 'Не удалось получить клиентов' });
+    }
+  });
+
+  // пополнить (или скорректировать) кошелёк клиента — после того, как деньги получены наличными/переводом
+  app.post('/api/admin/cargo/customers/:id/wallet', requireAuth, async (req, res) => {
+    const amount = Math.round(Number((req.body || {}).amount) * 100) / 100;
+    const note = String((req.body || {}).note || '').trim().slice(0, 255);
+    if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 1000000) return res.status(400).json({ error: 'Укажите сумму' });
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [[c]] = await conn.query('SELECT id, balance FROM cargo_customers WHERE id = ? FOR UPDATE', [req.params.id]);
+      if (!c) { await conn.rollback(); return res.status(404).json({ error: 'Клиент не найден' }); }
+      if (Number(c.balance) + amount < 0) { await conn.rollback(); return res.status(400).json({ error: 'Баланс не может стать отрицательным' }); }
+      await conn.query('UPDATE cargo_customers SET balance = balance + ? WHERE id = ?', [amount, c.id]);
+      await conn.query(
+        'INSERT INTO cargo_wallet_tx (customer_id, amount, kind, note) VALUES (?, ?, ?, ?)',
+        [c.id, amount, amount > 0 ? 'topup' : 'adjust', note || (amount > 0 ? 'Пополнение' : 'Корректировка')]
+      );
+      await conn.commit();
+      res.json({ ok: true });
+    } catch (e) {
+      await conn.rollback();
+      console.error('Ошибка пополнения кошелька:', e);
+      res.status(500).json({ error: 'Не удалось изменить баланс' });
+    } finally {
+      conn.release();
+    }
+  });
+
+  app.get('/api/admin/cargo/pickup-points', requireAuth, async (req, res) => {
+    try {
+      const [rows] = await pool.query('SELECT * FROM cargo_pickup_points ORDER BY sort_order, id');
+      res.json(rows);
+    } catch (e) {
+      res.status(500).json({ error: 'Не удалось получить пункты выдачи' });
+    }
+  });
+
+  app.post('/api/admin/cargo/pickup-points', requireAuth, async (req, res) => {
+    const name = String((req.body || {}).name || '').trim().slice(0, 120);
+    const address = String((req.body || {}).address || '').trim().slice(0, 255);
+    if (!name) return res.status(400).json({ error: 'Укажите название' });
+    try {
+      const [[{ m }]] = await pool.query('SELECT COALESCE(MAX(sort_order), 0) AS m FROM cargo_pickup_points');
+      const [r] = await pool.query('INSERT INTO cargo_pickup_points (name, address, sort_order) VALUES (?, ?, ?)', [name, address || null, m + 1]);
+      res.json({ id: r.insertId });
+    } catch (e) {
+      res.status(500).json({ error: 'Не удалось добавить' });
+    }
+  });
+
+  app.delete('/api/admin/cargo/pickup-points/:id', requireAuth, async (req, res) => {
+    try {
+      await pool.query('DELETE FROM cargo_pickup_points WHERE id = ?', [req.params.id]);
+      await pool.query('UPDATE cargo_customers SET pickup_point_id = NULL WHERE pickup_point_id = ?', [req.params.id]);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: 'Не удалось удалить' });
     }
   });
 
