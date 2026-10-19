@@ -1909,6 +1909,9 @@ const D = {
   c_support:['Связаться с нами','Бо мо тамос гиред'], c_hello:['Здравствуйте','Салом'],
   cs_expected:['Ожидается','Интизор'], cs_warehouse:['На складе в Китае','Дар анбор дар Чин'], cs_transit:['В пути','Дар роҳ'], cs_arrived:['Прибыла в Душанбе','Ба Душанбе расид'], cs_delivered:['Выдана','Дода шуд'], cs_lost:['Потеряна','Гум шуд'],
   nav_cargo:['Карго','Карго'],
+  pw_forgot:['Забыли пароль?','Паролро фаромӯш кардед?'], pw_forgot_s:['Напишите нам в WhatsApp — мы проверим номер и зададим новый пароль.','Ба мо дар WhatsApp нависед — мо рақамро санҷида пароли нав медиҳем.'],
+  pw_wa_msg:['Здравствуйте! Я забыл пароль от аккаунта. Мой телефон: {phone}','Салом! Пароли аккаунтро фаромӯш кардам. Телефонам: {phone}'],
+  pw_change:['Сменить пароль','Иваз кардани парол'], pw_old:['Текущий пароль','Пароли ҷорӣ'], pw_new:['Новый пароль (минимум 6 символов)','Пароли нав (ақалан 6 рамз)'], pw_ok:['Пароль изменён','Парол иваз шуд'],
   acc_title:['Аккаунт','Аккаунт'], acc_one:['Один аккаунт для карго и покупок в маркете','Як аккаунт барои карго ва харид дар маркет'],
   acc_guest_t:['Войдите в аккаунт','Ба аккаунт ворид шавед'], acc_guest_s:['Получите личный код, адрес склада в Китае и отслеживайте посылки. Покупки в маркете — без повторного ввода данных.','Рамзи шахсӣ ва суроғаи анбор дар Чинро гиред ва посылкаҳоро пайгирӣ кунед.'],
   acc_login:['Войти','Ворид шудан'], c_reg:['Регистрация','Сабти ном'], my_purchases:['Мои покупки','Харидҳои ман'],
@@ -2635,6 +2638,7 @@ function renderProfile(){
       ${row('tag', T('promos'), '', 'openPromos()')}
       ${row('globe', T('language'), lang==='tj'?'Тоҷикӣ':'Русский', 'toggleLangQuick()')}
       ${row('chat', T('help'), '', 'openHelp()')}
+      ${logged ? row('lock', T('pw_change'), '', 'openChangePass()') : ''}
     </div>
     ${logged ? `<button class="btn btn-ghost" style="margin-top:16px" onclick="cargoLogout()">${esc(T('logout'))}</button>` : ''}`;
 }
@@ -2739,7 +2743,7 @@ function cargoAuthPrompt(){
 function openCargoAuth(mode){
   const reg = mode === 'register';
   openSheet({title: esc(T(reg ? 'c_reg' : 'c_login')),
-    body: `<div class="auth-note">${ic('shield')}<span>${esc(T('acc_one'))}</span></div>${reg ? `<div class="field"><label>${esc(T('name'))}</label><input id="cgName" autocomplete="name"></div>` : ''}<div class="field"><label>${esc(T('phone'))}</label><input id="cgPhone" type="tel" inputmode="tel" placeholder="+992 90 000 00 00" autocomplete="tel"></div><div class="field"><label>${esc(T('c_pass'))}</label><input id="cgPass" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}"></div><button class="btn btn-ghost" onclick="openCargoAuth('${reg ? 'login' : 'register'}')">${esc(T(reg ? 'c_have' : 'c_new'))}</button>`,
+    body: `<div class="auth-note">${ic('shield')}<span>${esc(T('acc_one'))}</span></div>${reg ? `<div class="field"><label>${esc(T('name'))}</label><input id="cgName" autocomplete="name"></div>` : ''}<div class="field"><label>${esc(T('phone'))}</label><input id="cgPhone" type="tel" inputmode="tel" placeholder="+992 90 000 00 00" autocomplete="tel"></div><div class="field"><label>${esc(T('c_pass'))}</label><input id="cgPass" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}"></div>${reg ? '' : `<button class="cg-link" style="margin:-4px 0 14px" onclick="openForgot()">${esc(T('pw_forgot'))}</button>`}<button class="btn btn-ghost" onclick="openCargoAuth('${reg ? 'login' : 'register'}')">${esc(T(reg ? 'c_have' : 'c_new'))}</button>`,
     foot: `<button class="btn" id="cgAuthBtn" onclick="cargoSubmitAuth('${mode}')">${esc(T(reg ? 'c_reg' : 'c_login'))}</button>`});
 }
 async function cargoSubmitAuth(mode){
@@ -2751,6 +2755,22 @@ async function cargoSubmitAuth(mode){
     cargoSetToken(d.token); cargoData = null; closeSheet(); renderHeader(); showView(curView, curArg); cargoLoad();
     if(typeof openCheckoutAfterAuth !== 'undefined' && openCheckoutAfterAuth){ openCheckoutAfterAuth = false; }
   }catch(e){ showToast(e.message); btn.disabled = false; }
+}
+function openForgot(){
+  const ph = ($('cgPhone') && $('cgPhone').value.trim()) || '';
+  const msg = encodeURIComponent(T('pw_wa_msg', {phone: ph || '—'}));
+  openSheet({title: esc(T('pw_forgot')), sub: esc(T('pw_forgot_s')), body: '',
+    foot: `<a class="btn" target="_blank" rel="noopener" href="https://wa.me/${WHATSAPP_PHONE}?text=${msg}">${ic('chat')}${esc(T('w_write'))}</a>`});
+}
+function openChangePass(){
+  openSheet({title: esc(T('pw_change')),
+    body: `<div class="field"><label>${esc(T('pw_old'))}</label><input id="pwOld" type="password" autocomplete="current-password"></div><div class="field"><label>${esc(T('pw_new'))}</label><input id="pwNew" type="password" autocomplete="new-password"></div>`,
+    foot: `<button class="btn" id="pwBtn" onclick="cargoChangePass()">${esc(T('save'))}</button>`});
+}
+async function cargoChangePass(){
+  const btn = $('pwBtn'); btn.disabled = true;
+  try{ await cargoApi('/api/cargo/password', {method:'POST', body: JSON.stringify({old_password: $('pwOld').value, new_password: $('pwNew').value})}); closeSheet(); showToast(T('pw_ok')); }
+  catch(e){ showToast(e.message); btn.disabled = false; }
 }
 function cargoLogout(){
   cargoSetToken(''); cargoData = null;
