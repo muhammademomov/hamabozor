@@ -410,10 +410,15 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
   });
 
   app.get('/api/admin/cargo/parcels', requireAuth, async (req, res) => {
-    const { status, q } = req.query;
+    const { status, q, owner, delivery, unpaid, customer_id } = req.query;
     const where = [];
     const params = [];
     if (status && STATUSES.includes(status)) { where.push('p.status = ?'); params.push(status); }
+    if (status === 'active') where.push("p.status NOT IN ('delivered','lost')");
+    if (owner === 'none') where.push('p.customer_id IS NULL');
+    if (delivery === '1') where.push("p.delivery_requested = 1 AND p.status NOT IN ('delivered','lost')");
+    if (unpaid === '1') where.push('p.price IS NOT NULL AND p.paid = 0');
+    if (customer_id) { where.push('p.customer_id = ?'); params.push(Number(customer_id)); }
     if (q) {
       const like = '%' + String(q).trim() + '%';
       where.push('(p.track_code LIKE ? OR c.cargo_code LIKE ? OR c.phone LIKE ? OR c.name LIKE ?)');
@@ -494,6 +499,15 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
       }
       if (b.paid !== undefined) { sets.push('paid = ?'); params.push(b.paid ? 1 : 0); }
       if (b.description !== undefined) { sets.push('description = ?'); params.push(String(b.description || '').slice(0, 255) || null); }
+      if (b.cargo_code !== undefined) {
+        const code = String(b.cargo_code || '').trim().toUpperCase();
+        if (code) {
+          const [[c]] = await pool.query('SELECT id FROM cargo_customers WHERE cargo_code = ?', [code]);
+          if (!c) return res.status(404).json({ error: 'Клиент с таким кодом не найден' });
+          sets.push('customer_id = ?'); params.push(c.id);
+        } else { sets.push('customer_id = NULL'); }
+      }
+      if (b.delivery_requested !== undefined) { sets.push('delivery_requested = ?'); params.push(b.delivery_requested ? 1 : 0); }
 
       if (sets.length) {
         await pool.query(`UPDATE cargo_parcels SET ${sets.join(', ')} WHERE id = ?`, [...params, p.id]);
@@ -516,14 +530,151 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
     }
   });
 
-  app.get('/api/admin/cargo/customers', requireAuth, async (req, res) => {
+  // сводка для экрана «Обзор»
+  app.get('/api/admin/cargo/summary', requireAuth, async (req, res) => {
+    try {
+      const [byStatus] = await pool.query('SELECT status, COUNT(*) AS n FROM cargo_parcels GROUP BY status');
+      const [[noOwner]] = await pool.query('SELECT COUNT(*) AS n FROM cargo_parcels WHERE customer_id IS NULL');
+      const [[delivery]] = await pool.query("SELECT COUNT(*) AS n FROM cargo_parcels WHERE delivery_requested = 1 AND status NOT IN ('delivered','lost')");
+      const [[unpaid]] = await pool.query('SELECT COUNT(*) AS n, COALESCE(SUM(price),0) AS sum FROM cargo_parcels WHERE price IS NOT NULL AND paid = 0');
+      const [[paid30]] = await pool.query("SELECT COALESCE(SUM(price),0) AS sum, COUNT(*) AS n FROM cargo_parcels WHERE paid = 1 AND updated_at >= NOW() - INTERVAL 30 DAY");
+      const [[kg30]] = await pool.query("SELECT COALESCE(SUM(weight_kg),0) AS kg FROM cargo_parcels WHERE weight_kg IS NOT NULL AND created_at >= NOW() - INTERVAL 30 DAY");
+      const [[clients]] = await pool.query('SELECT COUNT(*) AS n, COALESCE(SUM(balance),0) AS balances, SUM(created_at >= NOW() - INTERVAL 7 DAY) AS new7 FROM cargo_customers');
+      const [[topups]] = await pool.query("SELECT COALESCE(SUM(amount),0) AS sum FROM cargo_wallet_tx WHERE kind = 'topup' AND created_at >= NOW() - INTERVAL 30 DAY");
+      const [events] = await pool.query(
+        `SELECT e.status, e.note, e.created_at, p.id AS parcel_id, p.track_code, c.name AS customer_name, c.cargo_code
+           FROM cargo_parcel_events e JOIN cargo_parcels p ON p.id = e.parcel_id
+           LEFT JOIN cargo_customers c ON c.id = p.customer_id
+          ORDER BY e.id DESC LIMIT 15`
+      );
+      const counts = {};
+      byStatus.forEach(r => { counts[r.status] = Number(r.n); });
+      res.json({
+        counts,
+        no_owner: Number(noOwner.n),
+        delivery_requests: Number(delivery.n),
+        unpaid_count: Number(unpaid.n), unpaid_sum: Number(unpaid.sum),
+        paid_30d: Number(paid30.sum), paid_30d_count: Number(paid30.n),
+        kg_30d: Number(kg30.kg),
+        clients: Number(clients.n), clients_new_7d: Number(clients.new7 || 0), balances: Number(clients.balances),
+        topups_30d: Number(topups.sum),
+        events,
+      });
+    } catch (e) {
+      console.error('Ошибка сводки карго:', e);
+      res.status(500).json({ error: 'Не удалось получить сводку' });
+    }
+  });
+
+  // массовая смена статуса (например, вся партия ушла «в путь»)
+  app.post('/api/admin/cargo/parcels/bulk', requireAuth, async (req, res) => {
+    const ids = Array.isArray((req.body || {}).ids) ? req.body.ids.map(Number).filter(Boolean).slice(0, 1000) : [];
+    const status = (req.body || {}).status;
+    const note = String((req.body || {}).note || '').slice(0, 255) || null;
+    if (!ids.length) return res.status(400).json({ error: 'Не выбраны посылки' });
+    if (!STATUSES.includes(status)) return res.status(400).json({ error: 'Неверный статус' });
+    try {
+      const [rows] = await pool.query(`SELECT id FROM cargo_parcels WHERE id IN (${ids.map(() => '?').join(',')}) AND status <> ?`, [...ids, status]);
+      if (rows.length) {
+        const changed = rows.map(r => r.id);
+        await pool.query(`UPDATE cargo_parcels SET status = ? WHERE id IN (${changed.map(() => '?').join(',')})`, [status, ...changed]);
+        await pool.query(
+          `INSERT INTO cargo_parcel_events (parcel_id, status, note) VALUES ${changed.map(() => '(?, ?, ?)').join(',')}`,
+          changed.flatMap(id => [id, status, note])
+        );
+      }
+      res.json({ ok: true, changed: rows.length });
+    } catch (e) {
+      console.error('Ошибка массового обновления:', e);
+      res.status(500).json({ error: 'Не удалось обновить' });
+    }
+  });
+
+  // приёмка пачкой: список трек-кодов (со сканера или вставкой) → статус; неизвестные создаются без владельца
+  app.post('/api/admin/cargo/receive', requireAuth, async (req, res) => {
+    const raw = (req.body || {}).tracks;
+    const list = (Array.isArray(raw) ? raw : String(raw || '').split(/[\s,;]+/)).map(normTrack).filter(Boolean);
+    const tracks = [...new Set(list)].slice(0, 1000);
+    const status = STATUSES.includes((req.body || {}).status) ? req.body.status : 'warehouse';
+    if (!tracks.length) return res.status(400).json({ error: 'Нет трек-кодов' });
+    const result = { updated: [], created: [], same: [], invalid: [] };
+    try {
+      for (const t of tracks) {
+        if (!/^[A-Z0-9\-_.]{5,60}$/.test(t)) { result.invalid.push(t); continue; }
+        const [[p]] = await pool.query('SELECT id, status FROM cargo_parcels WHERE track_code = ?', [t]);
+        if (p) {
+          if (p.status === status) { result.same.push(t); continue; }
+          await pool.query('UPDATE cargo_parcels SET status = ? WHERE id = ?', [status, p.id]);
+          await addEvent(p.id, status, null);
+          result.updated.push(t);
+        } else {
+          const [r] = await pool.query('INSERT INTO cargo_parcels (track_code, status) VALUES (?, ?)', [t, status]);
+          await addEvent(r.insertId, status, 'Принято без владельца');
+          result.created.push(t);
+        }
+      }
+      res.json(result);
+    } catch (e) {
+      console.error('Ошибка приёмки:', e);
+      res.status(500).json({ error: 'Не удалось принять посылки' });
+    }
+  });
+
+  app.get('/api/admin/cargo/parcels/:id/events', requireAuth, async (req, res) => {
+    try {
+      const [rows] = await pool.query('SELECT status, note, created_at FROM cargo_parcel_events WHERE parcel_id = ? ORDER BY id DESC', [req.params.id]);
+      res.json(rows);
+    } catch (e) {
+      res.status(500).json({ error: 'Не удалось получить историю' });
+    }
+  });
+
+  // карточка клиента: данные + посылки + операции кошелька
+  app.get('/api/admin/cargo/customers/:id', requireAuth, async (req, res) => {
+    try {
+      const [[c]] = await pool.query(
+        `SELECT c.id, c.name, c.phone, c.cargo_code, c.balance, c.created_at, c.pickup_point_id, pp.name AS pickup_name
+           FROM cargo_customers c LEFT JOIN cargo_pickup_points pp ON pp.id = c.pickup_point_id WHERE c.id = ?`, [req.params.id]);
+      if (!c) return res.status(404).json({ error: 'Клиент не найден' });
+      const [parcels] = await pool.query('SELECT * FROM cargo_parcels WHERE customer_id = ? ORDER BY updated_at DESC', [c.id]);
+      const [tx] = await pool.query('SELECT * FROM cargo_wallet_tx WHERE customer_id = ? ORDER BY id DESC LIMIT 200', [c.id]);
+      res.json({ customer: c, parcels, transactions: tx });
+    } catch (e) {
+      res.status(500).json({ error: 'Не удалось получить клиента' });
+    }
+  });
+
+  // все операции кошельков (пополнения, оплаты, корректировки)
+  app.get('/api/admin/cargo/transactions', requireAuth, async (req, res) => {
+    const { q, kind } = req.query;
+    const where = [];
+    const params = [];
+    if (kind && ['topup', 'payment', 'adjust'].includes(kind)) { where.push('t.kind = ?'); params.push(kind); }
+    if (q) { const like = '%' + String(q).trim() + '%'; where.push('(c.cargo_code LIKE ? OR c.phone LIKE ? OR c.name LIKE ? OR t.note LIKE ?)'); params.push(like, like, like, like); }
     try {
       const [rows] = await pool.query(
-        `SELECT c.id, c.name, c.phone, c.cargo_code, c.balance, c.created_at, pp.name AS pickup_name, COUNT(p.id) AS parcels
+        `SELECT t.*, c.name AS customer_name, c.cargo_code, c.phone AS customer_phone
+           FROM cargo_wallet_tx t JOIN cargo_customers c ON c.id = t.customer_id
+          ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+          ORDER BY t.id DESC LIMIT 500`, params);
+      res.json(rows);
+    } catch (e) {
+      res.status(500).json({ error: 'Не удалось получить операции' });
+    }
+  });
+
+  app.get('/api/admin/cargo/customers', requireAuth, async (req, res) => {
+    const q = String(req.query.q || '').trim();
+    const like = '%' + q + '%';
+    try {
+      const [rows] = await pool.query(
+        `SELECT c.id, c.name, c.phone, c.cargo_code, c.balance, c.created_at, pp.name AS pickup_name, COUNT(p.id) AS parcels,
+                SUM(p.status NOT IN ('delivered','lost')) AS active_parcels
            FROM cargo_customers c
            LEFT JOIN cargo_parcels p ON p.customer_id = c.id
            LEFT JOIN cargo_pickup_points pp ON pp.id = c.pickup_point_id
-          GROUP BY c.id ORDER BY c.id DESC LIMIT 500`
+          ${q ? 'WHERE c.cargo_code LIKE ? OR c.phone LIKE ? OR c.name LIKE ?' : ''}
+          GROUP BY c.id ORDER BY c.id DESC LIMIT 500`, q ? [like, like, like] : []
       );
       res.json(rows);
     } catch (e) {
