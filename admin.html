@@ -180,10 +180,11 @@ const STATUS_COLOR={new:'#ff9500',progress:'#16A34A',done:'#34c759',cancel:'#ff3
 const MOBILE_STATUS_BADGE={new:{bg:'#EAF1FF',color:'#3B82F6',label:'Новый'},progress:{bg:'#FDF3DF',color:'#e58e0f',label:'В обработке'},done:{bg:'#E7F6EC',color:'#16A34A',label:'Выполнен'},cancel:{bg:'#FDEAEA',color:'#ff3b30',label:'Отменён'}};
 const CAT_LABEL={electronics:'Электроника',clothing:'Одежда',bags:'Сумки',shoes:'Обувь',accessories:'Аксессуары',cosmetics:'Косметика',home:'Для дома',sport:'Спорт'};
 const NAV=[
-  {label:'Главное',items:[['dashboard','Дашборд'],['analytics','Аналитика'],['orders','Заказы'],['products','Товары'],['hr','Кадры'],['logistics','Курьеры']]},
-  {label:'Инструменты',items:[['marketing','Маркетинг'],['finance','Финансы'],['purchasing','Закупки'],['partners','Партнёры'],['banners','Баннеры'],['cargo','Карго']]},
+  {label:'Карго',items:[['cg_dash','📊 Обзор'],['cg_parcels','📦 Посылки'],['cg_receive','📥 Приёмка'],['cg_clients','👥 Клиенты'],['cg_money','👛 Кошелёк и оплаты'],['cg_settings','⚙️ Настройки карго']]},
+  {label:'Маркет',items:[['dashboard','Дашборд'],['analytics','Аналитика'],['orders','Заказы'],['products','Товары'],['banners','Баннеры'],['marketing','Маркетинг']]},
+  {label:'Компания',items:[['finance','Финансы'],['purchasing','Закупки'],['partners','Партнёры'],['hr','Кадры'],['logistics','Курьеры']]},
 ];
-const TITLES={dashboard:'Дашборд',analytics:'Аналитика',orders:'Заказы',products:'Товары',hr:'Кадры',logistics:'Курьеры',marketing:'Маркетинг',finance:'Финансы',purchasing:'Закупки',partners:'Партнёры',banners:'Баннеры',cargo:'Карго'};
+const TITLES={dashboard:'Дашборд',analytics:'Аналитика',orders:'Заказы',products:'Товары',hr:'Кадры',logistics:'Курьеры',marketing:'Маркетинг',finance:'Финансы',purchasing:'Закупки',partners:'Партнёры',banners:'Баннеры',cargo:'Карго',cg_dash:'Карго · Обзор',cg_parcels:'Карго · Посылки',cg_receive:'Карго · Приёмка',cg_clients:'Карго · Клиенты',cg_money:'Карго · Кошелёк и оплаты',cg_settings:'Карго · Настройки'};
 function money(n){ return (Math.round((Number(n)||0)*100)/100).toLocaleString('ru-RU')+' смн'; }
 function fmtDate(s){ if(!s) return '—'; try{ return new Date(s).toLocaleDateString('ru-RU'); }catch(e){ return s; } }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -249,7 +250,7 @@ function dashStatCard(icon, iconBg, label, value){
   </div>`;
 }
 
-const state={ token: localStorage.getItem(TOKEN_KEY)||null, section:'orders', orderSearch:'', orderStatus:'all', productSearch:'', productCat:'all', financeTab:'overview', marketingTab:'promo', periods:{} };
+const state={ token: localStorage.getItem(TOKEN_KEY)||null, section:'cg_dash', orderSearch:'', orderStatus:'all', productSearch:'', productCat:'all', financeTab:'overview', marketingTab:'promo', periods:{} };
 const PERIOD_DEFAULTS={ dashboard:'today', analytics:'month', finance:'today', orders:'all' };
 try{
   const saved = JSON.parse(localStorage.getItem('hb_admin_periods')||'null');
@@ -440,8 +441,8 @@ function enterApp(){
   renderNav();
   goSection(state.section);
 }
-const MOBILE_TABS=[['dashboard','🏠','Главная'],['orders','📦','Заказы'],['products','🛍','Товары'],['analytics','📊','Аналитика'],['__more__','⋯','Ещё']];
-if(state.token) enterApp();
+const MOBILE_TABS=[['cg_dash','📊','Обзор'],['cg_parcels','📦','Посылки'],['cg_receive','📥','Приёмка'],['cg_clients','👥','Клиенты'],['__more__','⋯','Ещё']];
+if(state.token) queueMicrotask(enterApp); // после загрузки всего скрипта (разделы карго объявлены ниже)
 
 function renderNav(){
   const el=document.getElementById('navList');
@@ -477,7 +478,12 @@ function loadSection(section){
   else if(section==='marketing') loadMarketingTab(state.marketingTab);
   else if(section==='hr') loadEmployees();
   else if(section==='banners') loadBanners();
-  else if(section==='cargo') loadCargo();
+  else if(section==='cargo'||section==='cg_parcels') loadCargoParcels();
+  else if(section==='cg_dash') loadCargoDash();
+  else if(section==='cg_receive') loadCargoReceive();
+  else if(section==='cg_clients') loadCargoCustomers();
+  else if(section==='cg_money') loadCargoMoney();
+  else if(section==='cg_settings') loadCargoSettings();
 }
 
 /* ---------------- DASHBOARD ---------------- */
@@ -2280,64 +2286,191 @@ function moveBanner(id,direction){ apiFetch('/api/banners/'+id+'/move',{method:'
 
 /* ---------------- КАРГО ---------------- */
 const CARGO_ST=[['expected','Ожидание'],['warehouse','Груз принят'],['transit','В пути'],['sorting','В сортировочном центре'],['ready','Готов к выдаче'],['courier','Доставляется курьером'],['delivered','Груз получен'],['lost','Потерян']];
+const CARGO_ST_COLOR={expected:['#f2f2f5','#55555a'],warehouse:['#FFF4DB','#9a6400'],transit:['#E6F0FF','#1d4ed8'],sorting:['#F1E8FF','#6b21a8'],ready:['#E3F7EA','#15803d'],courier:['#DFF6F3','#0f766e'],delivered:['#ececef','#3a3a3c'],lost:['#FFE4E1','#b42318']};
 const cargoStName=k=>(CARGO_ST.find(x=>x[0]===k)||[k,k])[1];
-state.cargoTab=state.cargoTab||'parcels'; state.cargoStatus=state.cargoStatus||'all'; state.cargoQ=state.cargoQ||'';
-function loadCargo(){
-  const tabs=[['parcels','Посылки'],['customers','Клиенты'],['settings','Настройки']];
-  const bar=`<div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">${tabs.map(([id,l])=>`<button class="btn ${state.cargoTab===id?'btn-primary':'btn-secondary'}" onclick="state.cargoTab='${id}';loadCargo()">${l}</button>`).join('')}</div>`;
-  const c=document.getElementById('content');
-  c.innerHTML=bar+'<div id="cargoBody" style="color:#86868b;padding:30px;text-align:center">Загрузка…</div>';
-  if(state.cargoTab==='parcels') loadCargoParcels();
-  else if(state.cargoTab==='customers') loadCargoCustomers();
-  else loadCargoSettings();
+const cgStBadge=st=>{ const c=CARGO_ST_COLOR[st]||['#eee','#333']; return `<span class="badge" style="background:${c[0]};color:${c[1]}">${esc(cargoStName(st))}</span>`; };
+const cgBody=()=>document.getElementById('content');
+const cgLoading=()=>{ cgBody().innerHTML='<div style="color:#86868b;padding:40px;text-align:center">Загрузка…</div>'; };
+const cgRow=(l,v)=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13.5px"><span style="color:#6e6e73">${l}</span><b style="text-align:right">${v}</b></div>`;
+state.cgFilter=state.cgFilter||'active'; state.cgQ=state.cgQ||''; state.cgSel=new Set(); state.cgClientQ=state.cgClientQ||''; state.cgTxKind=state.cgTxKind||'all'; state.cgTxQ=state.cgTxQ||'';
+function loadCargo(){ goSection('cg_parcels'); }
+
+/* ---- Обзор ---- */
+function loadCargoDash(){
+  cgLoading();
+  Promise.all([apiFetch('/api/admin/cargo/summary'),apiFetch('/api/admin/cargo/settings'),apiFetch('/api/admin/cargo/pickup-points')]).then(([d,s,pts])=>{
+    const c=d.counts||{}; const active=['expected','warehouse','transit','sorting','ready','courier'].reduce((a,k)=>a+(c[k]||0),0);
+    const warn=[]; if(!s.address) warn.push('адрес склада'); if(!Number(s.price_per_kg)) warn.push('цена за кг'); if(!s.warehouse_phone) warn.push('телефон склада'); if(!s.payment_info) warn.push('реквизиты для пополнения'); if(!pts.length) warn.push('пункты выдачи');
+    const go=(f)=>`onclick="state.cgFilter='${f}';goSection('cg_parcels')" style="cursor:pointer"`;
+    cgBody().innerHTML=`
+      ${warn.length?`<div class="card" style="margin-bottom:20px;border-color:#ffd88a;background:#fffaf0;display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:220px;font-size:13.5px"><b>⚠️ Заполните настройки карго:</b> ${warn.join(', ')}. Без них клиенты видят заглушку.</div><button class="btn btn-primary" onclick="goSection('cg_settings')">Открыть настройки</button></div>`:''}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+        <button class="btn btn-primary" onclick="goSection('cg_receive')">📥 Приёмка посылок</button>
+        <button class="btn btn-secondary" onclick="cargoAddParcel()">+ Одна посылка</button>
+        <button class="btn btn-secondary" onclick="cgWalletByCode()">± Баланс по коду</button>
+        <button class="btn btn-secondary" onclick="goSection('cg_settings')">⚙️ Настройки</button>
+      </div>
+      <div class="grid4" style="margin-bottom:20px">
+        <div ${go('active')}>${dashStatCard('📦','#E7F6EC','Посылок в работе',active)}</div>
+        <div ${go('none')}>${dashStatCard('❓','#FFF4DB','Без владельца',d.no_owner)}</div>
+        <div ${go('unpaid')}>${dashStatCard('💳','#FFE4E1','Ждут оплаты',d.unpaid_count+' · '+money(d.unpaid_sum))}</div>
+        <div ${go('delivery')}>${dashStatCard('🛵','#DFF6F3','Заявки на доставку',d.delivery_requests)}</div>
+      </div>
+      <div class="grid4" style="margin-bottom:20px">
+        <div onclick="goSection('cg_clients')" style="cursor:pointer">${dashStatCard('👥','#EEE9FE','Клиентов',d.clients+(d.clients_new_7d?' (+'+d.clients_new_7d+' за 7 дн)':''))}</div>
+        <div onclick="goSection('cg_money')" style="cursor:pointer">${dashStatCard('👛','#E1F7F3','На балансах клиентов',money(d.balances))}</div>
+        ${dashStatCard('✅','#E7F6EC','Оплачено за 30 дней',money(d.paid_30d))}
+        ${dashStatCard('⚖️','#FBEDD8','Принято кг за 30 дней',(Math.round(d.kg_30d*100)/100)+' кг')}
+      </div>
+      <div class="card" style="margin-bottom:20px"><div style="font-size:15px;font-weight:600;margin-bottom:14px">Посылки по этапам</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(120px,42%),1fr));gap:10px">
+          ${CARGO_ST.map(([k,l])=>{ const col=CARGO_ST_COLOR[k]; return `<div ${go(k)} class="card" style="padding:14px;background:${col[0]};border-color:transparent;cursor:pointer"><div style="font-size:12px;color:${col[1]};font-weight:600">${l}</div><div style="font-size:24px;font-weight:700;margin-top:6px;color:${col[1]}">${c[k]||0}</div></div>`; }).join('')}
+        </div></div>
+      <div class="card"><div style="font-size:15px;font-weight:600;margin-bottom:10px">Последние события</div>
+        ${(d.events||[]).length?d.events.map(e=>`<div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13.5px;flex-wrap:wrap"><span style="color:#86868b;min-width:86px">${fmtDate(e.created_at)}</span>${cgStBadge(e.status)}<b>${esc(e.track_code)}</b><span style="color:#6e6e73">${e.customer_name?esc(e.customer_name)+' · '+esc(e.cargo_code):'без владельца'}${e.note?' · '+esc(e.note):''}</span></div>`).join(''):'<div style="color:#86868b;font-size:13px">Пока событий нет</div>'}
+      </div>`;
+  }).catch(e=>flash(e.message));
+}
+
+/* ---- Посылки ---- */
+function cgParcelQuery(){
+  const f=state.cgFilter, qs=new URLSearchParams();
+  if(f==='none') qs.set('owner','none'); else if(f==='delivery') qs.set('delivery','1'); else if(f==='unpaid') qs.set('unpaid','1');
+  else if(f==='active') qs.set('status','active'); else if(f!=='all') qs.set('status',f);
+  if(state.cgQ) qs.set('q',state.cgQ);
+  return qs;
 }
 function loadCargoParcels(){
-  const qs=new URLSearchParams(); if(state.cargoStatus!=='all') qs.set('status',state.cargoStatus); if(state.cargoQ) qs.set('q',state.cargoQ);
-  apiFetch('/api/admin/cargo/parcels?'+qs).then(rows=>{ cache.cargoParcels=rows; renderCargoParcels(); }).catch(e=>flash(e.message));
+  cgLoading(); state.cgSel=new Set();
+  Promise.all([apiFetch('/api/admin/cargo/parcels?'+cgParcelQuery()),apiFetch('/api/admin/cargo/summary')]).then(([rows,sum])=>{ cache.cargoParcels=rows; cache.cargoSum=sum; renderCargoParcels(); }).catch(e=>flash(e.message));
 }
 function renderCargoParcels(){
-  const rows=cache.cargoParcels||[];
-  document.getElementById('cargoBody').innerHTML=`
-    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center;text-align:left">
-      <input id="cargoSearch" placeholder="Поиск: трек, код клиента, телефон, имя" value="${esc(state.cargoQ)}" style="flex:1;min-width:220px" onkeydown="if(event.key==='Enter'){state.cargoQ=this.value.trim();loadCargoParcels()}">
-      <select onchange="state.cargoStatus=this.value;loadCargoParcels()"><option value="all">Все статусы</option>${CARGO_ST.map(([k,l])=>`<option value="${k}" ${state.cargoStatus===k?'selected':''}>${l}</option>`).join('')}</select>
-      <button class="btn btn-primary" onclick="cargoAddParcel()">+ Принять посылку</button>
+  const rows=cache.cargoParcels||[], sum=cache.cargoSum||{counts:{}}, c=sum.counts||{};
+  const chip=(id,l,n)=>`<button class="pm-chip ${state.cgFilter===id?'active':''}" onclick="state.cgFilter='${id}';loadCargoParcels()">${l}${n!=null?` · ${n}`:''}</button>`;
+  cgBody().innerHTML=`
+    <div class="pm-chips" style="margin-bottom:12px">
+      ${chip('active','В работе')}${CARGO_ST.map(([k,l])=>chip(k,l,c[k]||0)).join('')}
+      ${chip('none','❓ Без владельца',sum.no_owner)}${chip('delivery','🛵 Доставка',sum.delivery_requests)}${chip('unpaid','💳 Не оплачено',sum.unpaid_count)}${chip('all','Все')}
     </div>
-    <div style="display:flex;flex-direction:column;gap:10px;text-align:left">${rows.length?rows.map(p=>`
-      <div class="card" style="padding:14px">
-        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
-          <div><b style="font-size:15px">${esc(p.track_code)}</b>
-            <div style="font-size:12px;color:#86868b;margin-top:2px">${p.customer_name?`${esc(p.customer_name)} · ${esc(p.cargo_code)} · ${esc(p.customer_phone)}`:'<span style="color:#c0392b">Без владельца — клиент ещё не добавил этот трек-код</span>'}${p.description?` · ${esc(p.description)}`:''}${p.pickup_name?` · ПВЗ: ${esc(p.pickup_name)}`:''}</div>
-            ${p.delivery_requested?`<div style="font-size:12.5px;color:#0a7d4b;margin-top:4px;font-weight:600">🛵 Заказана доставка: ${esc(p.delivery_address||'')}</div>`:''}</div>
-          <select onchange="cargoPatch(${p.id},{status:this.value})">${CARGO_ST.map(([k,l])=>`<option value="${k}" ${p.status===k?'selected':''}>${l}</option>`).join('')}</select>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
-          <label style="font-size:12px;color:#6e6e73">Вес, кг <input type="number" step="0.001" min="0" value="${p.weight_kg??''}" style="width:90px" onchange="cargoPatch(${p.id},{weight_kg:this.value})"></label>
-          <label style="font-size:12px;color:#6e6e73">Цена, смн <input type="number" step="0.01" min="0" value="${p.price??''}" style="width:100px" onchange="cargoPatch(${p.id},{price:this.value})"></label>
-          <label style="font-size:13px"><input type="checkbox" ${p.paid?'checked':''} onchange="cargoPatch(${p.id},{paid:this.checked},true)"> Оплачено</label>
-          <span style="flex:1"></span>
-          <span style="font-size:12px;color:#86868b">${fmtDate(p.updated_at)}</span>
-          <button class="btn btn-danger" style="padding:4px 10px" onclick="cargoDeleteParcel(${p.id})">✕</button>
-        </div>
-      </div>`).join(''):'<div style="color:#86868b;padding:30px;text-align:center">Посылок нет</div>'}</div>`;
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <input class="field" id="cargoSearch" placeholder="Поиск: трек, код клиента, телефон, имя — Enter" value="${esc(state.cgQ)}" style="flex:1;min-width:220px" onkeydown="if(event.key==='Enter'){state.cgQ=this.value.trim();loadCargoParcels()}">
+      <button class="btn btn-primary" onclick="goSection('cg_receive')">📥 Приёмка</button>
+      <button class="btn btn-secondary" onclick="cargoAddParcel()">+ Посылка</button>
+    </div>
+    <div id="cgBulk" class="card" style="display:none;margin-bottom:14px;padding:12px 16px;background:#F0FAF3;border-color:#bfe6cc;position:sticky;top:0;z-index:5">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b id="cgBulkN"></b><span style="font-size:13px;color:#6e6e73">→ поставить статус</span>
+        <select class="field" id="cgBulkSt" style="width:auto">${CARGO_ST.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select>
+        <button class="btn btn-primary" onclick="cgBulkApply()">Применить</button><button class="btn btn-secondary" onclick="state.cgSel=new Set();renderCargoParcels()">Снять выбор</button></div></div>
+    ${rows.length?`<label style="display:flex;gap:8px;align-items:center;font-size:13px;color:#6e6e73;margin:0 0 10px 4px"><input type="checkbox" onchange="cgSelAll(this.checked)"> Выбрать все (${rows.length})</label>`:''}
+    <div style="display:flex;flex-direction:column;gap:10px">${rows.length?rows.map(cgParcelCard).join(''):'<div class="card" style="color:#86868b;text-align:center">Посылок нет</div>'}</div>`;
+  cgBulkRefresh();
 }
+function cgParcelCard(p){
+  const owner=p.customer_name
+    ? `<a href="#" onclick="cgOpenClient(${p.customer_id});return false" style="color:#16A34A;font-weight:600">${esc(p.customer_name)} · ${esc(p.cargo_code)}</a> · ${esc(p.customer_phone)}${p.pickup_name?' · ПВЗ: '+esc(p.pickup_name):''}`
+    : `<span style="color:#b42318;font-weight:600">Без владельца</span> <input class="field" id="own_${p.id}" placeholder="Код клиента, напр. HB1001" style="width:190px;padding:5px 8px;display:inline-block"> <button class="btn btn-secondary" style="padding:4px 10px" onclick="cgAssign(${p.id})">Привязать</button>`;
+  return `<div class="card" style="padding:14px 16px">
+    <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+      <input type="checkbox" style="margin-top:4px;width:17px;height:17px" ${state.cgSel.has(p.id)?'checked':''} onchange="cgSel(${p.id},this.checked)">
+      <div style="flex:1;min-width:220px">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:15px;color:#1d1d1f">${esc(p.track_code)}</b>${cgStBadge(p.status)}${p.paid?'<span class="badge" style="background:#E3F7EA;color:#15803d">оплачено</span>':(p.price!=null?'<span class="badge" style="background:#FFE4E1;color:#b42318">не оплачено</span>':'')}</div>
+        <div style="font-size:12.5px;color:#6e6e73;margin-top:4px">${owner}${p.description?` · ${esc(p.description)}`:''}</div>
+        ${p.delivery_requested?`<div style="font-size:12.5px;color:#0f766e;margin-top:6px;font-weight:600">🛵 Доставка на дом: ${esc(p.delivery_address||'')} <button class="btn btn-secondary" style="padding:2px 8px;font-size:11.5px" onclick="cargoPatch(${p.id},{delivery_requested:false})">снять заявку</button></div>`:''}
+      </div>
+      <select class="field" style="width:auto" onchange="cargoPatch(${p.id},{status:this.value})">${CARGO_ST.map(([k,l])=>`<option value="${k}" ${p.status===k?'selected':''}>${l}</option>`).join('')}</select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center;padding-left:29px">
+      <label style="font-size:12px;color:#6e6e73">Вес, кг <input class="field" type="number" step="0.001" min="0" value="${p.weight_kg??''}" style="width:90px;padding:5px 8px;display:inline-block" onchange="cargoPatch(${p.id},{weight_kg:this.value})"></label>
+      <label style="font-size:12px;color:#6e6e73">Цена, смн <input class="field" type="number" step="0.01" min="0" value="${p.price??''}" style="width:100px;padding:5px 8px;display:inline-block" onchange="cargoPatch(${p.id},{price:this.value})"></label>
+      <label style="font-size:13px"><input type="checkbox" ${p.paid?'checked':''} onchange="cargoPatch(${p.id},{paid:this.checked},true)"> Оплачено</label>
+      <span style="flex:1"></span>
+      <span style="font-size:12px;color:#86868b">изм. ${fmtDate(p.updated_at)}</span>
+      <button class="btn btn-secondary" style="padding:4px 10px" onclick="cgHistory(${p.id},'${esc(p.track_code)}')">История</button>
+      <button class="btn btn-danger" style="padding:4px 10px" onclick="cargoDeleteParcel(${p.id})">✕</button>
+    </div></div>`;
+}
+function cgSel(id,on){ if(on) state.cgSel.add(id); else state.cgSel.delete(id); cgBulkRefresh(); }
+function cgSelAll(on){ state.cgSel=new Set(on?(cache.cargoParcels||[]).map(p=>p.id):[]); renderCargoParcels(); }
+function cgBulkRefresh(){ const b=document.getElementById('cgBulk'); if(!b) return; b.style.display=state.cgSel.size?'block':'none'; document.getElementById('cgBulkN').textContent='Выбрано: '+state.cgSel.size; }
+function cgBulkApply(){
+  const st=document.getElementById('cgBulkSt').value;
+  if(!confirm(`Поставить статус «${cargoStName(st)}» для ${state.cgSel.size} посылок?`)) return;
+  apiFetch('/api/admin/cargo/parcels/bulk',{method:'POST',body:JSON.stringify({ids:[...state.cgSel],status:st})}).then(r=>{ flash('Обновлено: '+r.changed); loadCargoParcels(); }).catch(e=>flash(e.message));
+}
+function cgAssign(id){ const code=document.getElementById('own_'+id).value.trim(); if(!code) return flash('Введите код клиента'); cargoPatch(id,{cargo_code:code}); }
 function cargoPatch(id,body,silent){
   apiFetch('/api/admin/cargo/parcels/'+id,{method:'PATCH',body:JSON.stringify(body)}).then(()=>{ if(!silent) flash('Сохранено'); loadCargoParcels(); }).catch(e=>{ flash(e.message); loadCargoParcels(); });
 }
-function cargoDeleteParcel(id){ if(!confirm('Удалить посылку?')) return; apiFetch('/api/admin/cargo/parcels/'+id,{method:'DELETE'}).then(loadCargoParcels).catch(e=>flash(e.message)); }
+function cargoDeleteParcel(id){ if(!confirm('Удалить посылку? Это нельзя отменить.')) return; apiFetch('/api/admin/cargo/parcels/'+id,{method:'DELETE'}).then(loadCargoParcels).catch(e=>flash(e.message)); }
 function cargoAddParcel(){
-  const track=prompt('Трек-код посылки (с китайского склада):'); if(!track) return;
+  const track=prompt('Трек-код посылки:'); if(!track) return;
   const code=prompt('Код клиента (например HB1001). Можно оставить пустым — посылка будет без владельца:')||'';
   const weight=prompt('Вес в кг (можно пропустить):')||'';
   apiFetch('/api/admin/cargo/parcels',{method:'POST',body:JSON.stringify({track_code:track,cargo_code:code,weight_kg:weight,status:'warehouse'})})
-    .then(()=>{ flash('Посылка принята'); loadCargoParcels(); }).catch(e=>flash(e.message));
+    .then(()=>{ flash('Посылка принята'); if(state.section==='cg_parcels') loadCargoParcels(); else loadSection(state.section); }).catch(e=>flash(e.message));
 }
+function cgHistory(id,track){
+  apiFetch('/api/admin/cargo/parcels/'+id+'/events').then(ev=>{
+    document.getElementById('modalRoot').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal" style="max-width:480px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h3>История · ${esc(track)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+      ${ev.map(e=>`<div style="display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f2;font-size:13.5px"><span style="color:#86868b;min-width:86px">${fmtDate(e.created_at)}</span>${cgStBadge(e.status)}<span style="color:#6e6e73">${esc(e.note||'')}</span></div>`).join('')||'<div style="color:#86868b">Нет событий</div>'}
+    </div></div>`;
+  }).catch(e=>flash(e.message));
+}
+
+/* ---- Приёмка (сканер / вставка списка) ---- */
+function loadCargoReceive(){
+  cgBody().innerHTML=`<div class="card" style="max-width:720px">
+    <div style="font-size:15px;font-weight:600;margin-bottom:6px">Приёмка посылок пачкой</div>
+    <p style="font-size:13px;color:#6e6e73;margin:0 0 14px">Сканируйте штрихкоды сканером (каждый скан — новая строка) или вставьте список трек-кодов из Excel / от склада. Известные посылки получат новый статус, неизвестные создадутся «без владельца» и сами привяжутся к клиенту, когда он добавит этот трек-код.</p>
+    <textarea class="field" id="rcvList" rows="10" placeholder="YT1234567890CN&#10;SF9876543210&#10;…" style="font-family:ui-monospace,Menlo,monospace" oninput="document.getElementById('rcvCnt').textContent=this.value.split(/[\\s,;]+/).filter(Boolean).length"></textarea>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
+      <span style="font-size:13px;color:#6e6e73">Трек-кодов: <b id="rcvCnt">0</b> → статус</span>
+      <select class="field" id="rcvSt" style="width:auto">${CARGO_ST.map(([k,l])=>`<option value="${k}" ${k==='warehouse'?'selected':''}>${l}</option>`).join('')}</select>
+      <button class="btn btn-primary" onclick="cgReceive()">Применить</button>
+    </div>
+    <div id="rcvRes" style="margin-top:16px"></div></div>`;
+  setTimeout(()=>document.getElementById('rcvList').focus(),50);
+}
+function cgReceive(){
+  const tracks=document.getElementById('rcvList').value, status=document.getElementById('rcvSt').value;
+  apiFetch('/api/admin/cargo/receive',{method:'POST',body:JSON.stringify({tracks,status})}).then(r=>{
+    const blk=(t,arr,col)=>arr.length?`<div style="margin-top:10px"><b style="color:${col}">${t}: ${arr.length}</b><div style="font-size:12.5px;color:#6e6e73;margin-top:4px;word-break:break-all">${arr.map(esc).join(', ')}</div></div>`:'';
+    document.getElementById('rcvRes').innerHTML=`<div class="card" style="background:#F0FAF3;border-color:#bfe6cc">${blk('Обновлён статус',r.updated,'#15803d')}${blk('Новые (без владельца)',r.created,'#9a6400')}${blk('Уже были в этом статусе',r.same,'#6e6e73')}${blk('Неверный формат',r.invalid,'#b42318')}</div>`;
+    document.getElementById('rcvList').value=''; document.getElementById('rcvCnt').textContent='0';
+    flash('Готово');
+  }).catch(e=>flash(e.message));
+}
+
+/* ---- Клиенты ---- */
 function loadCargoCustomers(){
-  apiFetch('/api/admin/cargo/customers').then(rows=>{
-    document.getElementById('cargoBody').innerHTML=`<div class="card" style="padding:0;overflow:auto;text-align:left"><table style="width:100%;border-collapse:collapse;font-size:13.5px">
-      <tr style="text-align:left;color:#86868b"><th style="padding:10px 14px">Код</th><th>Имя</th><th>Телефон</th><th>ПВЗ</th><th>Посылок</th><th>Баланс</th><th></th></tr>
-      ${rows.map(c=>`<tr style="border-top:1px solid #eee"><td style="padding:10px 14px"><b>${esc(c.cargo_code)}</b></td><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${esc(c.pickup_name||'—')}</td><td>${c.parcels}</td><td><b>${money(c.balance)}</b></td><td style="padding-right:14px"><button class="btn btn-secondary" style="padding:4px 10px" onclick="cargoWallet(${c.id},'${esc(c.cargo_code)}')">± Баланс</button> <button class="btn btn-secondary" style="padding:4px 10px" onclick="cargoResetPass(${c.id},'${esc(c.cargo_code)}')">Пароль</button></td></tr>`).join('')||'<tr><td colspan="7" style="padding:30px;text-align:center;color:#86868b">Клиентов пока нет</td></tr>'}
+  cgLoading();
+  apiFetch('/api/admin/cargo/customers?q='+encodeURIComponent(state.cgClientQ)).then(rows=>{
+    cgBody().innerHTML=`<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <input class="field" placeholder="Поиск: код, телефон, имя — Enter" value="${esc(state.cgClientQ)}" style="flex:1;min-width:220px" onkeydown="if(event.key==='Enter'){state.cgClientQ=this.value.trim();loadCargoCustomers()}"></div>
+      <div class="card" style="padding:0;overflow:auto"><table style="font-size:13.5px">
+      <tr style="text-align:left;color:#86868b"><th style="padding:12px 16px">Код</th><th>Имя</th><th>Телефон</th><th>ПВЗ</th><th>В работе / всего</th><th>Баланс</th><th>Регистрация</th></tr>
+      ${rows.map(c=>`<tr style="border-top:1px solid #eee;cursor:pointer" onclick="cgOpenClient(${c.id})"><td style="padding:12px 16px"><b>${esc(c.cargo_code)}</b></td><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${esc(c.pickup_name||'—')}</td><td>${Number(c.active_parcels)||0} / ${c.parcels}</td><td><b>${money(c.balance)}</b></td><td>${fmtDate(c.created_at)}</td></tr>`).join('')||'<tr><td colspan="7" style="padding:30px;text-align:center;color:#86868b">Клиентов не найдено</td></tr>'}
     </table></div>`;
+  }).catch(e=>flash(e.message));
+}
+function cgOpenClient(id){
+  apiFetch('/api/admin/cargo/customers/'+id).then(d=>{
+    const c=d.customer;
+    document.getElementById('modalRoot').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal" style="max-width:640px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h3>${esc(c.name)} · ${esc(c.cargo_code)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+      ${cgRow('Телефон','<a href="tel:+'+esc(c.phone)+'">+'+esc(c.phone)+'</a> · <a target="_blank" href="https://wa.me/'+esc(c.phone)+'" style="color:#16A34A">WhatsApp</a>')}
+      ${cgRow('Пункт выдачи',esc(c.pickup_name||'не выбран'))}${cgRow('Баланс',money(c.balance))}${cgRow('Регистрация',fmtDate(c.created_at))}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:14px 0">
+        <button class="btn btn-primary" onclick="cargoWallet(${c.id},'${esc(c.cargo_code)}')">± Баланс</button>
+        <button class="btn btn-secondary" onclick="cargoResetPass(${c.id},'${esc(c.cargo_code)}')">Новый пароль</button>
+        <button class="btn btn-secondary" onclick="closeModal();state.cgFilter='all';state.cgQ='${esc(c.cargo_code)}';goSection('cg_parcels')">Посылки в списке</button>
+      </div>
+      <div style="font-weight:600;margin:10px 0 6px">Посылки (${d.parcels.length})</div>
+      ${d.parcels.map(p=>`<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f2;font-size:13px;flex-wrap:wrap"><b>${esc(p.track_code)}</b>${cgStBadge(p.status)}<span style="color:#6e6e73">${p.weight_kg!=null?Number(p.weight_kg)+' кг':''}${p.price!=null?' · '+money(p.price)+(p.paid?' · оплачено':' · не оплачено'):''}</span></div>`).join('')||'<div style="color:#86868b;font-size:13px">Нет посылок</div>'}
+      <div style="font-weight:600;margin:16px 0 6px">Кошелёк</div>
+      ${d.transactions.map(t=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f2;font-size:13px"><span>${fmtDate(t.created_at)} · ${esc(t.note||t.kind)}</span><b style="color:${t.amount>0?'#15803d':'#1d1d1f'}">${t.amount>0?'+':''}${money(t.amount)}</b></div>`).join('')||'<div style="color:#86868b;font-size:13px">Операций нет</div>'}
+    </div></div>`;
   }).catch(e=>flash(e.message));
 }
 function cargoResetPass(id,code){
@@ -2347,24 +2480,58 @@ function cargoResetPass(id,code){
 function cargoWallet(id,code){
   const a=prompt('Клиент '+code+'. Сумма пополнения в сомони (для списания/корректировки — со знаком минус):'); if(a===null||a.trim()==='') return;
   const note=prompt('Комментарий (например: «Перевод на карту», «Наличные»):')||'';
-  apiFetch('/api/admin/cargo/customers/'+id+'/wallet',{method:'POST',body:JSON.stringify({amount:a.replace(',','.'),note})}).then(()=>{ flash('Баланс обновлён'); loadCargoCustomers(); }).catch(e=>flash(e.message));
+  apiFetch('/api/admin/cargo/customers/'+id+'/wallet',{method:'POST',body:JSON.stringify({amount:a.replace(',','.'),note})}).then(()=>{ flash('Баланс обновлён'); closeModal(); loadSection(state.section); }).catch(e=>flash(e.message));
 }
+function cgWalletByCode(){
+  const code=(prompt('Код клиента (например HB1001):')||'').trim().toUpperCase(); if(!code) return;
+  apiFetch('/api/admin/cargo/customers?q='+encodeURIComponent(code)).then(rows=>{ const c=rows.find(r=>r.cargo_code===code); if(!c) return flash('Клиент не найден'); cargoWallet(c.id,c.cargo_code); }).catch(e=>flash(e.message));
+}
+
+/* ---- Кошелёк и оплаты ---- */
+function loadCargoMoney(){
+  cgLoading();
+  const qs=new URLSearchParams(); if(state.cgTxKind!=='all') qs.set('kind',state.cgTxKind); if(state.cgTxQ) qs.set('q',state.cgTxQ);
+  Promise.all([apiFetch('/api/admin/cargo/transactions?'+qs),apiFetch('/api/admin/cargo/summary')]).then(([rows,d])=>{
+    const kinds=[['all','Все'],['topup','Пополнения'],['payment','Оплаты посылок'],['adjust','Корректировки']];
+    const kname={topup:'Пополнение',payment:'Оплата посылки',adjust:'Корректировка'};
+    cgBody().innerHTML=`<div class="grid4" style="margin-bottom:20px">
+        ${dashStatCard('👛','#E1F7F3','На балансах клиентов',money(d.balances))}
+        ${dashStatCard('⬆️','#E7F6EC','Пополнения за 30 дней',money(d.topups_30d))}
+        ${dashStatCard('✅','#EEE9FE','Оплачено посылок за 30 дн',money(d.paid_30d))}
+        <div onclick="state.cgFilter='unpaid';goSection('cg_parcels')" style="cursor:pointer">${dashStatCard('💳','#FFE4E1','Ждут оплаты',money(d.unpaid_sum))}</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+        <div class="pm-chips" style="margin:0">${kinds.map(([k,l])=>`<button class="pm-chip ${state.cgTxKind===k?'active':''}" onclick="state.cgTxKind='${k}';loadCargoMoney()">${l}</button>`).join('')}</div>
+        <input class="field" placeholder="Поиск: код, телефон, имя — Enter" value="${esc(state.cgTxQ)}" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter'){state.cgTxQ=this.value.trim();loadCargoMoney()}">
+        <button class="btn btn-primary" onclick="cgWalletByCode()">± Баланс по коду</button>
+      </div>
+      <div class="card" style="padding:0;overflow:auto"><table style="font-size:13.5px">
+        <tr style="text-align:left;color:#86868b"><th style="padding:12px 16px">Дата</th><th>Клиент</th><th>Тип</th><th>Комментарий</th><th style="text-align:right;padding-right:16px">Сумма</th></tr>
+        ${rows.map(t=>`<tr style="border-top:1px solid #eee"><td style="padding:11px 16px">${fmtDate(t.created_at)}</td><td><a href="#" onclick="cgOpenClient(${t.customer_id});return false" style="color:#16A34A;font-weight:600">${esc(t.cargo_code)}</a> ${esc(t.customer_name)}</td><td>${kname[t.kind]||esc(t.kind)}</td><td style="color:#6e6e73">${esc(t.note||'')}</td><td style="text-align:right;padding-right:16px;font-weight:700;color:${t.amount>0?'#15803d':'#1d1d1f'}">${t.amount>0?'+':''}${money(t.amount)}</td></tr>`).join('')||'<tr><td colspan="5" style="padding:30px;text-align:center;color:#86868b">Операций нет</td></tr>'}
+      </table></div>`;
+  }).catch(e=>flash(e.message));
+}
+
+/* ---- Настройки карго ---- */
 function loadCargoSettings(){
+  cgLoading();
   Promise.all([apiFetch('/api/admin/cargo/settings'),apiFetch('/api/admin/cargo/pickup-points')]).then(([s,pts])=>{
-    document.getElementById('cargoBody').innerHTML=`<div class="card" style="padding:18px;text-align:left;display:flex;flex-direction:column;gap:14px;max-width:640px">
-      <label style="font-size:13px;font-weight:600">Адрес склада в Китае (строка «详细地址»)
-        <textarea id="cgAddress" rows="4" style="width:100%;margin-top:6px" placeholder="浙江省义乌市…路1580号A幢一楼1号门-1#{code}">${esc(s.address)}</textarea>
+    cgBody().innerHTML=`<div class="card" style="text-align:left;display:flex;flex-direction:column;gap:14px;max-width:720px">
+      <div style="font-size:15px;font-weight:600">Склад в Китае (клиенты копируют эти данные)</div>
+      <label style="font-size:13px;font-weight:600">Адрес склада (строка «详细地址»)
+        <textarea class="field" id="cgAddress" rows="3" style="margin-top:6px" placeholder="浙江省义乌市…路1580号A幢一楼1号门-1#{code}">${esc(s.address)}</textarea>
         <span style="font-weight:400;font-size:12px;color:#86868b">Вместо <b>{code}</b> клиенту подставится его личный код (например HB1001). Адрес берёте у логистической компании.</span></label>
-      <label style="font-size:13px;font-weight:600">Телефон склада (строка «手机号») <input id="cgWhPhone" value="${esc(s.warehouse_phone)}" style="width:220px;margin-left:8px"></label>
-      <label style="font-size:13px;font-weight:600">Цена за 1 кг, смн <input id="cgPrice" type="number" step="0.01" min="0" value="${esc(s.price_per_kg)}" style="width:140px;margin-left:8px"></label>
-      <label style="font-size:13px;font-weight:600">Ваш телефон для связи <input id="cgPhoneS" value="${esc(s.contact_phone)}" style="width:200px;margin-left:8px"></label>
-      <label style="font-size:13px;font-weight:600">Как пополнить кошелёк (реквизиты)
-        <textarea id="cgPayInfo" rows="3" style="width:100%;margin-top:6px" placeholder="Карта Visa 0000 0000 0000 0000, Алиф: +992 ...">${esc(s.payment_info)}</textarea></label>
+      <label style="font-size:13px;font-weight:600">Телефон склада (строка «手机号»)<input class="field" id="cgWhPhone" value="${esc(s.warehouse_phone)}" style="margin-top:6px"></label>
+      <div style="font-size:15px;font-weight:600;margin-top:6px">Цены и оплата</div>
+      <label style="font-size:13px;font-weight:600">Цена за 1 кг, смн<input class="field" id="cgPrice" type="number" step="0.01" min="0" value="${esc(s.price_per_kg)}" style="margin-top:6px;max-width:200px"></label>
+      <label style="font-size:13px;font-weight:600">Как пополнить кошелёк (реквизиты — видит клиент)
+        <textarea class="field" id="cgPayInfo" rows="3" style="margin-top:6px" placeholder="Карта Visa 0000 0000 0000 0000, Алиф: +992 ...">${esc(s.payment_info)}</textarea></label>
+      <label style="font-size:13px;font-weight:600">Ваш телефон для связи<input class="field" id="cgPhoneS" value="${esc(s.contact_phone)}" style="margin-top:6px;max-width:260px"></label>
       <div><button class="btn btn-primary" onclick="saveCargoSettings()">Сохранить</button></div></div>
-    <div class="card" style="padding:18px;text-align:left;max-width:640px;margin-top:16px">
-      <div style="font-weight:700;margin-bottom:10px">Пункты выдачи (ПВЗ)</div>
-      ${pts.map(p=>`<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #eee"><div style="flex:1"><b>${esc(p.name)}</b><div style="font-size:12px;color:#86868b">${esc(p.address||'')}</div></div><button class="btn btn-danger" style="padding:4px 10px" onclick="cargoDelPickup(${p.id})">✕</button></div>`).join('')||'<div style="color:#86868b;font-size:13px">Пока нет пунктов выдачи</div>'}
-      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><input id="ppName" placeholder="Название, например: 82 мкр" style="flex:1;min-width:160px"><input id="ppAddr" placeholder="Адрес (необязательно)" style="flex:1;min-width:160px"><button class="btn btn-primary" onclick="cargoAddPickup()">+ Добавить</button></div></div>`;
+    <div class="card" style="text-align:left;max-width:720px;margin-top:16px">
+      <div style="font-size:15px;font-weight:600;margin-bottom:10px">Пункты выдачи (ПВЗ)</div>
+      ${pts.map(p=>`<div style="display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid #eee"><div style="flex:1"><b>${esc(p.name)}</b><div style="font-size:12px;color:#86868b">${esc(p.address||'')}</div></div><button class="btn btn-danger" style="padding:4px 10px" onclick="cargoDelPickup(${p.id})">✕</button></div>`).join('')||'<div style="color:#86868b;font-size:13px">Пока нет пунктов выдачи</div>'}
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><input class="field" id="ppName" placeholder="Название, например: 82 мкр" style="flex:1;min-width:160px"><input class="field" id="ppAddr" placeholder="Адрес (необязательно)" style="flex:1;min-width:160px"><button class="btn btn-primary" onclick="cargoAddPickup()">+ Добавить</button></div></div>`;
   }).catch(e=>flash(e.message));
 }
 function cargoAddPickup(){
