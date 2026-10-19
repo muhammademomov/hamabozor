@@ -493,6 +493,46 @@ body.has-chip{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @keyframes shine{to{background-position:-200% 0}}
 
+
+/* ======== v3: единый аккаунт + главная по макету ======== */
+body[data-sec="cargo"] .foot{display:none}
+.who .avatar.sm.guest{background:var(--surface);color:var(--ink);border:1px solid var(--line-2)}
+.who .avatar.sm svg{width:24px;height:24px}
+.cg-wallet .w-sub2{font-size:15px;color:var(--ink-2);margin-top:4px;display:flex;align-items:center;gap:6px}
+.cg-wallet .w-sub2 button{color:var(--accent);display:flex}
+.cg-wallet .w-sub2 svg{width:17px;height:17px}
+.w-actions{display:grid;grid-template-columns:repeat(3,1fr);margin:var(--s4) calc(-1 * var(--s5)) calc(-1 * var(--s5));border-top:1px solid var(--line-2)}
+.w-actions button{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 4px 20px;font-size:15px;font-weight:500;position:relative}
+.w-actions button+button::before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:1px;background:var(--line-2)}
+.w-actions svg{width:34px;height:34px;color:var(--accent)}
+.cg-sec{font-size:19px;font-weight:700;margin:var(--s6) 0 var(--s3);display:flex;align-items:center;justify-content:space-between}
+.cg-sec a,.cg-sec button{font-size:15px;font-weight:600;color:var(--accent)}
+.cg-trk{display:flex;align-items:center;gap:6px;background:var(--surface);border:1.5px solid var(--line-2);border-radius:var(--r-lg);padding:6px}
+.cg-trk .lead{width:52px;height:52px;border-radius:14px;background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.cg-trk input{flex:1;min-width:0;background:none;border:none;outline:none;color:var(--ink);font-size:17px;font-family:inherit;padding:0 6px;text-transform:uppercase}
+.cg-trk input::placeholder{text-transform:none;color:var(--muted)}
+.cg-trk .go{width:52px;height:52px;border-radius:14px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cg-trk .go svg{width:26px;height:26px}
+.pop-row{display:flex;gap:var(--s3);overflow-x:auto;scrollbar-width:none;margin:0 calc(-1 * var(--s4));padding:0 var(--s4) 4px;scroll-snap-type:x mandatory;scroll-padding-inline:var(--s4)}
+.pop-row::-webkit-scrollbar{display:none}
+.pop{flex:0 0 112px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;gap:12px;padding:var(--s4) 6px;background:var(--surface);border-radius:var(--r-lg);border:1px solid var(--line);font-size:14.5px;font-weight:500;text-align:center;line-height:1.25;min-height:132px}
+.pop i{width:54px;height:54px;border-radius:50%;background:rgba(34,192,122,.16);color:var(--accent);display:flex;align-items:center;justify-content:center}
+.pop i svg{width:26px;height:26px}
+.pc-row{display:flex;gap:var(--s3);overflow-x:auto;scrollbar-width:none;margin:0 calc(-1 * var(--s4));padding:0 var(--s4) 4px;scroll-snap-type:x mandatory;scroll-padding-inline:var(--s4)}
+.pc-row::-webkit-scrollbar{display:none}
+.pc{flex:0 0 74%;max-width:300px;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:space-between;gap:var(--s5);text-align:left;min-height:150px;padding:var(--s4) var(--s5);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg)}
+.pc .pc-top b{display:block;font-size:22px;font-weight:700}
+.pc .pc-top span{display:block;color:var(--ink-2);margin-top:4px;font-size:15px}
+.pc .pc-bot{display:flex;align-items:center;justify-content:space-between}
+.pc .pc-bot .em{width:46px;height:46px;border-radius:12px;background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:24px}
+.pc .pc-bot code{font-size:16px;letter-spacing:.04em}
+.pc.empty{flex-basis:100%;max-width:none;align-items:flex-start;justify-content:center;color:var(--ink-2)}
+.acc-card{display:flex;align-items:center;gap:var(--s3);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s4);margin-top:var(--s2)}
+.acc-card .avatar{background:var(--accent);color:var(--on-accent)}
+.acc-code{display:flex;align-items:center;justify-content:space-between;margin-top:var(--s3);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s3) var(--s4)}
+.acc-code b{font-size:20px;letter-spacing:.06em;color:var(--accent)}
+.auth-note{display:flex;gap:10px;align-items:flex-start;background:rgba(34,192,122,.1);border-radius:var(--r-md);padding:12px 14px;margin-bottom:var(--s4);font-size:14px;color:var(--ink-2);line-height:1.4}
+
 /* ======== карго: тёмный дизайн по макету ======== */
 .hdr{background:var(--bg)}
 body.on-cargo .hdr:not(.scrolled){background:transparent}
@@ -783,7 +823,6 @@ body.scn-view{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 1
       <button data-v="history" onclick="go('history')" data-i18n="nav_history">История</button>
     </nav>
     <div class="hdr-act">
-      <button class="pill-btn" id="langBtn" onclick="toggleLangQuick()" aria-label="Language">TJ</button>
       <button class="icon-b" onclick="hdrSearch()" aria-label="Поиск"><svg><use href="#i-search"/></svg></button>
       <button class="icon-b mk-only" onclick="go('favorites')" aria-label="Избранное"><svg><use href="#i-heart"/></svg><span class="fav-dot" id="favDot" hidden>0</span></button>
       <button class="icon-b mk-only" id="hdrCart" onclick="openCart()" aria-label="Корзина"><svg><use href="#i-bag"/></svg><span class="nbadge" id="deskBadge">0</span></button>
@@ -1870,6 +1909,14 @@ const D = {
   c_support:['Связаться с нами','Бо мо тамос гиред'], c_hello:['Здравствуйте','Салом'],
   cs_expected:['Ожидается','Интизор'], cs_warehouse:['На складе в Китае','Дар анбор дар Чин'], cs_transit:['В пути','Дар роҳ'], cs_arrived:['Прибыла в Душанбе','Ба Душанбе расид'], cs_delivered:['Выдана','Дода шуд'], cs_lost:['Потеряна','Гум шуд'],
   nav_cargo:['Карго','Карго'],
+  acc_title:['Аккаунт','Аккаунт'], acc_one:['Один аккаунт для карго и покупок в маркете','Як аккаунт барои карго ва харид дар маркет'],
+  acc_guest_t:['Войдите в аккаунт','Ба аккаунт ворид шавед'], acc_guest_s:['Получите личный код, адрес склада в Китае и отслеживайте посылки. Покупки в маркете — без повторного ввода данных.','Рамзи шахсӣ ва суроғаи анбор дар Чинро гиред ва посылкаҳоро пайгирӣ кунед.'],
+  acc_login:['Войти','Ворид шудан'], c_reg:['Регистрация','Сабти ном'], my_purchases:['Мои покупки','Харидҳои ман'],
+  w_act_topup:['Пополнить','Пур кардан'], w_act_code:['Мой код','Рамзи ман'], w_act_calc:['Калькулятор','Калкулятор'],
+  trk_title:['Добавить трек-код','Илова кардани трек-код'], trk_ph:['Введите трек-код','Трек-кодро ворид кунед'],
+  pop_title:['Популярное','Маъмул'], pop_support:['Поддержка','Дастгирӣ'], my_parcels:['Мои посылки','Посылкаҳои ман'], all_link:['Все','Ҳама'],
+  pc_none:['Пока нет посылок. Добавьте трек-код от продавца — и следите за грузом.','Ҳоло посылка нест. Трек-кодро илова кунед.'],
+  code_lbl:['Код','Рамз'], mk_title:['Китайские площадки','Сомонаҳои чинӣ'],
   nav_market:['Маркет','Маркет'], nav_orders:['Заказы','Фармоишҳо'], nav_history:['История','Таърих'],
   cs_sorting:['В сортировочном центре','Дар маркази ҷудокунӣ'], cs_ready:['Готов к выдаче','Барои гирифтан омода'], cs_courier:['Доставляется курьером','Курер меорад'],
   cs_expected:['Ожидание','Интизорӣ'], cs_warehouse:['Груз принят','Бор қабул шуд'], cs_transit:['В пути','Дар роҳ'], cs_delivered:['Груз получен','Бор гирифта шуд'], cs_lost:['Потерян','Гум шуд'],
@@ -2570,32 +2617,27 @@ function renderFavorites(){
 let profile = LS.get('imkon_profile', {name:'', phone:'', addresses:[], notif:{orders:true, promo:true}, orders:[]});
 const saveProfile = () => LS.set('imkon_profile', profile);
 function renderProfile(){
-  const v = $('view-profile'), logged = !!(profile.name || profile.phone);
+  const v = $('view-profile'), c = cargoData && cargoData.customer, logged = !!cargoToken();
   const row = (icn, label, n, fn) => `<button class="lrow" onclick="${fn}"><span class="l-ic">${ic(icn)}</span>${esc(label)}<span class="l-n">${n==null?'':n}</span>${ic('chev','chev')}</button>`;
-  v.innerHTML = `<div class="hero" style="padding-bottom:8px"><h1 class="t-h1">${esc(T('nav_profile'))}</h1></div>
-    <div class="prof-card"><div class="avatar">${esc((profile.name||'?').trim().charAt(0).toUpperCase() || '?')}</div>
-      <div style="flex:1;min-width:0"><b style="font-size:17px">${esc(profile.name || T('guest'))}</b><div class="t-small">${esc(profile.phone || T('buyer'))}</div></div>
-      <button class="btn btn-sm btn-soft" onclick="openLogin()">${esc(logged ? T('save') : T('login'))}</button></div>
+  const head = `<div class="cg-top-row"><h1>${esc(T('acc_title'))}</h1></div>`;
+  const acc = logged
+    ? (c ? `<div class="acc-card"><div class="avatar">${esc(c.name.trim().charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><b style="font-size:18px">${esc(c.name)}</b><div class="t-small">+${esc(c.phone)}</div></div></div>
+        <div class="acc-code"><div><div class="t-small">${esc(T('t_my_code'))}</div><b>${esc(c.code)}</b></div><button class="cg-link" onclick="cargoCopy('${esc(c.code)}')">${ic('copy')}${esc(T('copy'))}</button></div>` : skeleton(1))
+    : `<div class="cg-card" style="margin-top:0"><b style="font-size:18px">${esc(T('acc_guest_t'))}</b><p class="t-sub" style="margin-top:6px">${esc(T('acc_guest_s'))}</p>
+        <button class="btn" style="margin-top:14px" onclick="openCargoAuth('login')">${esc(T('acc_login'))}</button>
+        <button class="btn btn-ghost" style="margin-top:8px" onclick="openCargoAuth('register')">${esc(T('c_reg'))}</button></div>`;
+  if(logged && !c) cargoLoad();
+  v.innerHTML = head + acc + `
     <div class="list" style="margin-top:16px">
-      ${row('box', T('my_orders'), profile.orders.length || '', 'openOrders()')}
+      ${row('bag', T('my_purchases'), profile.orders.length || '', 'openOrders()')}
       ${row('heart', T('favorites'), favoriteIds.size || '', "go('favorites')")}
       ${row('pin', T('addresses'), profile.addresses.length || '', 'openAddresses()')}
-      ${row('tag', T('promos'), 2, 'openPromos()')}
-      ${row('bell', T('notifs'), '', 'openNotifPrefs()')}
-      ${row('info', T('help'), '', 'openHelp()')}
+      ${row('tag', T('promos'), '', 'openPromos()')}
       ${row('globe', T('language'), lang==='tj'?'Тоҷикӣ':'Русский', 'toggleLangQuick()')}
+      ${row('chat', T('help'), '', 'openHelp()')}
     </div>
-    <button class="bonus" onclick="openNotifications()"><span class="l-ic">${ic('gift')}</span><div><b>${esc(T('bonus_t'))}</b><span>${esc(T('bonus_s'))}</span></div></button>
-    ${logged ? `<button class="btn btn-ghost" style="margin-top:16px" onclick="logout()">${esc(T('logout'))}</button>` : ''}
-    <p class="t-small" style="margin-top:12px;text-align:center;color:var(--muted)">${esc(T('saved_here'))}</p>`;
+    ${logged ? `<button class="btn btn-ghost" style="margin-top:16px" onclick="cargoLogout()">${esc(T('logout'))}</button>` : ''}`;
 }
-function openLogin(){
-  openSheet({title: esc(T('login')), sub: esc(T('login_sub')),
-    body: `<div class="field"><label>${esc(T('name'))}</label><input id="lgName" value="${esc(profile.name)}" autocomplete="name"></div><div class="field"><label>${esc(T('phone'))}</label><input id="lgPhone" type="tel" inputmode="tel" value="${esc(profile.phone)}" placeholder="+992 90 000 00 00" autocomplete="tel"></div><p class="t-small">${esc(T('saved_here'))}</p>`,
-    foot: `<button class="btn" onclick="saveLogin()">${esc(T('save'))}</button>`});
-}
-function saveLogin(){ profile.name = $('lgName').value.trim(); profile.phone = $('lgPhone').value.trim(); saveProfile(); closeSheet(); renderProfile(); }
-function logout(){ profile = {name:'', phone:'', addresses:[], notif:profile.notif, orders:profile.orders}; saveProfile(); renderProfile(); }
 function openOrders(){
   const list = profile.orders.slice().reverse();
   openSheet({title: esc(T('my_orders')), body: list.length ? list.map(o => `<div class="order"><div class="order-top"><span>${esc(T('order_no'))}${esc(String(o.id).slice(-5))}</span><span>${money(o.total)}</span></div><small>${esc(new Date(o.date).toLocaleDateString(lang==='tj'?'tg':'ru'))} · ${esc(o.items.map(i => i.name + ' ×' + i.qty).join(', '))}</small></div>`).join('') : `<div class="empty"><div class="em">📦</div><h3 class="t-h2">${esc(T('no_orders'))}</h3></div>`});
@@ -2654,11 +2696,16 @@ const cgMoney = n => (Number(n) || 0).toLocaleString('ru-RU', {minimumFractionDi
 const cgDate = d => { try{ return new Date(d).toLocaleDateString(lang === 'tj' ? 'tg' : 'ru'); }catch(e){ return ''; } };
 const cgChip = st => `<span class="cg-chip s-${esc(st)}">${esc(T('cs_' + st))}</span>`;
 const cgParcels = () => (cargoData && cargoData.parcels) || [];
-const CG_VIEWS = ['cargo', 'orders', 'history'];
+const CG_VIEWS = ['cargo', 'orders', 'history', 'profile'];
 function rerenderCargoViews(){ if(CG_VIEWS.includes(curView)) showView(curView, curArg); }
 async function cargoLoad(){
   if(cargoBusy || !cargoToken()) return; cargoBusy = true;
-  try{ cargoData = await cargoApi('/api/cargo/me'); }catch(e){ if(cargoToken()) showToast(e.message); }
+  try{
+    cargoData = await cargoApi('/api/cargo/me');
+    const c = cargoData.customer;
+    profile.name = c.name; profile.phone = '+' + c.phone; saveProfile();
+    if(LS.get('hb_seen_events', null) == null) LS.set('hb_seen_events', Date.now());
+  }catch(e){ if(cargoToken()) showToast(e.message); }
   cargoBusy = false; renderHeader(); rerenderCargoViews();
 }
 function cargoReload(){ cargoData = null; cargoLoad(); }
@@ -2672,15 +2719,15 @@ function cgEvents(){
 function renderHeader(){
   const who = $('hdrWho'); if(!who) return;
   const c = cargoData && cargoData.customer;
-  const name = (c ? c.name : (profile.name || '')).trim();
+  const name = c ? c.name.trim() : '';
   who.innerHTML = name
     ? `<span class="avatar sm">${esc(name.charAt(0).toUpperCase())}</span><b>${esc(name.split(/\s+/)[0])}</b>${ic('chev','chev')}`
-    : `<span class="logo-t">Imkon<span>.Shop</span></span>`;
+    : (cargoToken() ? `<span class="avatar sm guest">${ic('user')}</span>` : `<span class="avatar sm guest">${ic('user')}</span><b>${esc(T('acc_login'))}</b>${ic('chev','chev')}`);
   const seen = Number(LS.get('hb_seen_events', 0)) || 0;
-  const n = cgEvents().filter(e => new Date(e.at).getTime() > seen).length;
+  const n = cgEvents().filter(e => e.status !== 'expected' && new Date(e.at).getTime() > seen).length;
   const dot = $('bellDot'); if(dot){ dot.hidden = !n; dot.textContent = n > 9 ? '9+' : n; }
 }
-function hdrWhoClick(){ go((cargoToken() || profile.name) ? 'profile' : 'cargo'); }
+function hdrWhoClick(){ if(cargoToken()) go('profile'); else openCargoAuth('login'); }
 function hdrSearch(){ if(MARKET_VIEWS.includes(curView)) openSearch(); else openTrackSearch(); }
 
 /* ---- вход / регистрация ---- */
@@ -2692,7 +2739,7 @@ function cargoAuthPrompt(){
 function openCargoAuth(mode){
   const reg = mode === 'register';
   openSheet({title: esc(T(reg ? 'c_reg' : 'c_login')),
-    body: `${reg ? `<div class="field"><label>${esc(T('name'))}</label><input id="cgName" autocomplete="name"></div>` : ''}<div class="field"><label>${esc(T('phone'))}</label><input id="cgPhone" type="tel" inputmode="tel" placeholder="+992 90 000 00 00" autocomplete="tel"></div><div class="field"><label>${esc(T('c_pass'))}</label><input id="cgPass" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}"></div><button class="btn btn-ghost" onclick="openCargoAuth('${reg ? 'login' : 'register'}')">${esc(T(reg ? 'c_have' : 'c_new'))}</button>`,
+    body: `<div class="auth-note">${ic('shield')}<span>${esc(T('acc_one'))}</span></div>${reg ? `<div class="field"><label>${esc(T('name'))}</label><input id="cgName" autocomplete="name"></div>` : ''}<div class="field"><label>${esc(T('phone'))}</label><input id="cgPhone" type="tel" inputmode="tel" placeholder="+992 90 000 00 00" autocomplete="tel"></div><div class="field"><label>${esc(T('c_pass'))}</label><input id="cgPass" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}"></div><button class="btn btn-ghost" onclick="openCargoAuth('${reg ? 'login' : 'register'}')">${esc(T(reg ? 'c_have' : 'c_new'))}</button>`,
     foot: `<button class="btn" id="cgAuthBtn" onclick="cargoSubmitAuth('${mode}')">${esc(T(reg ? 'c_reg' : 'c_login'))}</button>`});
 }
 async function cargoSubmitAuth(mode){
@@ -2702,9 +2749,14 @@ async function cargoSubmitAuth(mode){
     if(mode === 'register') body.name = $('cgName').value;
     const d = await cargoApi('/api/cargo/' + mode, {method:'POST', body: JSON.stringify(body)});
     cargoSetToken(d.token); cargoData = null; closeSheet(); renderHeader(); showView(curView, curArg); cargoLoad();
+    if(typeof openCheckoutAfterAuth !== 'undefined' && openCheckoutAfterAuth){ openCheckoutAfterAuth = false; }
   }catch(e){ showToast(e.message); btn.disabled = false; }
 }
-function cargoLogout(){ cargoSetToken(''); cargoData = null; renderHeader(); go('cargo'); }
+function cargoLogout(){
+  cargoSetToken(''); cargoData = null;
+  profile = {name:'', phone:'', addresses:profile.addresses, notif:profile.notif, orders:profile.orders}; saveProfile();
+  renderHeader(); go('cargo');
+}
 
 /* ---- главная карго ---- */
 function mtSvg(){
@@ -2742,16 +2794,44 @@ function renderCargo(){
     [T('ad_addr'), '详细地', w.address]
   ].filter(Boolean);
   cgRows = rows;
+  const active = cgParcels().filter(p => p.status !== 'delivered' && p.status !== 'lost');
+  const pop = (icn, label, fn) => `<button class="pop" onclick="${fn}"><i>${ic(icn)}</i>${esc(label)}</button>`;
   v.innerHTML = heroBg('') + `
-    <div class="cg-wallet"><div class="w-top"><div class="w-bal"><div><b>${hide ? '••••' : esc(cgMoney(cargoData.balance))}</b><div class="w-sub">${esc(T('w_wallet'))}</div></div>
+    <div class="cg-wallet">
+      <div class="w-top"><div class="w-bal"><b>${hide ? '••••' : esc(cgMoney(cargoData.balance))}</b>
         <button class="w-plus" onclick="openTopup()" aria-label="${esc(T('w_topup'))}">${ic('plus')}</button></div>
-        <button class="w-eye" onclick="LS.set('hb_hide_bal', ${!hide});renderCargo()" aria-label="eye">${ic(hide ? 'eye' : 'eyeoff')}</button></div></div>
-    <div class="cg-tiles">${cgTile('qr', T('t_my_code'), 'openMyCode()')}${cgTile('truck', T('t_home_del'), 'openDelivery()')}${cgTile('calc', T('t_calc'), 'openCalc()')}${cgTile('play', T('t_howto'), 'openHowTo()', 'NEW')}</div>
-    ${cgMarketsHtml()}
-    <button class="cg-pvz" onclick="openPickup()">${ic('pin')}<span>${esc(T('pvz'))}: <b>${esc(pt ? pt.name : T('pvz_pick'))}</b></span>${ic('chev','chev')}</button>
-    <div class="cg-card"><h3>${esc(T('ad_title'))}</h3>
+        <button class="w-eye" onclick="LS.set('hb_hide_bal', ${!hide});renderCargo()" aria-label="eye">${ic(hide ? 'eye' : 'eyeoff')}</button></div>
+      <div class="w-sub2">${esc(T('code_lbl'))}: <b>${esc(c.code)}</b><button onclick="cargoCopy('${esc(c.code)}')" aria-label="copy">${ic('copy')}</button></div>
+      <div class="w-actions">
+        <button onclick="openTopup()">${ic('wallet')}${esc(T('w_act_topup'))}</button>
+        <button onclick="openMyCode()">${ic('qr')}${esc(T('w_act_code'))}</button>
+        <button onclick="openCalc()">${ic('calc')}${esc(T('w_act_calc'))}</button>
+      </div>
+    </div>
+    <div class="cg-sec">${esc(T('trk_title'))}</div>
+    <form class="cg-trk" onsubmit="cgQuickAdd(event)"><span class="lead">📦</span><input id="qTrack" placeholder="${esc(T('trk_ph'))}" autocomplete="off" autocapitalize="characters"><button class="go" aria-label="add">${ic('plus')}</button></form>
+    <div class="cg-sec">${esc(T('pop_title'))}</div>
+    <div class="pop-row">
+      ${pop('truck', T('t_home_del'), 'openDelivery()')}
+      ${pop('pin', pt ? pt.name : T('pvz'), 'openPickup()')}
+      ${pop('play', T('t_howto'), 'openHowTo()')}
+      ${pop('chat', T('pop_support'), "window.open('https://wa.me/' + WHATSAPP_PHONE, '_blank')")}
+    </div>
+    <div class="cg-sec">${esc(T('my_parcels'))}<button onclick="go('orders')">${esc(T('all_link'))}</button></div>
+    <div class="pc-row">${active.length ? active.slice(0, 8).map(p => `<button class="pc" onclick="openCargoParcel(${p.id})"><div class="pc-top"><b>${esc(T('cs_' + p.status))}</b><span>${p.price != null ? esc(cgMoney(p.price)) + ' · ' + esc(p.paid ? T('c_paid') : T('c_unpaid')) : (p.weight_kg != null ? Number(p.weight_kg) + ' кг' : esc(p.description || T('sd_' + p.status)))}</span></div><div class="pc-bot"><span class="em">${CG_EMOJI[p.status]}</span><code>••${esc(p.track_code.slice(-6))}</code></div></button>`).join('')
+      : `<div class="pc empty">${esc(T('pc_none'))}</div>`}</div>
+    <div class="cg-sec">${esc(T('mk_title'))}</div>
+    ${cgMarketsHtml().replace('class="cg-mk"', 'class="cg-mk" style="margin-top:0"')}
+    <div class="cg-card" style="margin-top:var(--s4)"><h3>${esc(T('ad_title'))}</h3>
       ${rows.map((r, i) => `<div class="cg-arow"><span class="cn">${esc(r[1])}</span><div class="val"><span>${esc(r[2])}</span><button onclick="cgCopyRow(${i})" aria-label="copy">${ic('copy')}</button></div><span class="lab">${esc(r[0])}</span></div>`).join('')}
-      <button class="btn" style="margin-top:12px" onclick="cgCopyAll()">${esc(T('ad_copy_all'))} ${ic('copy')}</button></div>`;
+      <button class="btn" style="margin-top:12px" onclick="cgCopyAll()">${esc(T('ad_copy_all'))} ${ic('copy')}</button></div>
+    <div style="height:12px"></div>`;
+}
+async function cgQuickAdd(e){
+  e.preventDefault();
+  const inp = $('qTrack'), v = inp.value.trim(); if(!v){ inp.focus(); return; }
+  try{ await cargoApi('/api/cargo/parcels', {method:'POST', body: JSON.stringify({track_code: v})}); inp.value = ''; showToast(T('c_added')); cargoReload(); }
+  catch(err){ showToast(err.message); }
 }
 let cgRows = [];
 function cgCopyRow(i){ if(cgRows[i]) cargoCopy(cgRows[i][2]); }
