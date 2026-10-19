@@ -257,6 +257,23 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
     }
   });
 
+  // сменить пароль (клиент знает старый)
+  app.post('/api/cargo/password', requireCustomer, async (req, res) => {
+    const oldPass = String((req.body || {}).old_password || '');
+    const newPass = String((req.body || {}).new_password || '');
+    if (newPass.length < 6) return res.status(400).json({ error: 'Новый пароль — минимум 6 символов' });
+    if (tooManyAttempts(req)) return res.status(429).json({ error: 'Слишком много попыток, попробуйте позже' });
+    noteAttempt(req);
+    try {
+      const [[c]] = await pool.query('SELECT id, password_hash FROM cargo_customers WHERE id = ?', [req.customerId]);
+      if (!c || !(await bcrypt.compare(oldPass, c.password_hash))) return res.status(400).json({ error: 'Старый пароль неверный' });
+      await pool.query('UPDATE cargo_customers SET password_hash = ? WHERE id = ?', [await bcrypt.hash(newPass, 10), c.id]);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: 'Не удалось сменить пароль' });
+    }
+  });
+
   // выбрать пункт выдачи (ПВЗ)
   app.post('/api/cargo/pickup', requireCustomer, async (req, res) => {
     const id = Number((req.body || {}).pickup_point_id);
@@ -538,6 +555,19 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
       res.status(500).json({ error: 'Не удалось изменить баланс' });
     } finally {
       conn.release();
+    }
+  });
+
+  // админ задаёт клиенту новый пароль (клиент забыл пароль и написал в поддержку)
+  app.post('/api/admin/cargo/customers/:id/password', requireAuth, async (req, res) => {
+    const pass = String((req.body || {}).password || '');
+    if (pass.length < 6) return res.status(400).json({ error: 'Пароль — минимум 6 символов' });
+    try {
+      const [r] = await pool.query('UPDATE cargo_customers SET password_hash = ? WHERE id = ?', [await bcrypt.hash(pass, 10), req.params.id]);
+      if (!r.affectedRows) return res.status(404).json({ error: 'Клиент не найден' });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: 'Не удалось сменить пароль' });
     }
   });
 
