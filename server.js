@@ -27,7 +27,11 @@ if (!JWT_SECRET || !ADMIN_EMAIL || !ADMIN_PASSWORD_HASH) {
 // подключение к MySQL — Railway сам создаёт переменную MYSQL_URL, если её нет,
 // используем отдельные MYSQLHOST/MYSQLUSER/... (тоже задаются Railway)
 // ----------------------------------------------------------------------------
-const pool = process.env.MYSQL_URL
+// DB_FILE задан — база-файл SQLite на томе Railway (отдельный MySQL стоил ~$4/мес только за то, что включён)
+const { createPool: createFilePool, migrateFromMySQL } = require('./mysql-sqlite');
+const pool = process.env.DB_FILE
+  ? createFilePool(process.env.DB_FILE)
+  : process.env.MYSQL_URL
   ? mysql.createPool(process.env.MYSQL_URL)
   : mysql.createPool({
       host: process.env.MYSQLHOST,
@@ -3742,8 +3746,23 @@ app.get('/product/*', (req, res) => {
 // ----------------------------------------------------------------------------
 app.use(express.static(path.join(__dirname)));
 
-ensureSchema()
-  .catch(e => console.error('Не удалось создать таблицу orders при старте:', e))
+async function startDatabase() {
+  await ensureSchema();
+  // один раз: перенести все данные из старого MySQL (пока заданы MYSQLHOST и др.)
+  if (process.env.DB_FILE && (process.env.MYSQLHOST || process.env.MYSQL_URL)) {
+    await migrateFromMySQL(pool, process.env.MYSQL_URL ? { uri: process.env.MYSQL_URL, host: 'url' } : {
+      host: process.env.MYSQLHOST, port: process.env.MYSQLPORT, user: process.env.MYSQLUSER,
+      password: process.env.MYSQLPASSWORD, database: process.env.MYSQLDATABASE,
+    });
+  }
+}
+
+startDatabase()
+  .catch(e => {
+    console.error('Не удалось подготовить базу при старте:', e);
+    // с базой-файлом без базы работать нельзя — пусть Railway оставит прежнюю версию (проверка здоровья)
+    if (process.env.DB_FILE) process.exit(1);
+  })
   .finally(() => {
     app.listen(PORT, () => console.log(`Сервер ХАМАБОЗОР запущен на порту ${PORT}`));
     scheduleDailyDigest();
