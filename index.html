@@ -496,6 +496,7 @@ body.has-chip{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8
 
 /* ======== v3: единый аккаунт + главная по макету ======== */
 body[data-sec="cargo"] .foot{display:none}
+body.no-cargo .cg-nav,body:not(.no-cargo) .mk-nav{display:none!important}
 .who .avatar.sm.guest{background:var(--surface);color:var(--ink);border:1px solid var(--line-2)}
 .who .avatar.sm svg{width:24px;height:24px}
 .cg-wallet .w-sub2{font-size:15px;color:var(--ink-2);margin-top:4px;display:flex;align-items:center;gap:6px}
@@ -836,16 +837,17 @@ body.scn-view{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 1
   <div class="wrap hdr-in">
     <button class="who" id="hdrWho" onclick="hdrWhoClick()" aria-label="Профиль"></button>
     <nav class="dnav" id="dnav">
-      <button data-v="cargo" onclick="go('cargo')" data-i18n="nav_cargo">Карго</button>
-      <button data-v="home" onclick="go('home')" data-i18n="nav_market">Маркет</button>
-      <button data-v="orders" onclick="go('orders')" data-i18n="nav_orders">Заказы</button>
-      <button data-v="history" onclick="go('history')" data-i18n="nav_history">История</button>
+      <button class="cg-nav" data-v="cargo" onclick="go('cargo')" data-i18n="nav_cargo">Карго</button>
+      <button data-v="home" onclick="go('home')"><span class="cg-nav" data-i18n="nav_market">Маркет</span><span class="mk-nav" data-i18n="nav_home">Главная</span></button>
+      <button class="mk-nav" data-v="catalog" onclick="go('catalog')" data-i18n="nav_catalog">Каталог</button>
+      <button class="cg-nav" data-v="orders" onclick="go('orders')" data-i18n="nav_orders">Заказы</button>
+      <button class="cg-nav" data-v="history" onclick="go('history')" data-i18n="nav_history">История</button>
     </nav>
     <div class="hdr-act">
       <button class="icon-b" onclick="hdrSearch()" aria-label="Поиск"><svg><use href="#i-search"/></svg></button>
       <button class="icon-b mk-only" onclick="go('favorites')" aria-label="Избранное"><svg><use href="#i-heart"/></svg><span class="fav-dot" id="favDot" hidden>0</span></button>
       <button class="icon-b mk-only" id="hdrCart" onclick="openCart()" aria-label="Корзина"><svg><use href="#i-bag"/></svg><span class="nbadge" id="deskBadge">0</span></button>
-      <button class="icon-b" id="hdrBell" onclick="openNotifications()" aria-label="Уведомления"><svg><use href="#i-bell"/></svg><span class="bell-dot" id="bellDot" hidden>0</span></button>
+      <button class="icon-b cg-nav" id="hdrBell" onclick="openNotifications()" aria-label="Уведомления"><svg><use href="#i-bell"/></svg><span class="bell-dot" id="bellDot" hidden>0</span></button>
     </div>
   </div>
 </header>
@@ -876,10 +878,13 @@ body.scn-view{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 1
 <button class="fab-add" id="cgFab" onclick="openCargoAdd()" hidden><svg><use href="#i-plus"/></svg><span data-i18n="c_add">Добавить трек-код</span></button>
 
 <nav class="bnav" id="bnav">
-  <button class="bn on" data-v="cargo" onclick="go('cargo')"><svg><use href="#i-truck"/></svg><span data-i18n="nav_cargo">Карго</span></button>
-  <button class="bn" data-v="home" onclick="go('home')"><svg><use href="#i-store"/></svg><span data-i18n="nav_market">Маркет</span><span class="nbadge" id="cartBadge">0</span></button>
-  <button class="bn" data-v="orders" onclick="go('orders')"><svg><use href="#i-box"/></svg><span data-i18n="nav_orders">Заказы</span></button>
-  <button class="bn" data-v="history" onclick="go('history')"><svg><use href="#i-clock"/></svg><span data-i18n="nav_history">История</span></button>
+  <button class="bn cg-nav" data-v="cargo" onclick="go('cargo')"><svg><use href="#i-truck"/></svg><span data-i18n="nav_cargo">Карго</span></button>
+  <button class="bn" data-v="home" onclick="go('home')"><svg class="cg-nav"><use href="#i-store"/></svg><svg class="mk-nav"><use href="#i-home"/></svg><span class="cg-nav" data-i18n="nav_market">Маркет</span><span class="mk-nav" data-i18n="nav_home">Главная</span><span class="nbadge cg-nav" id="cartBadge">0</span></button>
+  <button class="bn mk-nav" data-v="catalog" onclick="go('catalog')"><svg><use href="#i-grid"/></svg><span data-i18n="nav_catalog">Каталог</span></button>
+  <button class="bn mk-nav" onclick="openCart()"><svg><use href="#i-bag"/></svg><span data-i18n="nav_cart">Корзина</span><span class="nbadge" id="cartBadgeMk">0</span></button>
+  <button class="bn cg-nav" data-v="orders" onclick="go('orders')"><svg><use href="#i-box"/></svg><span data-i18n="nav_orders">Заказы</span></button>
+  <button class="bn cg-nav" data-v="history" onclick="go('history')"><svg><use href="#i-clock"/></svg><span data-i18n="nav_history">История</span></button>
+  <button class="bn mk-nav" data-v="profile" onclick="go('profile')"><svg><use href="#i-user"/></svg><span data-i18n="nav_profile">Профиль</span></button>
 </nav>
 
 <!-- корзина -->
@@ -1935,6 +1940,7 @@ const D = {
   hs2_t:['Taobao, 1688, Pinduoduo','Taobao, 1688, Pinduoduo'], hs2_s:['Заказывайте где угодно — один адрес для всех площадок','Аз ҳар ҷо фармоиш диҳед — як суроға барои ҳама'],
   hs3_t:['Курьер до двери','Курер то дари хона'], hs3_s:['Или заберите посылку в удобном пункте выдачи','Ё посылкаро аз нуқтаи супориши қулай гиред'],
   trk_cn:['Китай','Чин'], trk_way:['В пути','Дар роҳ'], trk_dyu:['Душанбе','Душанбе'], trk_you:['У вас','Дар шумо'],
+  acc_one_mk:['Вход по телефону — заказы оформляются без повторного ввода данных','Ворид бо телефон — фармоишҳо бе такрори маълумот'],
   acc_title:['Аккаунт','Аккаунт'], acc_one:['Один аккаунт для карго и покупок в маркете','Як аккаунт барои карго ва харид дар маркет'],
   acc_guest_t:['Войдите в аккаунт','Ба аккаунт ворид шавед'], acc_guest_s:['Получите личный код, адрес склада в Китае и отслеживайте посылки. Покупки в маркете — без повторного ввода данных.','Рамзи шахсӣ ва суроғаи анбор дар Чинро гиред ва посылкаҳоро пайгирӣ кунед.'],
   acc_login:['Войти','Ворид шудан'], c_reg:['Регистрация','Сабти ном'], my_purchases:['Мои покупки','Харидҳои ман'],
@@ -2162,7 +2168,7 @@ function flyToCart(src){
     a.onfinish = () => el.remove();
   }catch(e){}
 }
-function bumpBadges(){ ['cartBadge','deskBadge','cartBadgePP'].forEach(id => { const b = $(id); if(b){ b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); } }); }
+function bumpBadges(){ ['cartBadge','cartBadgeMk','deskBadge','cartBadgePP'].forEach(id => { const b = $(id); if(b){ b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); } }); }
 
 /* ---------- кнопки на карточках товаров ---------- */
 function cardActionHtml(p){
@@ -2264,7 +2270,7 @@ function removeItem(id){ id = Number(id); delete cart[id]; delete cartPriceOverr
 let lastCartCount = 0;
 function updateCartUI(){
   const st = cartStats();
-  ['cartBadge','deskBadge','cartBadgePP'].forEach(id => { const b = $(id); if(!b) return; b.textContent = st.count; b.classList.toggle('show', st.count > 0); });
+  ['cartBadge','cartBadgeMk','deskBadge','cartBadgePP'].forEach(id => { const b = $(id); if(!b) return; b.textContent = st.count; b.classList.toggle('show', st.count > 0); });
   if(st.count > lastCartCount) bumpBadges();
   lastCartCount = st.count;
   // плавающая сводка
@@ -2483,18 +2489,31 @@ let scnGroup = -1;
 function go(v, arg){
   closeSheet(); closeSearch(); if($('cartSheet').classList.contains('show')) closeCart();
   if($('productPage').classList.contains('show') && !(history.state && history.state.productId)) ppRenderClose();
-  const h = '#/' + (v==='cargo' ? '' : (v==='home' ? 'market' : v)) + (arg ? '/' + arg : '');
+  const h = '#/' + (CARGO_ON ? (v==='cargo' ? '' : (v==='home' ? 'market' : v)) : (v==='home' ? '' : v)) + (arg ? '/' + arg : '');
   const base = location.pathname.indexOf('/product/') === 0 ? '/' : location.pathname;
   if(location.pathname.indexOf('/product/') === 0 || location.hash !== h){ try{ history.pushState({v, arg}, '', base + (h==='#/'?'':h)); }catch(e){} }
   route();
 }
 function route(){
   const m = location.hash.match(/^#\/([a-z]+)?\/?([\w-]+)?/);
-  let v = (m && m[1]) || 'cargo', arg = (m && m[2]) || null;
+  let v = (m && m[1]) || (CARGO_ON ? 'cargo' : 'home'), arg = (m && m[2]) || null;
   if(v === 'market') v = 'home';
+  if(!CARGO_ON && ['cargo','orders','history'].includes(v)) v = 'home';
   showView(['home','catalog','scenario','favorites','cargo','orders','history','profile'].includes(v) ? v : 'cargo', arg);
 }
 const MARKET_VIEWS = ['home','catalog','scenario','favorites'];
+/* карго включается в админке («Карго → Настройки»); пока выключено — сайт работает как маркет */
+let CARGO_ON = !!LS.get('hb_cargo_on', false);
+function applyCargoMode(){ document.body.classList.toggle('no-cargo', !CARGO_ON); }
+applyCargoMode();
+async function loadCargoMode(){
+  try{
+    const d = await (await fetch('/api/cargo/info')).json();
+    cargoInfo = d;
+    const on = !!d.enabled;
+    if(on !== CARGO_ON){ CARGO_ON = on; LS.set('hb_cargo_on', on); applyCargoMode(); route(); }
+  }catch(e){}
+}
 function showView(v, arg){
   const same = (curView === v && curArg === arg);
   curView = v; curArg = arg;
@@ -2502,7 +2521,7 @@ function showView(v, arg){
   const isMk = MARKET_VIEWS.includes(v);
   const navKey = isMk ? 'home' : v;
   document.querySelectorAll('.bn,.dnav button').forEach(b => b.classList.toggle('on', b.dataset.v === navKey));
-  document.body.dataset.sec = isMk ? 'market' : 'cargo';
+  document.body.dataset.sec = (isMk || !CARGO_ON) ? 'market' : 'cargo';
   document.body.classList.toggle('on-cargo', v === 'cargo');
   $('cgFab').hidden = !(v === 'orders');
   if(v === 'home') renderHome(); else if(v === 'catalog') renderCatalog(); else if(v === 'scenario') renderScenario(arg); else if(v === 'favorites') renderFavorites(); else if(v === 'cargo') renderCargo(); else if(v === 'orders') renderOrders(arg); else if(v === 'history') renderHistory(arg); else renderProfile();
@@ -2526,6 +2545,21 @@ function heroHtml(){
   if(ban) return `<div class="hero-img photo" style="background-image:linear-gradient(180deg,rgba(22,21,19,.04) 30%,rgba(22,21,19,.78)),url('${ban}')"><div class="hero-in">${text}</div></div>`;
   return `<div class="hero-img plain"><div class="hero-pic">${top ? pImgHtml(top) : ''}</div><div class="hero-in">${text}</div></div>`;
 }
+/* подборки: только те, где есть свои товары (без добивки популярными), обложки не повторяются */
+function scnOwn(s){
+  return PRODUCTS.filter(p => inStock(p) && (p.scenarios ? String(p.scenarios).split(/[,\s;]+/).includes(s.key)
+    : (s.key !== 'self' && ((s.cats||[]).includes(p.cat) || (s.kw && s.kw.test(nameKey(p)))))));
+}
+function scnVisible(){
+  const used = new Set(), out = [];
+  SCN.forEach(s => {
+    const own = scnOwn(s); if(own.length < 3) return;
+    const cover = own.find(p => p.image_data && !used.has(p.id)) || own.find(p => !used.has(p.id));
+    if(!cover) return;
+    used.add(cover.id); out.push({s, cover});
+  });
+  return out.length >= 2 ? out : [];
+}
 function scnVisual(s){
   const items = scnProducts(s);
   const f = items.find(p => p.image_data) || items[0];
@@ -2536,19 +2570,17 @@ function renderHome(){
   if(!productsReady){ v.innerHTML = `<div class="hero-img plain" style="min-height:300px"></div>${skeleton(4)}`; return; }
   const pop = popularList().slice(0, 8);
   const news = PRODUCTS.filter(p => p.tag === 'new' && inStock(p)).slice(0, 8);
-  const cats = presentCats(), top = pop[0];
+  const cats = presentCats(), scn = scnVisible();
   v.innerHTML = `
     ${heroHtml()}
-    <div class="sec"><h2 class="t-h1">${esc(T('home_title'))}</h2><p class="t-sub" style="margin-top:6px">${esc(T('home_sub'))}</p></div>
-    <div class="scn-grid" style="margin-top:16px">${SCN.map(s => {
+    ${cats.length ? `<div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('cats'))}</h3><button class="link" onclick="catState.cat='all';go('catalog')">${esc(T('see_all'))} ${ic('chev')}</button></div><div class="cat-grid">${cats.map(catCardHtml).join('')}</div></div>` : ''}
+    ${scn.length ? `<div class="sec"><h2 class="t-h2">${esc(T('home_title'))}</h2></div><div class="scn-grid" style="margin-top:12px">${scn.map(({s, cover}) => {
       const L = s[lang==='tj'?'tj':'ru'];
-      return `<button class="scn2" onclick="go('scenario','${s.key}')"><div class="scn2-img tint-${s.tint}">${scnVisual(s)}</div><span>${esc(L[0])}</span></button>`;
-    }).join('')}</div>
-    ${top ? `<button class="promo-kit" onclick="openProduct(${top.id})"><div><b>${esc(T('scn_card_t'))}</b><span>${esc(T('scn_card_s'))}</span><i>${ic('chev')}</i></div><div class="pk-img">${pImgHtml(top)}</div></button>` : ''}
+      return `<button class="scn2" onclick="go('scenario','${s.key}')"><div class="scn2-img tint-${s.tint}">${pImgHtml(cover)}</div><span>${esc(L[0])}</span></button>`;
+    }).join('')}</div>` : ''}
     ${almostBlockHtml('home')}
     ${pop.length ? `<div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('popular'))}</h3><button class="link" onclick="catState.cat='all';go('catalog')">${esc(T('see_all'))} ${ic('chev')}</button></div><div class="hrow">${pop.map(renderCard).join('')}</div></div>` : ''}
     ${news.length ? `<div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('newest'))}</h3></div><div class="hrow">${news.map(renderCard).join('')}</div></div>` : ''}
-    <div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('cats'))}</h3></div><div class="cat-grid">${cats.map(catCardHtml).join('')}</div></div>
     <div class="trust3"><div class="pp-benefit">${ic('truck')}${esc(T('b_delivery'))}</div><div class="pp-benefit">${ic('shield')}${esc(T('b_quality'))}</div><div class="pp-benefit">${ic('lock')}${esc(T('b_pay'))}</div></div>`;
 }
 function catCardHtml(c){
@@ -2648,7 +2680,7 @@ function renderProfile(){
   const head = `<div class="cg-top-row"><h1>${esc(T('acc_title'))}</h1></div>`;
   const acc = logged
     ? (c ? `<div class="acc-card"><div class="avatar">${esc(c.name.trim().charAt(0).toUpperCase())}</div><div style="flex:1;min-width:0"><b style="font-size:18px">${esc(c.name)}</b><div class="t-small">+${esc(c.phone)}</div></div></div>
-        <div class="acc-code"><div><div class="t-small">${esc(T('t_my_code'))}</div><b>${esc(c.code)}</b></div><button class="cg-link" onclick="cargoCopy('${esc(c.code)}')">${ic('copy')}${esc(T('copy'))}</button></div>` : skeleton(1))
+        <div class="acc-code" ${CARGO_ON ? '' : 'hidden'}><div><div class="t-small">${esc(T('t_my_code'))}</div><b>${esc(c.code)}</b></div><button class="cg-link" onclick="cargoCopy('${esc(c.code)}')">${ic('copy')}${esc(T('copy'))}</button></div>` : skeleton(1))
     : `<div class="cg-card" style="margin-top:0"><b style="font-size:18px">${esc(T('acc_guest_t'))}</b><p class="t-sub" style="margin-top:6px">${esc(T('acc_guest_s'))}</p>
         <button class="btn" style="margin-top:14px" onclick="openCargoAuth('login')">${esc(T('acc_login'))}</button>
         <button class="btn btn-ghost" style="margin-top:8px" onclick="openCargoAuth('register')">${esc(T('c_reg'))}</button></div>`;
@@ -2766,7 +2798,7 @@ function cargoAuthPrompt(){
 function openCargoAuth(mode){
   const reg = mode === 'register';
   openSheet({title: esc(T(reg ? 'c_reg' : 'c_login')),
-    body: `<div class="auth-note">${ic('shield')}<span>${esc(T('acc_one'))}</span></div>${reg ? `<div class="field"><label>${esc(T('name'))}</label><input id="cgName" autocomplete="name"></div>` : ''}<div class="field"><label>${esc(T('phone'))}</label><input id="cgPhone" type="tel" inputmode="tel" placeholder="+992 90 000 00 00" autocomplete="tel"></div><div class="field"><label>${esc(T('c_pass'))}</label><input id="cgPass" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}"></div>${reg ? '' : `<button class="cg-link" style="margin:-4px 0 14px" onclick="openForgot()">${esc(T('pw_forgot'))}</button>`}<button class="btn btn-ghost" onclick="openCargoAuth('${reg ? 'login' : 'register'}')">${esc(T(reg ? 'c_have' : 'c_new'))}</button>`,
+    body: `<div class="auth-note">${ic('shield')}<span>${esc(T(CARGO_ON ? 'acc_one' : 'acc_one_mk'))}</span></div>${reg ? `<div class="field"><label>${esc(T('name'))}</label><input id="cgName" autocomplete="name"></div>` : ''}<div class="field"><label>${esc(T('phone'))}</label><input id="cgPhone" type="tel" inputmode="tel" placeholder="+992 90 000 00 00" autocomplete="tel"></div><div class="field"><label>${esc(T('c_pass'))}</label><input id="cgPass" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}"></div>${reg ? '' : `<button class="cg-link" style="margin:-4px 0 14px" onclick="openForgot()">${esc(T('pw_forgot'))}</button>`}<button class="btn btn-ghost" onclick="openCargoAuth('${reg ? 'login' : 'register'}')">${esc(T(reg ? 'c_have' : 'c_new'))}</button>`,
     foot: `<button class="btn" id="cgAuthBtn" onclick="cargoSubmitAuth('${mode}')">${esc(T(reg ? 'c_reg' : 'c_login'))}</button>`});
 }
 async function cargoSubmitAuth(mode){
@@ -3269,6 +3301,7 @@ setLang(lang);
 updateFavDot();
 route();
 if(cargoToken()) cargoLoad(); else renderHeader();
+loadCargoMode();
 loadProducts();
 loadBanners();
 loadTogether();
