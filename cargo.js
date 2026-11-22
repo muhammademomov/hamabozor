@@ -157,6 +157,7 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
   app.get('/api/cargo/info', async (req, res) => {
     try {
       res.json({
+        enabled: (await getSetting('cargo_enabled', '0')) === '1',
         price_per_kg: Number(await getSetting('price_per_kg', 0)) || 0,
         contact_phone: await getSetting('contact_phone', ''),
       });
@@ -385,6 +386,7 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
         contact_phone: await getSetting('contact_phone', ''),
         warehouse_phone: await getSetting('warehouse_phone', ''),
         payment_info: await getSetting('payment_info', ''),
+        cargo_enabled: (await getSetting('cargo_enabled', '0')) === '1',
       });
     } catch (e) {
       res.status(500).json({ error: 'Не удалось получить настройки' });
@@ -403,6 +405,8 @@ module.exports = function registerCargo({ app, pool, requireAuth, jwt, bcrypt, J
       if (b.contact_phone != null) await setSetting('contact_phone', String(b.contact_phone).slice(0, 50));
       if (b.warehouse_phone != null) await setSetting('warehouse_phone', String(b.warehouse_phone).slice(0, 50));
       if (b.payment_info != null) await setSetting('payment_info', String(b.payment_info).slice(0, 2000));
+      // карго на сайте: пока выключено — главной страницей сайта остаётся маркет
+      if (b.cargo_enabled != null) await setSetting('cargo_enabled', b.cargo_enabled ? '1' : '0');
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: 'Не удалось сохранить настройки' });

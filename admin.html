@@ -179,11 +179,12 @@ const STATUS_LABEL={new:'Новый',progress:'В обработке',done:'Вы
 const STATUS_COLOR={new:'#ff9500',progress:'#16A34A',done:'#34c759',cancel:'#ff3b30'};
 const MOBILE_STATUS_BADGE={new:{bg:'#EAF1FF',color:'#3B82F6',label:'Новый'},progress:{bg:'#FDF3DF',color:'#e58e0f',label:'В обработке'},done:{bg:'#E7F6EC',color:'#16A34A',label:'Выполнен'},cancel:{bg:'#FDEAEA',color:'#ff3b30',label:'Отменён'}};
 const CAT_LABEL={electronics:'Электроника',clothing:'Одежда',bags:'Сумки',shoes:'Обувь',accessories:'Аксессуары',cosmetics:'Косметика',home:'Для дома',sport:'Спорт'};
-const NAV=[
-  {label:'Карго',items:[['cg_dash','📊 Обзор'],['cg_parcels','📦 Посылки'],['cg_receive','📥 Приёмка'],['cg_clients','👥 Клиенты'],['cg_money','👛 Кошелёк и оплаты'],['cg_settings','⚙️ Настройки карго']]},
-  {label:'Маркет',items:[['dashboard','Дашборд'],['analytics','Аналитика'],['orders','Заказы'],['products','Товары'],['banners','Баннеры'],['marketing','Маркетинг']]},
-  {label:'Компания',items:[['finance','Финансы'],['purchasing','Закупки'],['partners','Партнёры'],['hr','Кадры'],['logistics','Курьеры']]},
-];
+const NAV_CARGO={label:'Карго',items:[['cg_dash','📊 Обзор'],['cg_parcels','📦 Посылки'],['cg_receive','📥 Приёмка'],['cg_clients','👥 Клиенты'],['cg_money','👛 Кошелёк и оплаты'],['cg_settings','⚙️ Настройки карго']]};
+const NAV_MARKET={label:'Маркет',items:[['dashboard','Дашборд'],['analytics','Аналитика'],['orders','Заказы'],['products','Товары'],['banners','Баннеры'],['marketing','Маркетинг']]};
+const NAV_COMPANY={label:'Компания',items:[['finance','Финансы'],['purchasing','Закупки'],['partners','Партнёры'],['hr','Кадры'],['logistics','Курьеры']]};
+let CARGO_ENABLED=false;
+// пока карго выключено на сайте, в админке первым идёт маркет; раздел «Карго» остаётся доступен ниже
+const navGroups=()=>CARGO_ENABLED?[NAV_CARGO,NAV_MARKET,NAV_COMPANY]:[NAV_MARKET,NAV_COMPANY,{label:'Карго (выключено на сайте)',items:NAV_CARGO.items}];
 const TITLES={dashboard:'Дашборд',analytics:'Аналитика',orders:'Заказы',products:'Товары',hr:'Кадры',logistics:'Курьеры',marketing:'Маркетинг',finance:'Финансы',purchasing:'Закупки',partners:'Партнёры',banners:'Баннеры',cargo:'Карго',cg_dash:'Карго · Обзор',cg_parcels:'Карго · Посылки',cg_receive:'Карго · Приёмка',cg_clients:'Карго · Клиенты',cg_money:'Карго · Кошелёк и оплаты',cg_settings:'Карго · Настройки'};
 function money(n){ return (Math.round((Number(n)||0)*100)/100).toLocaleString('ru-RU')+' смн'; }
 function fmtDate(s){ if(!s) return '—'; try{ return new Date(s).toLocaleDateString('ru-RU'); }catch(e){ return s; } }
@@ -438,15 +439,19 @@ document.getElementById('loginPassword').addEventListener('keydown', e=>{ if(e.k
 function enterApp(){
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  renderNav();
-  goSection(state.section);
+  fetch('/api/cargo/info').then(r=>r.json()).catch(()=>({})).then(d=>{
+    CARGO_ENABLED=!!d.enabled;
+    if(!CARGO_ENABLED && state.section==='cg_dash') state.section='dashboard';
+    renderNav(); goSection(state.section);
+  });
 }
-const MOBILE_TABS=[['cg_dash','📊','Обзор'],['cg_parcels','📦','Посылки'],['cg_receive','📥','Приёмка'],['cg_clients','👥','Клиенты'],['__more__','⋯','Ещё']];
+const MOBILE_TABS_CARGO=[['cg_dash','📊','Обзор'],['cg_parcels','📦','Посылки'],['cg_receive','📥','Приёмка'],['cg_clients','👥','Клиенты'],['__more__','⋯','Ещё']];
+const MOBILE_TABS_MARKET=[['dashboard','🏠','Главная'],['orders','📦','Заказы'],['products','🛍','Товары'],['analytics','📊','Аналитика'],['__more__','⋯','Ещё']];
 if(state.token) queueMicrotask(enterApp); // после загрузки всего скрипта (разделы карго объявлены ниже)
 
 function renderNav(){
   const el=document.getElementById('navList');
-  el.innerHTML = NAV.map(g=>`<div style="font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#a1a1a6;padding:16px 10px 6px">${g.label}</div>` +
+  el.innerHTML = navGroups().map(g=>`<div style="font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#a1a1a6;padding:16px 10px 6px">${g.label}</div>` +
     g.items.map(([id,label])=>`<button class="nav-btn ${state.section===id?'active':''}" onclick="goSection('${id}')">${label}</button>`).join('')
   ).join('') + `<a href="index.html" target="_blank" style="display:block;padding:10px;border-radius:10px;font-size:13.5px;font-weight:500;color:#6e6e73;margin-top:10px">Магазин ↗</a>`;
   renderMobileTabbar();
@@ -454,7 +459,7 @@ function renderNav(){
 function renderMobileTabbar(){
   const el=document.getElementById('mobileTabbar');
   if(!el) return;
-  el.innerHTML = MOBILE_TABS.map(([id,icon,label])=>{
+  el.innerHTML = (CARGO_ENABLED?MOBILE_TABS_CARGO:MOBILE_TABS_MARKET).map(([id,icon,label])=>{
     const active = id!=='__more__' && state.section===id;
     const action = id==='__more__' ? 'openMobileNav()' : `goSection('${id}')`;
     return `<button class="${active?'active':''}" onclick="${action}"><span class="tb-icon">${icon}</span><span>${label}</span></button>`;
@@ -2516,7 +2521,11 @@ function loadCargoMoney(){
 function loadCargoSettings(){
   cgLoading();
   Promise.all([apiFetch('/api/admin/cargo/settings'),apiFetch('/api/admin/cargo/pickup-points')]).then(([s,pts])=>{
-    cgBody().innerHTML=`<div class="card" style="text-align:left;display:flex;flex-direction:column;gap:14px;max-width:720px">
+    cgBody().innerHTML=`<div class="card" style="text-align:left;max-width:720px;margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;${s.cargo_enabled?'border-color:#bfe6cc;background:#F0FAF3':'border-color:#e5e5e7'}">
+        <div style="flex:1;min-width:240px"><div style="font-size:15px;font-weight:700">Карго на сайте: ${s.cargo_enabled?'<span style="color:#15803d">включено</span>':'<span style="color:#b42318">выключено</span>'}</div>
+        <div style="font-size:12.5px;color:#6e6e73;margin-top:4px">${s.cargo_enabled?'Клиенты видят раздел «Карго», «Заказы» и «Историю».':'Сайт работает как маркет: главная — магазин, разделы карго скрыты. Данные карго сохраняются.'}</div></div>
+        <button class="btn ${s.cargo_enabled?'btn-secondary':'btn-primary'}" onclick="cgToggleCargo(${!s.cargo_enabled})">${s.cargo_enabled?'Выключить карго':'Включить карго'}</button></div>
+      <div class="card" style="text-align:left;display:flex;flex-direction:column;gap:14px;max-width:720px">
       <div style="font-size:15px;font-weight:600">Склад в Китае (клиенты копируют эти данные)</div>
       <label style="font-size:13px;font-weight:600">Адрес склада (строка «详细地址»)
         <textarea class="field" id="cgAddress" rows="3" style="margin-top:6px" placeholder="浙江省义乌市…路1580号A幢一楼1号门-1#{code}">${esc(s.address)}</textarea>
@@ -2539,6 +2548,10 @@ function cargoAddPickup(){
   apiFetch('/api/admin/cargo/pickup-points',{method:'POST',body:JSON.stringify({name,address:document.getElementById('ppAddr').value})}).then(loadCargoSettings).catch(e=>flash(e.message));
 }
 function cargoDelPickup(id){ if(!confirm('Удалить пункт выдачи?')) return; apiFetch('/api/admin/cargo/pickup-points/'+id,{method:'DELETE'}).then(loadCargoSettings).catch(e=>flash(e.message)); }
+function cgToggleCargo(on){
+  if(!confirm(on?'Включить карго на сайте? Главной страницей станет «Карго».':'Выключить карго на сайте? Главной станет маркет, разделы карго скроются (данные сохранятся).')) return;
+  apiFetch('/api/admin/cargo/settings',{method:'PUT',body:JSON.stringify({cargo_enabled:on})}).then(()=>{ flash(on?'Карго включено':'Карго выключено'); CARGO_ENABLED=on; renderNav(); loadCargoSettings(); }).catch(e=>flash(e.message));
+}
 function saveCargoSettings(){
   apiFetch('/api/admin/cargo/settings',{method:'PUT',body:JSON.stringify({address:document.getElementById('cgAddress').value,price_per_kg:document.getElementById('cgPrice').value,contact_phone:document.getElementById('cgPhoneS').value,warehouse_phone:document.getElementById('cgWhPhone').value,payment_info:document.getElementById('cgPayInfo').value})})
     .then(()=>flash('Сохранено')).catch(e=>flash(e.message));
