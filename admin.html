@@ -1187,6 +1187,11 @@ async function openProductModal(p){
 
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">👕 Примерка на манекене (для одежды). Лучше всего — фото вещи на белом фоне</label>
         <select id="pm_tryon" class="field"><option value="">Не примеряется</option>${[['top','Верх: футболка, рубашка, свитер'],['outer','Верхняя одежда: куртка, пальто'],['dress','Платье'],['bottom','Низ: брюки, юбка, шорты'],['shoes','Обувь']].map(([k,l])=>`<option value="${k}" ${p&&p.tryon_slot===k?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">📸 Фото на манекене — вещь, надетая на манекен (покажется в примерочной)</label>
+        <div style="display:flex;gap:12px;align-items:center"><img id="pm_tryon_img" src="${p&&p.tryon_image?p.tryon_image:''}" style="width:64px;height:96px;object-fit:cover;border-radius:10px;background:#f2f2f5;${p&&p.tryon_image?'':'display:none'}">
+        <input id="pm_tryon_file" type="file" accept="image/*" class="hidden" onchange="pmTryonPick(event)">
+        <button class="btn btn-secondary" type="button" onclick="document.getElementById('pm_tryon_file').click()">Загрузить</button>
+        <button class="btn btn-secondary" type="button" onclick="const i=document.getElementById('pm_tryon_img');i.src='';i.style.display='none'">Убрать</button></div></div>
       <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Продавец и партнёр</div></div>
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Продавец / поставщик</label><input id="pm_seller_name" class="field" value="${esc(p&&p.seller_name)}"></div>
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Партнёр</label>
@@ -1199,7 +1204,8 @@ async function openProductModal(p){
       <div style="grid-column:1/-1">
         <label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Главное фото</label>
         <input type="file" accept="image/*" onchange="onPmImage(event)">
-        <img id="pm_image_preview" src="${p&&p.image_data||''}" style="max-height:120px;border-radius:10px;margin-top:8px;display:${p&&p.image_data?'block':'none'}" onerror="this.style.display='none'">
+        <img id="pm_image_preview" src="${p&&p.image_data||''}" style="max-height:120px;border-radius:10px;margin-top:8px;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px;display:${p&&p.image_data?'block':'none'}" onerror="this.style.display='none'">
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn btn-secondary" type="button" onclick="pmCutBg()">✂️ Убрать белый фон</button><span style="font-size:11.5px;color:#86868b">Для вещей, снятых на белом фоне — на «вешалке» они будут висеть как вырезанные. Применяется и к доп. фото.</span></div>
       </div>
       <div style="grid-column:1/-1">
         <label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Доп. фото (галерея)</label>
@@ -1220,6 +1226,31 @@ function renderPmGallery(){
       <img src="${src}" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover">
       <button onclick="pmExtraImages.splice(${i},1); renderPmGallery()" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:10px;border:none;cursor:pointer">✕</button>
     </div>`).join('');
+}
+// вырезает вещь с белого/светлого фона: заливка от краёв по светлым малонасыщенным пикселям → прозрачный PNG
+function cutWhiteBg(src){
+  return new Promise((resolve)=>{
+    const im=new Image(); im.onload=()=>{
+      const MAX=1200, k=Math.min(1,MAX/Math.max(im.width,im.height)), w=Math.round(im.width*k), h=Math.round(im.height*k);
+      const c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d'); x.drawImage(im,0,0,w,h);
+      const d=x.getImageData(0,0,w,h), a=d.data, seen=new Uint8Array(w*h), st=[];
+      const bg=i=>{ const r=a[i*4],g=a[i*4+1],b=a[i*4+2], mx=Math.max(r,g,b), mn=Math.min(r,g,b); return mx>205 && (mx-mn)<38; };
+      for(let i=0;i<w;i++){ st.push(i, (h-1)*w+i); } for(let j=0;j<h;j++){ st.push(j*w, j*w+w-1); }
+      while(st.length){ const i=st.pop(); if(seen[i]||!bg(i)) continue; seen[i]=1; a[i*4+3]=0; const px=i%w, py=(i/w)|0;
+        if(px>0) st.push(i-1); if(px<w-1) st.push(i+1); if(py>0) st.push(i-w); if(py<h-1) st.push(i+w); }
+      // мягкий край: пиксели рядом с вырезанным фоном делаем полупрозрачными
+      for(let i=0;i<w*h;i++){ if(seen[i]) continue; const px=i%w; const nb=(px>0&&seen[i-1])||(px<w-1&&seen[i+1])||(i>=w&&seen[i-w])||(i<w*h-w&&seen[i+w]); if(nb) a[i*4+3]=Math.min(a[i*4+3],150); }
+      x.putImageData(d,0,0); resolve(c.toDataURL('image/png'));
+    }; im.onerror=()=>resolve(src); im.src=src;
+  });
+}
+async function pmCutBg(){
+  const img=document.getElementById('pm_image_preview');
+  if(img.style.display==='none'||!img.src) return flash('Сначала загрузите фото');
+  flash('Убираю фон…');
+  img.src=await cutWhiteBg(img.src);
+  pmExtraImages=await Promise.all(pmExtraImages.map(cutWhiteBg)); renderPmGallery();
+  flash('Фон убран — проверьте превью и сохраните товар');
 }
 function onPmImage(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ const img=document.getElementById('pm_image_preview'); img.src=r.result; img.style.display='block'; }; r.readAsDataURL(f); }
 function onPmExtraImage(e){ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ pmExtraImages.push(r.result); renderPmGallery(); }; r.readAsDataURL(f); e.target.value=''; }
@@ -1258,9 +1289,16 @@ function saveProduct(){
     related_ids:v('pm_related'), scenarios:v('pm_scenarios'),
     image_data: img.style.display!=='none'?img.src:null, extra_images:pmExtraImages };
   const req = pmEditId ? apiFetch('/api/products/'+pmEditId,{method:'PUT',body:JSON.stringify(payload)}) : apiFetch('/api/products',{method:'POST',body:JSON.stringify(payload)});
-  const tryon=v('pm_tryon')||null;
-  req.then(r=>{ const id=pmEditId||(r&&r.id); return id?apiFetch('/api/products/'+id+'/tryon',{method:'PATCH',body:JSON.stringify({tryon_slot:tryon})}):null; })
+  const tryon=v('pm_tryon')||null, tImg=document.getElementById('pm_tryon_img');
+  const tryonImage = tImg.style.display==='none' ? null : (tImg.src.startsWith('data:') ? tImg.src : undefined);
+  req.then(r=>{ const id=pmEditId||(r&&r.id); return id?apiFetch('/api/products/'+id+'/tryon',{method:'PATCH',body:JSON.stringify({tryon_slot:tryon,tryon_image:tryonImage})}):null; })
     .then(()=>{ closeModal(); loadProducts(); flash('Товар сохранён'); }).catch(e=>{ document.getElementById('pmError').textContent=e.message; });
+}
+function pmTryonPick(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ const im=new Image(); im.onload=()=>{ const c=document.createElement('canvas'), S=1100, k=Math.min(1,S/Math.max(im.width,im.height)); c.width=Math.round(im.width*k); c.height=Math.round(im.height*k); c.getContext('2d').drawImage(im,0,0,c.width,c.height); const el=document.getElementById('pm_tryon_img'); el.src=c.toDataURL('image/jpeg',.86); el.style.display='block'; }; im.src=r.result; };
+  r.readAsDataURL(f);
 }
 function toggleProductActive(id,active){ apiFetch('/api/products/'+id+'/active',{method:'PATCH',body:JSON.stringify({active})}).then(loadProducts).catch(e=>flash(e.message)); }
 function deleteProduct(id,name){ if(!confirm('Удалить товар «'+name+'»?')) return; apiFetch('/api/products/'+id,{method:'DELETE'}).then(loadProducts).catch(e=>flash(e.message)); }

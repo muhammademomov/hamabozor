@@ -23,6 +23,8 @@ module.exports = function registerStorefront({ app, pool, requireAuth }) {
     await ensureColumn('partners', 'shop_public', 'TINYINT(1) NOT NULL DEFAULT 0');
     // в какую зону манекена «надевается» товар: top / bottom / dress / outer / shoes (пусто — не примеряется)
     await ensureColumn('products', 'tryon_slot', 'VARCHAR(10) NULL');
+    // фото вещи, надетой на манекен (снимают у продавца) — показывается в примерочной
+    await ensureColumn('products', 'tryon_image', 'MEDIUMTEXT NULL');
     console.log('Поля витрины продавцов готовы.');
   }
 
@@ -69,12 +71,25 @@ module.exports = function registerStorefront({ app, pool, requireAuth }) {
     }
   });
 
-  // зона примерки товара на манекене
+  // примерка: зона на манекене и/или фото вещи на манекене
   app.patch('/api/products/:id/tryon', requireAuth, async (req, res) => {
-    const slot = (req.body || {}).tryon_slot || null;
-    if (slot && !TRYON_SLOTS.includes(slot)) return res.status(400).json({ error: 'Неверная зона примерки' });
+    const b = req.body || {};
+    const sets = [];
+    const vals = [];
+    if (b.tryon_slot !== undefined) {
+      const slot = b.tryon_slot || null;
+      if (slot && !TRYON_SLOTS.includes(slot)) return res.status(400).json({ error: 'Неверная зона примерки' });
+      sets.push('tryon_slot = ?'); vals.push(slot);
+    }
+    if (b.tryon_image !== undefined) {
+      const img = b.tryon_image ? String(b.tryon_image) : null;
+      if (img && !/^data:image\/(png|jpe?g|webp);base64,/.test(img)) return res.status(400).json({ error: 'Фото на манекене должно быть картинкой' });
+      if (img && img.length > 6 * 1024 * 1024) return res.status(400).json({ error: 'Фото слишком большое' });
+      sets.push('tryon_image = ?'); vals.push(img);
+    }
+    if (!sets.length) return res.json({ ok: true });
     try {
-      await pool.query('UPDATE products SET tryon_slot = ? WHERE id = ?', [slot, req.params.id]);
+      await pool.query(`UPDATE products SET ${sets.join(', ')} WHERE id = ?`, [...vals, req.params.id]);
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: 'Не удалось сохранить' });
