@@ -511,12 +511,12 @@ body[data-sec="market"] .who .avatar.sm.guest{background:transparent}
 .hl-tabs button{color:var(--muted);white-space:nowrap;padding:6px 0;border-bottom:1.5px solid transparent}
 .hl-tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
 .hl-room{margin:0 calc(-1 * var(--s4))}
-.hl-stage{position:relative;height:min(122vw,560px);overflow:hidden;background:linear-gradient(180deg,#E4E1DB 0%,#ECEAE5 55%,#E2DFD9 100%);border-top:1px solid var(--line);border-bottom:1px solid var(--line);user-select:none}
+.hl-stage{position:relative;height:min(112vw,540px);overflow:hidden;background:linear-gradient(180deg,#E4E1DB 0%,#ECEAE5 55%,#E2DFD9 100%);border-top:1px solid var(--line);border-bottom:1px solid var(--line);user-select:none}
 .hl-rail{position:absolute;left:0;right:0;top:30px;height:3px;background:#161616;box-shadow:0 2px 4px rgba(0,0,0,.18);z-index:1}
-.hl-g{position:absolute;left:0;top:19px;width:min(76vw,380px);display:flex;flex-direction:column;align-items:center;transform-origin:50% 0;transition:transform .75s cubic-bezier(.22,.8,.2,1),opacity .5s;color:#2a2a2a;z-index:2}
-.hl-hanger{width:30%;height:auto;flex-shrink:0;margin-bottom:-4%;position:relative;z-index:2}
-.hl-img{width:100%;aspect-ratio:1/1.1;display:flex;align-items:flex-start;justify-content:center}
-.hl-img img{width:100%;height:100%;object-fit:contain;object-position:top center;pointer-events:none;filter:drop-shadow(0 14px 18px rgba(0,0,0,.16))}
+.hl-g{position:absolute;left:0;top:21px;width:min(70vw,360px);display:flex;flex-direction:column;align-items:center;transform-origin:50% 0;transition:transform .8s cubic-bezier(.22,.8,.2,1),opacity .5s,filter .5s;color:#3a3a3a;z-index:2}
+.hl-hanger{width:54%;height:auto;flex-shrink:0;margin-bottom:-14%;position:relative;z-index:1}
+.hl-img{position:relative;z-index:2;width:100%;aspect-ratio:1/1.12;display:flex;align-items:flex-start;justify-content:center}
+.hl-img img{width:100%;height:100%;object-fit:contain;object-position:top center;pointer-events:none;filter:drop-shadow(0 18px 22px rgba(0,0,0,.14)) drop-shadow(0 2px 3px rgba(0,0,0,.08))}
 .hl-g.blend{mix-blend-mode:multiply}
 .hl-g.blend .hl-img img{filter:none}
 .hl-img em{font-style:normal;font-size:150px;line-height:1.1}
@@ -3288,16 +3288,17 @@ function hlRailHtml(list, key){
 }
 function hlLayout(){
   const st = hlQ('.hl-stage'); if(!st) return;
-  const W = st.clientWidth, n = HL.list.length, big = W < 640;
+  const W = st.clientWidth, n = HL.list.length, mob = W < 640;
+  const selX = mob ? W * 0.42 : W * 0.36;
+  const pileX = mob ? W * 0.84 : W * 0.70, gap = mob ? 15 : 30, maxK = mob ? 6 : 9, ps = mob ? 0.64 : 0.7;
   st.querySelectorAll('.hl-g').forEach(el => {
-    const i = Number(el.dataset.i), d = i - HL.i;
-    let x, s, z, o = 1;
-    if(d === 0){ x = big ? W * 0.5 : W * 0.34; s = 1; z = 50; }
-    else if(d > 0){ x = (big ? W * 0.80 : W * 0.62) + (d - 1) * (big ? 16 : 30); s = big ? 0.52 : 0.62; z = 40 - d; o = d > (big ? 6 : 10) ? 0 : 1; }
-    else { x = (big ? W * 0.18 : W * 0.08) + (d + 1) * (big ? 14 : 24); s = big ? 0.46 : 0.5; z = 40 + d; o = d < (big ? -3 : -5) ? 0 : (big ? 0.55 : 0.75); }
+    const i = Number(el.dataset.i), k = (i - HL.i + n) % n;   // 0 — выбранная, дальше по кругу вправо
+    let x, s, z, o = 1, f = 'none';
+    if(k === 0){ x = selX; s = 1; z = 50; }
+    else { x = pileX + (k - 1) * gap; s = ps; z = 40 - k; o = k > maxK ? 0 : 1; f = `brightness(${(1 - Math.min(k, 6) * 0.035).toFixed(3)})`; }
     el.style.transform = `translateX(${x}px) translateX(-50%) scale(${s})`;
-    el.style.zIndex = z; el.style.opacity = o; el.style.pointerEvents = o ? '' : 'none';
-    el.classList.toggle('on', d === 0);
+    el.style.zIndex = z; el.style.opacity = o; el.style.filter = f; el.style.pointerEvents = o ? '' : 'none';
+    el.classList.toggle('on', k === 0);
   });
 }
 function hlRenderInfo(){
@@ -3318,7 +3319,7 @@ function hlRenderInfo(){
 }
 function hlPick(i){
   if(!HL.list.length) return;
-  i = Math.max(0, Math.min(HL.list.length - 1, i));
+  i = (i + HL.list.length) % HL.list.length;
   if(i === HL.i && hlQ('.hl-g.on')){ return; }
   HL.i = i; HL.back = false; HL.size = null; HL.color = null;
   hlLayout(); hlRenderInfo();
