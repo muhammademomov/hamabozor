@@ -3658,6 +3658,7 @@ async function ensureSchema() {
     console.log(`Исправлено заказов с несинхронизированным delivery_status: ${fixResult.affectedRows}`);
   }
 
+  await ensureStorefrontColumns();
   console.log('Таблицы orders, products и banners готовы.');
 }
 
@@ -3730,6 +3731,8 @@ app.patch('/api/banners/:id/move', requireAuth, async (req, res) => {
 
 // карго: личный кабинет клиента + управление посылками (см. cargo.js)
 const { ensureCargoTables } = require('./cargo')({ app, pool, requireAuth, jwt, bcrypt, JWT_SECRET });
+// витрина маркета: страницы продавцов и примерка на манекене (см. storefront.js)
+const { ensureStorefrontColumns } = require('./storefront')({ app, pool, requireAuth });
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

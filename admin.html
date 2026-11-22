@@ -1185,9 +1185,12 @@ async function openProductModal(p){
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Связанные товары — ID через запятую (например 12,15,31). Если пусто, сайт подберёт сам по реальным заказам и категориям</label><input id="pm_related" class="field" placeholder="12,15,31" value="${esc(p&&p.related_ids)}"></div>
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Сценарии покупки через запятую: self (для себя), gift (подарок), home (для дома), work (для работы), trip (для поездки), loved (для близкого человека)</label><input id="pm_scenarios" class="field" placeholder="trip,gift" value="${esc(p&&p.scenarios)}"></div>
 
+      <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">👕 Примерка на манекене (для одежды). Лучше всего — фото вещи на белом фоне</label>
+        <select id="pm_tryon" class="field"><option value="">Не примеряется</option>${[['top','Верх: футболка, рубашка, свитер'],['outer','Верхняя одежда: куртка, пальто'],['dress','Платье'],['bottom','Низ: брюки, юбка, шорты'],['shoes','Обувь']].map(([k,l])=>`<option value="${k}" ${p&&p.tryon_slot===k?'selected':''}>${l}</option>`).join('')}</select></div>
       <div style="grid-column:1/-1"><div style="font-size:13px;font-weight:700;margin-top:6px;padding-top:10px;border-top:1px solid #e5e5e7">Продавец и партнёр</div></div>
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Продавец / поставщик</label><input id="pm_seller_name" class="field" value="${esc(p&&p.seller_name)}"></div>
       <div style="grid-column:1/-1"><label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Партнёр</label>
+        <div style="font-size:11.5px;color:#86868b;margin:-2px 0 6px">Если у партнёра включена витрина, на сайте у товара появится кликабельная плашка продавца со всеми его товарами.</div>
         <select id="pm_partner_id" class="field"><option value="">Без партнёра</option>${partners.map(pn=>`<option value="${pn.id}" ${p&&p.partner_id==pn.id?'selected':''}>${esc(pn.name)}</option>`).join('')}</select></div>
       <div style="grid-column:1/-1">
         <label style="display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px">Дата поступления от партнёра (для срока оплаты у оптовых партнёров "в кредит")</label>
@@ -1255,7 +1258,9 @@ function saveProduct(){
     related_ids:v('pm_related'), scenarios:v('pm_scenarios'),
     image_data: img.style.display!=='none'?img.src:null, extra_images:pmExtraImages };
   const req = pmEditId ? apiFetch('/api/products/'+pmEditId,{method:'PUT',body:JSON.stringify(payload)}) : apiFetch('/api/products',{method:'POST',body:JSON.stringify(payload)});
-  req.then(()=>{ closeModal(); loadProducts(); flash('Товар сохранён'); }).catch(e=>{ document.getElementById('pmError').textContent=e.message; });
+  const tryon=v('pm_tryon')||null;
+  req.then(r=>{ const id=pmEditId||(r&&r.id); return id?apiFetch('/api/products/'+id+'/tryon',{method:'PATCH',body:JSON.stringify({tryon_slot:tryon})}):null; })
+    .then(()=>{ closeModal(); loadProducts(); flash('Товар сохранён'); }).catch(e=>{ document.getElementById('pmError').textContent=e.message; });
 }
 function toggleProductActive(id,active){ apiFetch('/api/products/'+id+'/active',{method:'PATCH',body:JSON.stringify({active})}).then(loadProducts).catch(e=>flash(e.message)); }
 function deleteProduct(id,name){ if(!confirm('Удалить товар «'+name+'»?')) return; apiFetch('/api/products/'+id,{method:'DELETE'}).then(loadProducts).catch(e=>flash(e.message)); }
@@ -1389,12 +1394,30 @@ function openPartnerModal(p){
       </div>
 
       <textarea id="pt_notes" class="field" style="min-height:60px" placeholder="Заметки">${esc(p&&p.notes)}</textarea>
+      <div style="font-size:13px;font-weight:700;margin-top:8px;padding-top:12px;border-top:1px solid #e5e5e7">🏪 Витрина продавца на сайте</div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="pt_shop_public" ${p&&p.shop_public?'checked':''}> Показывать продавца на сайте (страница со всеми его товарами)</label>
+      <div style="display:flex;gap:12px;align-items:center">
+        <img id="pt_logo_img" src="${p&&p.shop_logo?p.shop_logo:''}" style="width:64px;height:64px;border-radius:16px;object-fit:cover;background:#f2f2f5;${p&&p.shop_logo?'':'display:none'}">
+        <input id="pt_logo_file" type="file" accept="image/*" class="hidden" onchange="ptLogoPick(event)">
+        <button class="btn btn-secondary" type="button" onclick="document.getElementById('pt_logo_file').click()">Логотип</button>
+        <button class="btn btn-secondary" type="button" onclick="ptLogoClear()">Убрать</button>
+      </div>
+      <input id="pt_shop_name" class="field" placeholder="Название магазина на сайте (если пусто — имя партнёра)" value="${esc(p&&p.shop_name)}">
+      <input id="pt_shop_instagram" class="field" placeholder="Instagram, например imkon.shop" value="${esc(p&&p.shop_instagram)}">
+      <textarea id="pt_shop_about" class="field" style="min-height:60px" placeholder="О магазине — видят покупатели">${esc(p&&p.shop_about)}</textarea>
     </div>
     <div id="ptError" style="color:#ff3b30;font-size:12.5px;margin-top:12px"></div>
     <button class="btn btn-primary" style="width:100%;margin-top:18px;padding:12px" onclick="savePartner(${p?p.id:'null'})">Сохранить партнёра</button>
   </div></div>`;
   renderPartnerDealFields();
 }
+function ptLogoPick(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ const im=new Image(); im.onload=()=>{ const c=document.createElement('canvas'), S=320, k=Math.min(1,S/Math.max(im.width,im.height)); c.width=Math.round(im.width*k); c.height=Math.round(im.height*k); c.getContext('2d').drawImage(im,0,0,c.width,c.height); const el=document.getElementById('pt_logo_img'); el.src=c.toDataURL('image/png'); el.style.display='block'; }; im.src=r.result; };
+  r.readAsDataURL(f);
+}
+function ptLogoClear(){ const el=document.getElementById('pt_logo_img'); el.src=''; el.style.display='none'; }
 function renderPartnerDealFields(){
   const isWholesale = document.getElementById('pt_deal_type').value === 'wholesale';
   document.getElementById('pt_commission_fields').style.display = isWholesale ? 'none' : 'block';
@@ -1416,8 +1439,13 @@ function savePartner(id){
     wholesale_penalty_percent_per_day:Number(document.getElementById('pt_penalty_pct').value||0),
     notes:document.getElementById('pt_notes').value
   };
+  const logoEl=document.getElementById('pt_logo_img');
+  const shop={ shop_public:document.getElementById('pt_shop_public').checked, shop_name:document.getElementById('pt_shop_name').value,
+    shop_instagram:document.getElementById('pt_shop_instagram').value, shop_about:document.getElementById('pt_shop_about').value,
+    shop_logo: logoEl.style.display!=='none' && logoEl.src.startsWith('data:') ? logoEl.src : (logoEl.style.display==='none' ? null : undefined) };
   const req = id ? apiFetch('/api/partners/'+id,{method:'PATCH',body:JSON.stringify(payload)}) : apiFetch('/api/partners',{method:'POST',body:JSON.stringify(payload)});
-  req.then(()=>{ closeModal(); loadPartners(); }).catch(e=>document.getElementById('ptError').textContent=e.message);
+  req.then(r=>apiFetch('/api/partners/'+(id||r.id)+'/shop',{method:'PATCH',body:JSON.stringify(shop)}))
+    .then(()=>{ closeModal(); loadPartners(); }).catch(e=>document.getElementById('ptError').textContent=e.message);
 }
 function openPartnerDetail(id){
   apiFetch('/api/partners/'+id).then(d=>renderPartnerDetail(d)).catch(e=>flash(e.message));
