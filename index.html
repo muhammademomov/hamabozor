@@ -495,79 +495,78 @@ body.has-chip{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8
 
 
 
-/* ======== витрина: коридор, отдел, продавцы, примерочная ======== */
-.corr{position:relative;margin:calc(-1 * var(--s2)) calc(-1 * var(--s4)) 0}
-.cr-stage{position:sticky;top:64px;height:calc(100svh - 64px - var(--nav-h) - env(safe-area-inset-bottom));overflow:hidden;perspective:600px;perspective-origin:50% 46%;
-  background:radial-gradient(60% 45% at 50% 46%,#16243d 0%,#0b1220 55%,#05080f 100%)}
-.cr-world{position:absolute;inset:0;transform-style:preserve-3d;will-change:transform}
-.cr-world>*{position:absolute;left:50%;top:50%}
-.cr-floor,.cr-ceil{width:calc(var(--hw) * 2);height:var(--depth);margin-left:calc(-1 * var(--hw));transform-origin:top center}
-.cr-floor{transform:translateY(var(--fy)) rotateX(-90deg);background:linear-gradient(180deg,rgba(61,155,255,.18),rgba(61,155,255,0) 70%),repeating-linear-gradient(0deg,rgba(255,255,255,.07) 0 2px,transparent 2px 140px),repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 2px,transparent 2px 25%),#0d1626}
-.cr-ceil{transform:translateY(calc(-1 * var(--fy))) rotateX(-90deg);background:repeating-linear-gradient(0deg,rgba(154,214,255,.5) 0 6px,transparent 6px 280px),#0a111d;opacity:.8}
-.cr-wall{width:var(--depth);height:calc(var(--fy) * 2);margin-top:calc(-1 * var(--fy));transform-origin:left center;background:linear-gradient(90deg,#132034,#0b1322 60%,#070b14),repeating-linear-gradient(90deg,transparent 0 278px,rgba(255,255,255,.05) 278px 280px)}
-.cr-wl{transform:translateX(calc(-1 * var(--hw))) rotateY(90deg)}
-.cr-wr{transform:translateX(var(--hw)) rotateY(90deg)}
-.cr-panel{width:250px;height:330px;margin:-165px 0 0 -125px;border-radius:22px;padding:14px;background:linear-gradient(180deg,#1b2a44,#121c2e);border:1px solid rgba(154,214,255,.22);box-shadow:0 0 40px rgba(61,155,255,.18),inset 0 1px 0 rgba(255,255,255,.08);display:flex;flex-direction:column;gap:12px;text-align:left;color:#fff;transition:opacity .25s;backface-visibility:hidden}
-.cr-img{flex:1;border-radius:16px;background:radial-gradient(circle at 50% 40%,#2a3d5e,#16233a);display:flex;align-items:center;justify-content:center;font-size:96px;overflow:hidden}
-.cr-img img{width:100%;height:100%;object-fit:cover}
-.cr-img svg{width:80px;height:80px;color:#9AD6FF}
-.cr-cap b{display:block;font-size:22px;font-weight:800;letter-spacing:-.02em}
-.cr-cap span{display:block;font-size:13px;color:#9fb3cf;margin-top:2px}
-.cr-end{width:300px;height:200px;margin:-100px 0 0 -150px;border-radius:24px;background:linear-gradient(135deg,#3D9BFF,#7CC4FF);color:#04101f;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 0 80px rgba(61,155,255,.5)}
-.cr-end b{font-size:26px;font-weight:800}
-.cr-end span{font-size:14px;font-weight:600;opacity:.75}
-.cr-hud{position:absolute;left:0;right:0;top:9%;text-align:center;color:#fff;padding:0 var(--s4);pointer-events:none;z-index:2}
-.cr-hud h1{font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1.1}
-.cr-hud p{margin-top:8px;font-size:15px;color:#b8c7dc}
-.cr-hint{display:inline-flex;margin-top:14px;width:40px;height:40px;border-radius:50%;border:1.5px solid rgba(255,255,255,.4);align-items:center;justify-content:center;animation:crb 1.6s ease-in-out infinite}
-.cr-hint svg{width:20px;height:20px;transform:rotate(90deg)}
-@keyframes crb{50%{transform:translateY(6px)}}
-.cr-prog{position:absolute;left:var(--s4);right:var(--s4);bottom:14px;height:4px;border-radius:99px;background:rgba(255,255,255,.12);z-index:2}
-.cr-prog i{display:block;height:100%;width:0;border-radius:99px;background:var(--accent)}
+/* ======== маркет: светлый минимализм + рейл с вешалками ======== */
+:root{--serif:'Instrument Serif',Georgia,'Times New Roman',serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace}
+body[data-sec="market"]{--bg:#EBE9E4;--bg-2:#E3E0DA;--surface:#F6F5F1;--sand:#DFDBD3;--ink:#121212;--ink-2:#4B4A47;--muted:#8B8780;--line:#DAD6CE;--line-2:#C9C4BB;
+  --accent:#121212;--on-accent:#F6F5F1;--green:#1B7F4B;--green-bg:#E3F0E7;--red:#C8402F;
+  --t1:#E6E2DA;--t2:#E2E5DE;--t3:#EAE1DA;--t4:#E2E3E6;--t5:#E8E5DA;--t6:#E7DFE2;
+  --sh-1:0 1px 2px rgba(0,0,0,.04);--sh-2:0 6px 20px rgba(0,0,0,.06);--sh-3:0 20px 50px rgba(0,0,0,.14)}
+body[data-sec="market"] .bnav{background:rgba(235,233,228,.96)}
+body[data-sec="market"] .pp-footer{background:rgba(246,245,241,.97)}
+body[data-sec="market"] .pfav,body[data-sec="market"] .pp-gallery-fav,body[data-sec="market"] .pp-gallery-share{background:rgba(255,255,255,.88)}
+body[data-sec="market"] .pimg img,body[data-sec="market"] .pp-gallery img{mix-blend-mode:multiply}
+body[data-sec="market"] .who .avatar.sm.guest{background:transparent}
+.hl-tabs{display:flex;gap:20px;overflow-x:auto;scrollbar-width:none;padding:4px 0 12px;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase}
+.hl-tabs::-webkit-scrollbar{display:none}
+.hl-tabs button{color:var(--muted);white-space:nowrap;padding:6px 0;border-bottom:1.5px solid transparent}
+.hl-tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
+.hl-room{margin:0 calc(-1 * var(--s4))}
+.hl-stage{position:relative;height:min(122vw,560px);overflow:hidden;background:linear-gradient(180deg,#E4E1DB 0%,#ECEAE5 55%,#E2DFD9 100%);border-top:1px solid var(--line);border-bottom:1px solid var(--line);user-select:none}
+.hl-rail{position:absolute;left:0;right:0;top:30px;height:3px;background:#161616;box-shadow:0 2px 4px rgba(0,0,0,.18);z-index:1}
+.hl-g{position:absolute;left:0;top:19px;width:min(76vw,380px);display:flex;flex-direction:column;align-items:center;transform-origin:50% 0;transition:transform .75s cubic-bezier(.22,.8,.2,1),opacity .5s;color:#2a2a2a;z-index:2}
+.hl-hanger{width:30%;height:auto;flex-shrink:0;margin-bottom:-4%;position:relative;z-index:2}
+.hl-img{width:100%;aspect-ratio:1/1.1;display:flex;align-items:flex-start;justify-content:center}
+.hl-img img{width:100%;height:100%;object-fit:contain;object-position:top center;pointer-events:none;filter:drop-shadow(0 14px 18px rgba(0,0,0,.16))}
+.hl-g.blend{mix-blend-mode:multiply}
+.hl-g.blend .hl-img img{filter:none}
+.hl-img em{font-style:normal;font-size:150px;line-height:1.1}
+.hl-ctrl{position:absolute;left:var(--s4);bottom:16px;display:flex;gap:8px;z-index:60}
+.hl-ctrl button{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.75);border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:#111}
+.hl-ctrl svg{width:18px;height:18px}
+.hl-fb{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;display:flex;background:rgba(255,255,255,.75);border:1px solid var(--line-2);border-radius:999px;padding:3px;z-index:60}
+.hl-fb:empty{display:none}
+.hl-fb button{padding:7px 16px;border-radius:999px;font-size:13px;font-weight:600;color:#555}
+.hl-fb button.on{background:#111;color:#fff}
+.hl-info{padding:var(--s5) var(--s4) var(--s2)}
+.hl-idx{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:8px}
+.hl-name{font-family:var(--serif);font-weight:400;font-size:42px;line-height:.98;letter-spacing:-.01em;color:var(--ink)}
+.hl-name i{font-style:italic}
+.hl-price{font-family:var(--mono);font-size:15px;white-space:nowrap;padding-top:8px;text-align:right}
+.hl-price s{display:block;color:var(--muted);font-size:12px}
+.hl-desc{margin-top:12px;color:var(--ink-2);line-height:1.5;font-size:14.5px}
+.hl-lab{display:flex;justify-content:space-between;margin-top:18px;font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.hl-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.hl-chips button{min-width:58px;height:44px;padding:0 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-weight:500;color:var(--ink)}
+.hl-chips button.on{background:#111;color:#fff;border-color:#111}
+.hl-add{display:block;width:100%;height:54px;margin-top:20px;border-radius:14px;background:#111;color:#fff;font-weight:600;font-size:16px}
+.hl-row2{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.hl-pill{display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--line-2);font-size:14px;font-weight:500;color:var(--ink)}
+.hl-sec{margin-top:var(--s6)}
+.hl-sec-h{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:var(--s3)}
 .sh-row{display:flex;gap:var(--s3);overflow-x:auto;scrollbar-width:none;margin:0 calc(-1 * var(--s4));padding:0 var(--s4) 4px}
 .sh-row::-webkit-scrollbar{display:none}
 .sh-card{flex:0 0 132px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:var(--s4) 8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);text-align:center}
 .sh-card b{font-size:14.5px;line-height:1.2}
 .sh-card span{font-size:12px;color:var(--muted)}
-.sh-logo,.sh-av,.sp-logo{border-radius:50%;background:linear-gradient(135deg,#3D9BFF,#7CC4FF);color:#04101f;font-weight:800;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.sh-logo,.sh-av,.sp-logo{border-radius:50%;background:#121212;color:#F6F5F1;font-family:var(--serif);font-size:26px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
 .sh-logo img,.sh-av img,.sp-logo img{width:100%;height:100%;object-fit:cover}
-.sh-logo{width:64px;height:64px;font-size:26px}
-.sh-chip{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin-top:var(--s3);padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg)}
-.sh-av{width:42px;height:42px;font-size:18px}
+.sh-logo{width:64px;height:64px}
+.sh-chip{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin-top:var(--s4);padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg)}
+.sh-av{width:42px;height:42px;font-size:20px}
 .sh-chip>span:not(.sh-av){flex:1;min-width:0}
-.sh-chip small{display:block;font-size:12px;color:var(--muted)}
+.sh-chip small{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .sh-chip b{display:block;font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sh-chip .chev{width:18px;height:18px;color:var(--muted)}
-.sp-head{position:relative;text-align:center;padding:0 var(--s4) var(--s2)}
-.sp-cover{height:120px;margin:0 calc(-1 * var(--s8));background:radial-gradient(90% 120% at 50% 0%,#1A4C8C,#0B1B3A 70%,transparent);border-radius:0 0 var(--r-xl) var(--r-xl)}
-.sp-logo{width:96px;height:96px;font-size:38px;margin:-48px auto 0;border:4px solid var(--bg);position:relative}
-.sp-head h1{font-size:26px;font-weight:800;margin-top:10px;letter-spacing:-.02em}
-.sp-meta{color:var(--muted);margin-top:4px;font-size:14px}
-.sp-meta a{color:var(--accent);font-weight:600}
+.sp-head{text-align:center;padding:var(--s5) var(--s4) var(--s4)}
+.sp-logo{width:88px;height:88px;font-size:40px;margin:0 auto 14px}
+.sp-head .hl-name{margin-top:8px}
 .sp-about{color:var(--ink-2);margin:12px auto 0;max-width:520px;line-height:1.5}
-.sp-act{margin-top:14px;display:flex;justify-content:center}
-.rk{position:relative;margin:var(--s4) calc(-1 * var(--s4)) 0;padding:28px 0 18px;background:radial-gradient(70% 90% at 50% 30%,#18263f 0%,#0b1220 70%);border-radius:var(--r-xl)}
-.rk-rail{position:absolute;left:4%;right:4%;top:30px;height:6px;border-radius:99px;background:linear-gradient(180deg,#e6e9ee,#8f97a3);box-shadow:0 3px 8px rgba(0,0,0,.5)}
-.rk.shelf .rk-rail{display:none}
-.rk-row{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:0 calc(50% - 90px);position:relative}
-.rk-row::-webkit-scrollbar{display:none}
-.rk-item{flex:0 0 180px;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;transition:transform .35s cubic-bezier(.3,.8,.3,1),opacity .35s;transform:scale(.78);opacity:.55;transform-origin:top center}
-.rk.shelf .rk-item{transform-origin:bottom center;padding-top:20px}
-.rk-item.on{transform:scale(1);opacity:1}
-.rk-hanger{width:110px;height:42px;margin-top:-14px;flex-shrink:0}
-.rk-img{width:170px;height:220px;margin-top:-6px;border-radius:18px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:90px;background:#f1f3f6;box-shadow:0 18px 30px rgba(0,0,0,.45)}
-.rk-img img{width:100%;height:100%;object-fit:cover}
-.rk.shelf .rk-img{height:180px;border-radius:16px}
-.rk-shelf{height:14px;margin:0 4%;border-radius:4px;background:linear-gradient(180deg,#5b6575,#2b323d);box-shadow:0 10px 20px rgba(0,0,0,.5)}
-.rk-info{padding:var(--s4) 0 var(--s5)}
-.rk-name{font-size:20px;font-weight:700;line-height:1.25}
-.rk-price{display:flex;align-items:baseline;gap:10px;margin-top:6px}
-.rk-price b{font-size:24px}
-.rk-price s{color:var(--muted)}
-.rk-btns{display:grid;gap:8px;margin-top:var(--s4)}
+.sp-act{margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .fit{display:grid;gap:var(--s4)}
-.fit-stage{position:relative;width:min(100%,300px);aspect-ratio:200/420;margin:0 auto;border-radius:var(--r-xl);background:radial-gradient(70% 60% at 50% 35%,#ffffff,#e3e7ee);overflow:hidden}
+.fit-stage{position:relative;width:min(100%,320px);aspect-ratio:200/420;margin:0 auto;border-radius:22px;background:linear-gradient(180deg,#EFEDE8,#E3E0DA);overflow:hidden}
 .fit-man{position:absolute;inset:0;width:100%;height:100%}
+.fit-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .fit-l{position:absolute;object-fit:contain;object-position:top center;mix-blend-mode:multiply}
 .fit-em{display:flex;align-items:flex-start;justify-content:center;font-size:72px;mix-blend-mode:normal}
 .fit-top{left:21%;width:58%;top:18%;height:38%}
@@ -577,11 +576,17 @@ body.has-chip{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8
 .fit-shoes{left:29%;width:42%;top:91%;height:8%}
 .fit-pick{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
 .fit-th{flex:0 0 78px;display:flex;flex-direction:column;align-items:center;gap:4px}
-.fit-th span{width:78px;height:78px;border-radius:16px;background:#f1f3f6;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:34px}
-.fit-th span img{width:100%;height:100%;object-fit:cover}
-.fit-th.on span{border-color:var(--accent)}
-.fit-th small{font-size:12px;color:var(--ink-2)}
-@media(min-width:768px){ .cr-stage{top:72px;height:calc(100vh - 72px)} .corr{margin:0} .cr-stage{border-radius:var(--r-xl)} }
+.fit-th span{width:78px;height:78px;border-radius:16px;background:#ECEAE5;border:2px solid transparent;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:34px}
+.fit-th span img{width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply}
+.fit-th.on span{border-color:#111}
+.fit-th small{font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+@media(min-width:900px){
+  .hl-room{margin:0;display:grid;grid-template-columns:1.5fr 1fr;gap:28px;align-items:start}
+  .hl-stage{height:600px;border:1px solid var(--line);border-radius:24px}
+  .hl-g{width:380px}
+  .hl-info{padding-top:var(--s8)}
+  .hl-name{font-size:56px}
+}
 
 /* ======== v3: единый аккаунт + главная по макету ======== */
 body[data-sec="cargo"] .foot{display:none}
@@ -1112,7 +1117,7 @@ body.scn-view{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 1
 <div class="toast" id="toast"></div>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <script>
 
@@ -1205,6 +1210,7 @@ async function loadProducts(){
         seller_name: p.seller_name || '',
         partner_id: p.partner_id || null,
         tryon_slot: p.tryon_slot || '',
+        tryon_image: p.tryon_image || '',
         model_media: Array.isArray(p.model_media) ? p.model_media : [],
         related_ids: p.related_ids || '',
         scenarios: p.scenarios || '',
@@ -1728,7 +1734,7 @@ function renderProductDetailRest(p){
   // продавец / партнёр (если указан)
   const sellerCardEl = document.getElementById('ppSellerCard');
   $('ppShop').innerHTML = sellerChipHtml(p);
-  $('ppTry').hidden = !p.tryon_slot;
+  $('ppTry').hidden = !(p.tryon_slot || p.tryon_image);
   if(sellerOf(p)){ sellerCardEl.style.display = 'none'; }
   else if(p.seller_name){
     document.getElementById('ppSellerName').textContent = p.seller_name;
@@ -2039,9 +2045,10 @@ const D = {
   hs3_t:['Курьер до двери','Курер то дари хона'], hs3_s:['Или заберите посылку в удобном пункте выдачи','Ё посылкаро аз нуқтаи супориши қулай гиред'],
   trk_cn:['Китай','Чин'], trk_way:['В пути','Дар роҳ'], trk_dyu:['Душанбе','Душанбе'], trk_you:['У вас','Дар шумо'],
   acc_one_mk:['Вход по телефону — заказы оформляются без повторного ввода данных','Ворид бо телефон — фармоишҳо бе такрори маълумот'],
+  hl_rail:['Вешалка','Овезон'], hl_front:['Спереди','Пеш'], hl_back:['Сзади','Қафо'],
   cr_t:['Пройдитесь по магазину','Дар мағоза гардиш кунед'], cr_s:['Листайте вниз — отделы по сторонам','Ба поён варақ занед — шӯъбаҳо дар канорҳо'], cr_all:['Все товары','Ҳамаи молҳо'],
   dp_list:['Списком','Рӯйхат'], dp_more:['Подробнее','Муфассал'], shops:['Магазины','Мағозаҳо'],
-  fit_try:['Примерить на манекене','Дар манекен пӯшида бинед'], fit_t:['Примерочная','Ҳуҷраи пӯшиш'], fit_s:['Нажимайте на вещи — они надеваются на манекен','Ба либос пахш кунед — он ба манекен пӯшида мешавад'],
+  fit_try:['Примерить на манекене','Дар манекен пӯшида бинед'], fit_t:['Примерочная','Ҳуҷраи пӯшиш'], fit_s:['Нажмите на вещь — она появится на манекене','Ба либос пахш кунед — он дар манекен пайдо мешавад'],
   fit_cart:['Образ в корзину','Образ ба сабад'], fit_empty:['Пока нет вещей для примерки','Ҳоло либос барои пӯшиш нест'],
   acc_title:['Аккаунт','Аккаунт'], acc_one:['Один аккаунт для карго и покупок в маркете','Як аккаунт барои карго ва харид дар маркет'],
   acc_guest_t:['Войдите в аккаунт','Ба аккаунт ворид шавед'], acc_guest_s:['Получите личный код, адрес склада в Китае и отслеживайте посылки. Покупки в маркете — без повторного ввода данных.','Рамзи шахсӣ ва суроғаи анбор дар Чинро гиред ва посылкаҳоро пайгирӣ кунед.'],
@@ -2673,8 +2680,10 @@ function renderHome(){
   const pop = popularList().slice(0, 8);
   const news = PRODUCTS.filter(p => p.tag === 'new' && inStock(p)).slice(0, 8);
   const cats = presentCats(), scn = scnVisible();
+  const rail = PRODUCTS.filter(hlWearable).sort((a, b) => popularity(b) - popularity(a)).slice(0, 14);
   v.innerHTML = `
-    ${cats.length ? corridorHtml() : heroHtml()}
+    ${marketTabsHtml('')}
+    ${rail.length ? hlRailHtml(rail, 'home') : heroHtml()}
     ${sellersRowHtml()}
     ${scn.length ? `<div class="sec"><h2 class="t-h2">${esc(T('home_title'))}</h2></div><div class="scn-grid" style="margin-top:12px">${scn.map(({s, cover}) => {
       const L = s[lang==='tj'?'tj':'ru'];
@@ -2685,7 +2694,7 @@ function renderHome(){
     ${news.length ? `<div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('newest'))}</h3></div><div class="hrow">${news.map(renderCard).join('')}</div></div>` : ''}
     ${cats.length ? `<div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('cats'))}</h3><button class="link" onclick="catState.cat='all';go('catalog')">${esc(T('see_all'))} ${ic('chev')}</button></div><div class="cat-grid">${cats.map(c => catCardHtml(c).replace("catState.cat='" + c.cat + "';catState.q='';go('catalog')", "go('dept','" + c.cat + "')")).join('')}</div></div>` : ''}
     <div class="trust3"><div class="pp-benefit">${ic('truck')}${esc(T('b_delivery'))}</div><div class="pp-benefit">${ic('shield')}${esc(T('b_quality'))}</div><div class="pp-benefit">${ic('lock')}${esc(T('b_pay'))}</div></div>`;
-  setTimeout(crSetup, 0);
+  setTimeout(hlInit, 0);
 }
 function catCardHtml(c){
   const first = PRODUCTS.find(p => p.cat === c.cat && p.image_data) || PRODUCTS.find(p => p.cat === c.cat);
@@ -3209,7 +3218,7 @@ function renderHistory(arg){
 }
 
 /* ==========================================================================
-   ВИТРИНА: коридор магазина, отдел (вешалка / полка), продавцы, примерочная
+   ВИТРИНА: рейл с вешалками, продавцы, примерочная
    ========================================================================== */
 let SELLERS = {}, sellersLoaded = false;
 async function loadSellers(){
@@ -3218,6 +3227,7 @@ async function loadSellers(){
   if(['home','seller','dept'].includes(curView)) renderCurrent();
   if(typeof ppCurrentId !== 'undefined' && ppCurrentId) renderProductDetail();
 }
+const pDesc = p => lang === 'tj' ? (p.desc_tj || p.desc_ru || '') : (p.desc_ru || p.desc_tj || '');
 const sellerOf = p => (p && p.partner_id && SELLERS[p.partner_id]) || null;
 function sellerAvatar(s, cls){
   return s.logo ? `<span class="${cls}"><img src="${s.logo}" alt=""></span>` : `<span class="${cls}">${esc(String(s.name || '?').trim().charAt(0).toUpperCase())}</span>`;
@@ -3233,7 +3243,7 @@ function openSeller(id){
 function sellersRowHtml(){
   const list = Object.values(SELLERS).filter(s => s.products > 0);
   if(!list.length) return '';
-  return `<div class="sec"><div class="sec-head"><h3 class="t-h2">${esc(T('shops'))}</h3></div><div class="sh-row">${list.map(s => `<button class="sh-card" onclick="openSeller(${s.id})">${sellerAvatar(s, 'sh-logo')}<b>${esc(s.name)}</b><span>${esc(cntWord(s.products))}</span></button>`).join('')}</div></div>`;
+  return `<div class="hl-sec"><div class="hl-sec-h"><span>${esc(T('shops'))}</span></div><div class="sh-row">${list.map(s => `<button class="sh-card" onclick="openSeller(${s.id})">${sellerAvatar(s, 'sh-logo')}<b>${esc(s.name)}</b><span>${esc(cntWord(s.products))}</span></button>`).join('')}</div></div>`;
 }
 function renderSeller(id){
   const v = $('view-seller');
@@ -3242,147 +3252,145 @@ function renderSeller(id){
   if(!s){ v.innerHTML = `<div class="cg-empty"><div class="ei">🏪</div><h3>${esc(T('nothing'))}</h3><button class="btn" style="max-width:280px;margin:16px auto 0" onclick="go('home')">${esc(T('nav_home'))}</button></div>`; return; }
   const list = PRODUCTS.filter(p => String(p.partner_id) === String(id));
   v.innerHTML = `<div class="sp-head">
-      <div class="sp-cover"></div>
       ${sellerAvatar(s, 'sp-logo')}
-      <h1>${esc(s.name)}</h1>
-      <div class="sp-meta">${esc(cntWord(list.length))}${s.instagram ? ` · <a href="https://instagram.com/${encodeURIComponent(s.instagram)}" target="_blank" rel="noopener">@${esc(s.instagram)}</a>` : ''}</div>
+      <div class="hl-idx">${esc(T('pp_seller_label'))} · ${esc(cntWord(list.length))}</div>
+      <h1 class="hl-name">${hlTitle(s.name)}</h1>
       ${s.about ? `<p class="sp-about">${esc(s.about)}</p>` : ''}
-      <div class="sp-act"><button class="btn btn-soft btn-sm" onclick="cargoCopy(location.href)">${ic('share')} ${esc(T('share'))}</button></div>
+      <div class="sp-act">${s.instagram ? `<a class="hl-pill" href="https://instagram.com/${encodeURIComponent(s.instagram)}" target="_blank" rel="noopener">@${esc(s.instagram)}</a>` : ''}<button class="hl-pill" onclick="cargoCopy(location.href)">${esc(T('share'))}</button></div>
     </div>
-    <div class="pgrid" style="margin-top:var(--s5)">${list.map(renderCard).join('')}</div>`;
+    ${list.some(hlWearable) ? hlRailHtml(list.filter(hlWearable), 'seller') : ''}
+    <div class="hl-sec"><div class="hl-sec-h"><span>${esc(T('all_products'))}</span><span>${list.length}</span></div><div class="pgrid">${list.map(renderCard).join('')}</div></div>`;
+  setTimeout(hlInit, 0);
 }
 
-/* ---- коридор: камера идёт вперёд при прокрутке, отделы — витрины на стенах ---- */
-const CR_STEP = 560;
-let crRAF = 0;
-function deptCover(cat){
-  const list = PRODUCTS.filter(p => p.cat === cat);
-  return list.filter(p => p.image_data).sort((a, b) => popularity(b) - popularity(a))[0] || list[0];
-}
-function corridorHtml(){
-  const cats = presentCats(); if(!cats.length) return '';
-  const depth = (cats.length + 1) * CR_STEP;
-  const panels = cats.map((c, i) => {
-    const pr = deptCover(c.cat);
-    return `<button class="cr-panel cr-${i % 2 ? 'r' : 'l'}" data-z="${-(i + 1) * CR_STEP}" onclick="go('dept','${esc(c.cat)}')">
-      <div class="cr-img">${pr ? pImgHtml(pr) : ic(catIcon(c.cat))}</div>
-      <div class="cr-cap"><b>${esc(catLabel(c.cat))}</b><span>${esc(cntWord(c.n))}</span></div></button>`;
-  }).join('');
-  return `<section class="corr" id="corr" data-depth="${depth}" style="height:calc(100svh + ${cats.length * 55}vh)"><div class="cr-stage" id="crStage">
-    <div class="cr-world" id="crWorld">
-      <div class="cr-floor"></div><div class="cr-ceil"></div><div class="cr-wall cr-wl"></div><div class="cr-wall cr-wr"></div>
-      ${panels}
-      <button class="cr-end" data-z="${-depth}" onclick="catState.cat='all';go('catalog')"><b>${esc(T('cr_all'))}</b><span>${esc(cntWord(PRODUCTS.length))}</span></button>
-    </div>
-    <div class="cr-hud" id="crHud"><h1>${esc(T('cr_t'))}</h1><p>${esc(T('cr_s'))}</p><i class="cr-hint">${ic('chev')}</i></div>
-    <div class="cr-prog"><i id="crProg"></i></div>
-  </div></section>`;
-}
-function crLayout(){
-  const st = $('crStage'), sec = $('corr'); if(!st || !sec) return;
-  const w = st.clientWidth, h = st.clientHeight;
-  const hw = Math.min(w * 0.52, 430), fy = h * 0.46, depth = Number(sec.dataset.depth);
-  st.style.perspective = Math.round(Math.max(380, w * 0.95)) + 'px';
-  st.style.setProperty('--hw', hw + 'px'); st.style.setProperty('--fy', fy + 'px'); st.style.setProperty('--depth', depth + 'px');
-  sec.querySelectorAll('.cr-panel').forEach(el => {
-    const z = Number(el.dataset.z), left = el.classList.contains('cr-l');
-    el.style.transform = `translate3d(${left ? -(hw - 26) : (hw - 26)}px,0,${z}px) rotateY(${left ? 72 : -72}deg)`;
-  });
-  const end = sec.querySelector('.cr-end'); if(end) end.style.transform = `translate3d(0,0,${end.dataset.z}px)`;
-}
-function crUpdate(){
-  crRAF = 0;
-  const sec = $('corr'), st = $('crStage'), world = $('crWorld'); if(!sec || !st || !world || sec.offsetParent === null) return;
-  const hdr = parseFloat(getComputedStyle(st).top) || 0;
-  const total = Math.max(1, sec.offsetHeight - st.offsetHeight);
-  const prog = Math.min(1, Math.max(0, (hdr - sec.getBoundingClientRect().top) / total));
-  const depth = Number(sec.dataset.depth), cam = CR_STEP * 0.5 + prog * (depth - CR_STEP * 1.05);
-  world.style.transform = `translateZ(${cam}px)`;
-  sec.querySelectorAll('[data-z]').forEach(el => {
-    const rel = Number(el.dataset.z) + cam;
-    const o = rel > -70 ? 0 : Math.max(0.12, Math.min(1, 1 - (-rel - 1500) / 1400));
-    el.style.opacity = o; el.style.pointerEvents = o < 0.35 ? 'none' : '';
-  });
-  const hud = $('crHud'); if(hud) hud.style.opacity = Math.max(0, 1 - prog * 5);
-  const bar = $('crProg'); if(bar) bar.style.width = (prog * 100) + '%';
-}
-function crSetup(){ if(!$('corr')) return; crLayout(); crUpdate(); }
-window.addEventListener('scroll', () => { if(!crRAF && $('corr')) crRAF = requestAnimationFrame(crUpdate); }, {passive:true});
-window.addEventListener('resize', () => { if($('corr')){ crLayout(); crUpdate(); } });
-
-/* ---- отдел: вещи висят на штанге (одежда, сумки) или стоят на полке ---- */
+/* ---- рейл: вещи висят на штанге, выбранная — крупно впереди, остальные сжаты справа ---- */
 const RACK_CATS = ['clothing','bags','accessories','shoes'];
-const HANGER_SVG = `<svg class="rk-hanger" viewBox="0 0 120 46" aria-hidden="true"><path d="M60 20c0-6 8-6 8-12a8 8 0 0 0-16 0" fill="none" stroke="#C9CED6" stroke-width="3" stroke-linecap="round"/><path d="M60 20 7 42h106z" fill="none" stroke="#C9CED6" stroke-width="3.4" stroke-linejoin="round"/></svg>`;
-let RK = {list: [], i: 0, cat: ''};
+const hlWearable = p => inStock(p) && (RACK_CATS.includes(p.cat) || !!p.tryon_slot);
+const HANGER = `<svg class="hl-hanger" viewBox="0 0 100 44" aria-hidden="true"><path d="M50 18c0-5 7-5 7-10a7 7 0 0 0-14 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M50 18 6 40h88z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></svg>`;
+let HL = {list: [], i: 0, back: false, size: null, color: null, key: ''};
+// рейл ищем только на открытом экране (на скрытой главной может остаться ещё один)
+const hlQ = sel => { const v = $('view-' + curView); return v ? v.querySelector(sel) : null; };
+function hlTitle(name){
+  const w = String(name || '').trim().split(/\s+/);
+  return w.length > 1 ? `${esc(w[0])} <i>${esc(w.slice(1).join(' '))}</i>` : esc(w[0] || '');
+}
+function hlRailHtml(list, key){
+  if(HL.key !== key){ HL = {list, i: 0, back: false, size: null, color: null, key}; } else { HL.list = list; HL.i = Math.min(HL.i, list.length - 1); }
+  return `<section class="hl-room">
+    <div class="hl-stage">
+      <div class="hl-rail"></div>
+      ${list.map((p, i) => `<button class="hl-g${p.image_data && !/^data:image\/png/.test(p.image_data) ? ' blend' : ''}" data-i="${i}" onclick="hlPick(${i})" aria-label="${esc(pName(p))}">${HANGER}<span class="hl-img">${p.image_data ? `<img src="${p.image_data}" alt="" draggable="false">` : `<em>${esc(p.emoji || '👕')}</em>`}</span></button>`).join('')}
+      <div class="hl-ctrl"><button onclick="hlPick(HL.i - 1)" aria-label="←">${ic('back')}</button><button onclick="hlPick(HL.i + 1)" aria-label="→">${ic('chev')}</button></div>
+      <div class="hl-fb"></div>
+    </div>
+    <div class="hl-info"></div>
+  </section>`;
+}
+function hlLayout(){
+  const st = hlQ('.hl-stage'); if(!st) return;
+  const W = st.clientWidth, n = HL.list.length, big = W < 640;
+  st.querySelectorAll('.hl-g').forEach(el => {
+    const i = Number(el.dataset.i), d = i - HL.i;
+    let x, s, z, o = 1;
+    if(d === 0){ x = big ? W * 0.5 : W * 0.34; s = 1; z = 50; }
+    else if(d > 0){ x = (big ? W * 0.80 : W * 0.62) + (d - 1) * (big ? 16 : 30); s = big ? 0.52 : 0.62; z = 40 - d; o = d > (big ? 6 : 10) ? 0 : 1; }
+    else { x = (big ? W * 0.18 : W * 0.08) + (d + 1) * (big ? 14 : 24); s = big ? 0.46 : 0.5; z = 40 + d; o = d < (big ? -3 : -5) ? 0 : (big ? 0.55 : 0.75); }
+    el.style.transform = `translateX(${x}px) translateX(-50%) scale(${s})`;
+    el.style.zIndex = z; el.style.opacity = o; el.style.pointerEvents = o ? '' : 'none';
+    el.classList.toggle('on', d === 0);
+  });
+}
+function hlRenderInfo(){
+  const p = HL.list[HL.i], box = hlQ('.hl-info'), fb = hlQ('.hl-fb'); if(!p || !box) return;
+  const o = qbOpts(p), back = (p.extra_images || [])[0];
+  const img = hlQ(`.hl-g[data-i="${HL.i}"] .hl-img img`);
+  if(img && p.image_data) img.src = (HL.back && back) ? back : p.image_data;
+  if(fb) fb.innerHTML = back ? `<button class="${HL.back ? '' : 'on'}" onclick="hlSide(false)">${esc(T('hl_front'))}</button><button class="${HL.back ? 'on' : ''}" onclick="hlSide(true)">${esc(T('hl_back'))}</button>` : '';
+  const pad = n => String(n).padStart(2, '0');
+  box.innerHTML = `<div class="hl-idx">${pad(HL.i + 1)} / ${pad(HL.list.length)} — ${esc(catLabel(p.cat))}</div>
+    <div class="hl-head"><h2 class="hl-name">${hlTitle(pName(p))}</h2><div class="hl-price">${(Math.round(p.price * 100) / 100).toFixed(2)} смн${p.old_price ? `<s>${Number(p.old_price).toFixed(2)}</s>` : ''}</div></div>
+    ${pDesc(p) ? `<p class="hl-desc">${esc(String(pDesc(p)).slice(0, 160))}</p>` : ''}
+    ${o.sizes.length ? `<div class="hl-lab"><span>${esc(T('size'))}</span><span>${esc(HL.size || '')}</span></div><div class="hl-chips">${o.sizes.map(s => `<button class="${HL.size === s ? 'on' : ''}" onclick="HL.size='${esc(s)}';hlRenderInfo()">${esc(s)}</button>`).join('')}</div>` : ''}
+    ${o.colors.length ? `<div class="hl-lab"><span>${esc(T('color'))}</span><span>${esc(HL.color || '')}</span></div><div class="hl-chips">${o.colors.map(c => `<button class="${HL.color === c ? 'on' : ''}" onclick="HL.color='${esc(c)}';hlRenderInfo()">${esc(c)}</button>`).join('')}</div>` : ''}
+    <button class="hl-add" onclick="hlAdd(this)">${esc(T('add_to_cart'))} · ${money(p.price)}</button>
+    <div class="hl-row2">${p.tryon_slot || p.tryon_image ? `<button class="hl-pill" onclick="openFitting(${p.id})">${esc(T('fit_try'))}</button>` : ''}<button class="hl-pill" onclick="openProduct(${p.id})">${esc(T('dp_more'))}</button></div>
+    ${sellerChipHtml(p)}`;
+}
+function hlPick(i){
+  if(!HL.list.length) return;
+  i = Math.max(0, Math.min(HL.list.length - 1, i));
+  if(i === HL.i && hlQ('.hl-g.on')){ return; }
+  HL.i = i; HL.back = false; HL.size = null; HL.color = null;
+  hlLayout(); hlRenderInfo();
+}
+function hlSide(b){ HL.back = b; hlRenderInfo(); }
+function hlAdd(btn){
+  const p = HL.list[HL.i]; if(!p) return;
+  const o = qbOpts(p);
+  if(o.sizes.length && !HL.size){ showToast(T('choose_size')); return; }
+  if(o.colors.length && !HL.color){ showToast(T('choose_color')); return; }
+  cart[p.id] = (cart[p.id] || 0) + 1; delete cartPriceOverride[p.id];
+  const parts = []; if(HL.color) parts.push(T('color') + ': ' + HL.color); if(HL.size) parts.push(T('size') + ': ' + HL.size);
+  if(parts.length) cartVariantNote[p.id] = parts.join(', '); else delete cartVariantNote[p.id];
+  flyToCart(btn); updateCartUI(); syncCardActions(p.id); showToast(I18N[lang].added); trackFunnelEvent('cart', p.id);
+}
+function hlInit(){
+  const st = hlQ('.hl-stage'); if(!st) return;
+  hlLayout(); hlRenderInfo();
+  if(st.dataset.ready) return; st.dataset.ready = '1';
+  let x0 = null;
+  st.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, {passive: true});
+  st.addEventListener('touchend', e => { if(x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if(Math.abs(dx) > 40) hlPick(HL.i + (dx < 0 ? 1 : -1)); }, {passive: true});
+}
+window.addEventListener('resize', () => { if(hlQ('.hl-stage')) hlLayout(); });
+
+/* ---- главная маркета и отдел ---- */
+function marketTabsHtml(active){
+  const cats = presentCats();
+  return `<nav class="hl-tabs">${[['', T('hl_rail')]].concat(cats.map(c => [c.cat, catLabel(c.cat)])).map(([k, l]) => `<button class="${(active || '') === k ? 'on' : ''}" onclick="${k ? `go('dept','${esc(k)}')` : `go('home')`}">${esc(l)}</button>`).join('')}</nav>`;
+}
 function renderDept(cat){
   const v = $('view-dept');
   if(!productsReady){ v.innerHTML = skeleton(3); return; }
   const list = PRODUCTS.filter(p => p.cat === cat && inStock(p)).sort((a, b) => popularity(b) - popularity(a));
-  const mode = (RACK_CATS.includes(cat) || list.some(p => p.tryon_slot)) ? 'rack' : 'shelf';
-  RK = {list, i: Math.min(RK.cat === cat ? RK.i : 0, Math.max(0, list.length - 1)), cat};
-  v.innerHTML = `<div class="cg-top-row"><button class="cg-link" onclick="go('home')">${ic('back')}${esc(T('back'))}</button><button class="cg-link" onclick="catState.cat='${esc(cat)}';catState.q='';go('catalog')">${ic('grid')}${esc(T('dp_list'))}</button></div>
-    <h1 class="t-h1">${esc(catLabel(cat))}</h1><p class="t-sub" style="margin-top:4px">${esc(cntWord(list.length))}</p>
-    ${list.length ? `<div class="rk ${mode}"><div class="rk-rail"></div><div class="rk-row" id="rkRow">${list.map((p, i) => `<button class="rk-item" data-i="${i}" onclick="rkPick(${i})">${mode === 'rack' ? HANGER_SVG : ''}<div class="rk-img">${pImgHtml(p)}</div></button>`).join('')}</div>${mode === 'shelf' ? '<div class="rk-shelf"></div>' : ''}</div>
-    <div class="rk-info" id="rkInfo"></div>` : `<div class="cg-empty"><div class="ei">🛍️</div><h3>${esc(T('nothing'))}</h3></div>`}`;
-  if(list.length) setTimeout(rkInit, 0);
-}
-function rkInit(){
-  const row = $('rkRow'); if(!row) return;
-  const it = row.children[RK.i]; if(it) row.scrollLeft = it.offsetLeft - (row.clientWidth - it.offsetWidth) / 2;
-  rkMark(RK.i);
-  let t = 0;
-  row.addEventListener('scroll', () => { cancelAnimationFrame(t); t = requestAnimationFrame(() => {
-    const c = row.scrollLeft + row.clientWidth / 2; let best = 0, bd = 1e9;
-    [...row.children].forEach((el, i) => { const d = Math.abs(el.offsetLeft + el.offsetWidth / 2 - c); if(d < bd){ bd = d; best = i; } });
-    if(best !== RK.i) rkMark(best);
-  }); }, {passive:true});
-}
-function rkPick(i){
-  const row = $('rkRow'), el = row && row.children[i]; if(!el) return;
-  if(i === RK.i){ openProduct(RK.list[i].id); return; }
-  row.scrollTo({left: el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2, behavior: 'smooth'});
-}
-function rkMark(i){
-  RK.i = i;
-  const row = $('rkRow'); if(row) [...row.children].forEach((el, n) => el.classList.toggle('on', n === i));
-  const p = RK.list[i], box = $('rkInfo'); if(!p || !box) return;
-  box.innerHTML = `<div class="rk-name">${esc(pName(p))}</div>
-    <div class="rk-price"><b class="price">${money(p.price)}</b>${p.old_price ? `<s>${money(p.old_price)}</s>` : ''}</div>
-    ${sellerChipHtml(p)}
-    <div class="rk-btns">
-      ${p.tryon_slot ? `<button class="btn btn-soft" onclick="openFitting(${p.id})">👕 ${esc(T('fit_try'))}</button>` : ''}
-      <button class="btn btn-ghost" onclick="openProduct(${p.id})">${esc(T('dp_more'))}</button>
-      <button class="btn" onclick="quickAdd(${p.id},this)">${ic('bagplus')} ${esc(T('add_to_cart'))}</button>
-    </div>`;
+  v.innerHTML = marketTabsHtml(cat) + (list.length ? hlRailHtml(list, 'cat:' + cat) : `<div class="cg-empty"><div class="ei">🛍️</div><h3>${esc(T('nothing'))}</h3></div>`) +
+    (list.length ? `<div class="hl-sec"><div class="hl-sec-h"><span>${esc(catLabel(cat))}</span><span>${list.length}</span></div><div class="pgrid">${list.map(renderCard).join('')}</div></div>` : '');
+  setTimeout(hlInit, 0);
 }
 
-/* ---- примерочная: вещи надеваются на манекен ---- */
+/* ---- примерочная (как «Fitting room»): фото на манекене или вещь поверх манекена ---- */
 const FIT_LAYERS = ['bottom','shoes','top','dress','outer'];
-const MANNEQUIN_SVG = `<svg class="fit-man" viewBox="0 0 200 420" aria-hidden="true"><defs><linearGradient id="mnq" x1="0" x2="1"><stop offset="0" stop-color="#C3C8D1"/><stop offset=".5" stop-color="#E4E7EC"/><stop offset="1" stop-color="#C3C8D1"/></linearGradient></defs><g fill="url(#mnq)"><ellipse cx="100" cy="36" rx="21" ry="26"/><rect x="91" y="56" width="18" height="22" rx="6"/><path d="M57 84Q100 70 143 84L151 122Q141 170 133 200L137 232Q100 246 63 232L67 200Q59 170 49 122Z"/><path d="M56 86Q38 94 36 132L31 210Q30 222 38 222L45 210L53 134Z"/><path d="M144 86Q162 94 164 132L169 210Q170 222 162 222L155 210L147 134Z"/><path d="M66 232L68 318L71 398L91 398L95 300L99 242Z"/><path d="M134 232L132 318L129 398L109 398L105 300L101 242Z"/></g><rect x="70" y="402" width="60" height="8" rx="4" fill="#AEB4BE"/></svg>`;
-let FIT = {};
+const MANNEQUIN_SVG = `<svg class="fit-man" viewBox="0 0 200 420" aria-hidden="true"><defs><linearGradient id="mnq" x1="0" x2="1"><stop offset="0" stop-color="#cfcac2"/><stop offset=".5" stop-color="#ebe7e1"/><stop offset="1" stop-color="#cfcac2"/></linearGradient></defs><g fill="url(#mnq)"><ellipse cx="100" cy="36" rx="20" ry="25"/><path d="M93 58h14v20c0 3-14 3-14 0z"/><path d="M58 86c14-10 70-10 84 0 6 18 6 46 0 70-4 20-6 38-4 58 2 12 0 18-4 20-22 8-46 8-68 0-4-2-6-8-4-20 2-20 0-38-4-58-6-24-6-52 0-70z"/><path d="M58 88c-14 6-18 26-19 50l-3 70c0 10 9 10 10 0l6-68z"/><path d="M142 88c14 6 18 26 19 50l3 70c0 10-9 10-10 0l-6-68z"/><path d="M68 232l2 86 2 80h18l4-96 4-70z"/><path d="M132 232l-2 86-2 80h-18l-4-96-4-70z"/></g><rect x="96" y="398" width="8" height="10" fill="#bdb7ae"/><ellipse cx="100" cy="412" rx="34" ry="5" fill="#bdb7ae"/></svg>`;
+let FIT = {}, FIT_PHOTO = null;
 function openFitting(id){
   const p = byId(id);
-  if(p && p.tryon_slot){
-    const s = p.tryon_slot;
-    if(s === 'dress'){ delete FIT.top; delete FIT.bottom; }
-    if(s === 'top' || s === 'bottom') delete FIT.dress;
-    FIT[s] = p.id;
+  if(p){
+    FIT_PHOTO = p.tryon_image ? p.id : null;
+    if(p.tryon_slot){
+      const s = p.tryon_slot;
+      if(s === 'dress'){ delete FIT.top; delete FIT.bottom; }
+      if(s === 'top' || s === 'bottom') delete FIT.dress;
+      FIT[s] = p.id;
+    }
   }
   renderFitting();
 }
-function fitToggle(id){ const p = byId(id); if(!p) return; if(FIT[p.tryon_slot] === p.id){ delete FIT[p.tryon_slot]; renderFitting(); } else openFitting(id); }
+function fitToggle(id){ const p = byId(id); if(!p) return; if(FIT[p.tryon_slot] === p.id && FIT_PHOTO !== p.id){ delete FIT[p.tryon_slot]; renderFitting(); } else openFitting(id); }
 function renderFitting(){
-  const wear = PRODUCTS.filter(p => p.tryon_slot && inStock(p));
-  const ids = Object.values(FIT).filter(id => byId(id));
+  const wear = PRODUCTS.filter(p => (p.tryon_slot || p.tryon_image) && inStock(p));
+  const ids = [...new Set(Object.values(FIT).concat(FIT_PHOTO ? [FIT_PHOTO] : []))].filter(id => byId(id));
   const total = ids.reduce((a, id) => a + Number(byId(id).price || 0), 0);
   const layer = s => { const p = FIT[s] && byId(FIT[s]); return p ? (p.image_data ? `<img class="fit-l fit-${s}" src="${p.image_data}" alt="">` : `<span class="fit-l fit-${s} fit-em">${esc(p.emoji || '👕')}</span>`) : ''; };
+  const photo = FIT_PHOTO && byId(FIT_PHOTO);
   openSheet({title: esc(T('fit_t')), sub: esc(T('fit_s')), tall: true,
-    body: `<div class="fit"><div class="fit-stage">${MANNEQUIN_SVG}${FIT_LAYERS.map(layer).join('')}</div>
-      ${wear.length ? `<div class="fit-pick">${wear.map(p => `<button class="fit-th ${FIT[p.tryon_slot] === p.id ? 'on' : ''}" onclick="fitToggle(${p.id})"><span>${pImgHtml(p)}</span><small>${money(p.price)}</small></button>`).join('')}</div>` : `<p class="t-sub">${esc(T('fit_empty'))}</p>`}</div>`,
-    foot: ids.length ? `<button class="btn" onclick="fitToCart()">${ic('bagplus')} ${esc(T('fit_cart'))} · ${money(total)}</button>` : ''});
+    body: `<div class="fit">
+      <div class="fit-stage">${photo ? `<img class="fit-photo" src="${photo.tryon_image}" alt="">` : MANNEQUIN_SVG + FIT_LAYERS.map(layer).join('')}</div>
+      ${wear.length ? `<div class="fit-pick">${wear.map(p => `<button class="fit-th ${(FIT[p.tryon_slot] === p.id || FIT_PHOTO === p.id) ? 'on' : ''}" onclick="fitToggle(${p.id})"><span>${pImgHtml(p)}</span><small>${money(p.price)}</small></button>`).join('')}</div>` : `<p class="t-sub">${esc(T('fit_empty'))}</p>`}
+    </div>`,
+    foot: ids.length ? `<button class="hl-add" style="margin:0" onclick="fitToCart()">${esc(T('fit_cart'))} · ${money(total)}</button>` : ''});
 }
 function fitToCart(){
-  const ids = Object.values(FIT).filter(id => byId(id));
+  const ids = [...new Set(Object.values(FIT).concat(FIT_PHOTO ? [FIT_PHOTO] : []))].filter(id => byId(id));
   ids.forEach(id => addToCart(id, null, {silent: true}));
   updateCartUI(); ids.forEach(syncCardActions); closeSheet(); showToast(I18N[lang].added);
 }
